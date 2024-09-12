@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rmw_iceoryx2_cxx</name>
+  <version>0.0.1</version>
+  <description>RMW implementation for the pure Rust next-gen zero-copy middleware iceoryx2</description>
+  <author email="jeff@ithier.dev">Jeff Ithier</author>
+  <maintainer email="oss-ros@ekxide.io">ekxide developers</maintainer>
+  <license>Apache 2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>rmw_implementation_cmake</build_depend>
+
+  <depend>rcpputils</depend>
+  <depend>rcutils</depend>
+  <depend>rmw</depend>
+  <depend>rosidl_runtime_c</depend>
+  <depend>rosidl_runtime_cpp</depend>
+  <depend>rosidl_typesupport_cpp</depend>
+  <depend>rosidl_typesupport_introspection_c</depend>
+  <depend>rosidl_typesupport_introspection_cpp</depend>
+
+  <depend>iceoryx2_cxx</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>test_msgs</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+
+  <member_of_group>rmw_implementation_packages</member_of_group>
+
+</package>
