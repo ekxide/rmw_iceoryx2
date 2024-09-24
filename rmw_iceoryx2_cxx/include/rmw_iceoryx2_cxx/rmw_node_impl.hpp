@@ -7,37 +7,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_CONTEXT_IMPL_HPP_
-#define RMW_IOX2_CONTEXT_IMPL_HPP_
+#ifndef RMW_IOX2_NODE_IMPL_HPP_
+#define RMW_IOX2_NODE_IMPL_HPP_
 
+#include "iox/optional.hpp"
 #include "iox2/node.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
 
-#include <atomic>
-
 namespace iox2_rmw
 {
 
-class RMW_PUBLIC ContextImpl
+class RMW_PUBLIC NodeImpl
 {
 public:
-    ContextImpl();
+    explicit NodeImpl(const char* name);
+
+    static auto get(void* ptr) -> iox::optional<NodeImpl*>;
+
+    auto impl() -> const iox2::Node<iox2::ServiceType::Ipc>&;
 
 private:
     iox2::Node<iox2::ServiceType::Ipc> m_node;
 };
 
 } // namespace iox2_rmw
-
-extern "C" {
-
-struct rmw_context_impl_s
-{
-    std::atomic_bool is_initialized{false};
-    iox2_rmw::ContextImpl* data;
-};
-
-} // extern "C"
 
 #endif

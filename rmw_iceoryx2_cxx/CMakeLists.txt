@@ -46,7 +46,6 @@ endforeach()
 
 add_library(${PROJECT_NAME} SHARED
   src/rmw_client.cpp
-  src/rmw_context_impl.cpp
   src/rmw_event.cpp
   src/rmw_graph.cpp
   src/rmw_guard_condition.cpp
@@ -54,6 +53,7 @@ add_library(${PROJECT_NAME} SHARED
   src/rmw_init.cpp
   src/rmw_logging.cpp
   src/rmw_node.cpp
+  src/rmw_node_impl.cpp
   src/rmw_publisher.cpp
   src/rmw_qos.cpp
   src/rmw_serialize.cpp
@@ -119,8 +119,10 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_rmw_iceoryx2_cxx 
     test/test_rmw_allocator_helpers.cpp
-    test/test_rmw_context_impl.cpp
+    test/test_rmw_graph.cpp
     test/test_rmw_init.cpp
+    test/test_rmw_node.cpp
+    test/test_rmw_node_impl.cpp
   )
   target_link_libraries(test_rmw_iceoryx2_cxx ${PROJECT_NAME})
 endif()

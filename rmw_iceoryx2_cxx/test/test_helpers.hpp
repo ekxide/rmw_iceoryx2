@@ -12,60 +12,52 @@
 #include <gtest/gtest.h>
 
 #define ASSERT_RMW_OK(expr)                                                                                            \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         rmw_ret_t result = (expr);                                                                                     \
-        if (result != RMW_RET_OK)                                                                                      \
-        {                                                                                                              \
+        if (result != RMW_RET_OK) {                                                                                    \
+            auto msg = std::string(rcutils_get_error_state()->message);                                                \
             rcutils_reset_error();                                                                                     \
-            FAIL() << "Got error: " << result;                                                                         \
+            FAIL() << msg;                                                                                             \
         }                                                                                                              \
     } while (0)
 
 #define ASSERT_RMW_ERR(err, expr)                                                                                      \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         rmw_ret_t result = (expr);                                                                                     \
-        if (result != err)                                                                                             \
-        {                                                                                                              \
-            FAIL() << "Expected error " << err << ", got error: " << result;                                           \
+        if (result != err) {                                                                                           \
+            FAIL() << "Expected return code: " << err << "; Got: " << result;                                          \
         }                                                                                                              \
         rcutils_reset_error();                                                                                         \
     } while (0)
 
 #define EXPECT_RMW_OK(expr)                                                                                            \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         rmw_ret_t result = (expr);                                                                                     \
-        if (result != RMW_RET_OK)                                                                                      \
-        {                                                                                                              \
+        if (result != RMW_RET_OK) {                                                                                    \
+            auto msg = std::string(rcutils_get_error_state()->message);                                                \
             rcutils_reset_error();                                                                                     \
-            ADD_FAILURE() << "Got error: " << result;                                                                  \
+            ADD_FAILURE() << msg;                                                                                      \
         }                                                                                                              \
     } while (0)
 
 #define EXPECT_RMW_ERR(err, expr)                                                                                      \
-    do                                                                                                                 \
-    {                                                                                                                  \
+    do {                                                                                                               \
         rmw_ret_t result = (expr);                                                                                     \
-        if (result != err)                                                                                             \
-        {                                                                                                              \
-            ADD_FAILURE() << "Expected error " << err << ", got error: " << result;                                    \
+        if (result != err) {                                                                                           \
+            ADD_FAILURE() << "Expected return code: " << err << "; Got: " << result;                                   \
         }                                                                                                              \
         rcutils_reset_error();                                                                                         \
     } while (0)
 
-#define EXPECT_NULL_WITH_ERR(expr)                                                                                     \
+#define EXPECT_NULLPTR_WITH_RMW_ERR(expr)                                                                              \
     [&]() -> decltype(expr) {                                                                                          \
         auto result = (expr);                                                                                          \
-        if (result != nullptr)                                                                                         \
-        {                                                                                                              \
+        if (result != nullptr) {                                                                                       \
             ADD_FAILURE() << "Expected nullptr but was: " << result;                                                   \
         }                                                                                                              \
         auto err = rcutils_get_error_state();                                                                          \
-        if (!err)                                                                                                      \
-        {                                                                                                              \
-            ADD_FAILURE() << "Expected error but there was no error";                                                  \
+        if (!err) {                                                                                                    \
+            ADD_FAILURE() << "Expected error but there was none";                                                      \
         }                                                                                                              \
         rcutils_reset_error();                                                                                         \
         return result;                                                                                                 \

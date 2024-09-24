@@ -19,12 +19,10 @@
 namespace iox2_rmw
 {
 
-RMW_PUBLIC inline const char* allocate_copy(const char* cstr)
-{
+RMW_PUBLIC inline const char* allocate_copy(const char* cstr) {
     auto length = strlen(cstr);
     auto ptr = static_cast<char*>(rmw_allocate(sizeof(char) * length + 1));
-    if (!ptr)
-    {
+    if (!ptr) {
         return nullptr;
     }
     memcpy(ptr, cstr, length + 1);
@@ -32,10 +30,8 @@ RMW_PUBLIC inline const char* allocate_copy(const char* cstr)
 }
 
 template <typename T>
-RMW_PUBLIC inline T* allocate(size_t num = 1)
-{
-    if (num == 0)
-    {
+RMW_PUBLIC inline T* allocate(size_t num = 1) {
+    if (num == 0) {
         return nullptr;
     }
     auto ptr = static_cast<T*>(rmw_allocate(sizeof(T) * num));
@@ -43,22 +39,42 @@ RMW_PUBLIC inline T* allocate(size_t num = 1)
 }
 
 template <typename T>
-RMW_PUBLIC inline void deallocate(T* ptr)
-{
-    if (ptr)
-    {
+RMW_PUBLIC inline void deallocate(T*& ptr) {
+    if (ptr) {
         rmw_free(static_cast<void*>(ptr));
+        ptr = nullptr;
+    }
+}
+
+RMW_PUBLIC inline void deallocate(char*& ptr) {
+    if (ptr) {
+        rmw_free(static_cast<void*>(ptr));
+        ptr = nullptr;
+    }
+}
+
+RMW_PUBLIC inline void deallocate(const char*& ptr) {
+    if (ptr) {
+        rmw_free(const_cast<void*>(static_cast<const void*>(ptr)));
+        ptr = nullptr;
     }
 }
 
 template <typename T>
-RMW_PUBLIC inline void destruct(void* ptr)
-{
-    if (ptr != nullptr)
-    {
+RMW_PUBLIC inline void destruct(void* ptr) {
+    if (ptr != nullptr) {
         T* typed_ptr = static_cast<T*>(ptr);
         typed_ptr->~T();
     }
+}
+
+template <typename T, typename... Args>
+RMW_PUBLIC inline T* construct(T* ptr, Args&&... args) {
+    if (ptr != nullptr) {
+        new (ptr) T(std::forward<Args>(args)...);
+        return ptr;
+    }
+    return nullptr;
 }
 
 } // namespace iox2_rmw

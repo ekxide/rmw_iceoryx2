@@ -1,6 +1,6 @@
 ---
 # for complete code formatting of codebase please type:
-# "find . -type f -regex '.*\.\(inl\|cpp\|h\|hpp\|cc\|c\|cxx\)' -exec clang-format-12 -style=file -i {} \;"
+# "find . -type f -regex '.*\.\(inl\|cpp\|h\|hpp\|cc\|c\|cxx\)' -exec clang-format-18 -style=file -i {} \;"
 Language:        Cpp
 # BasedOnStyle:  LLVM
 AccessModifierOffset: -4
@@ -24,17 +24,17 @@ BinPackArguments: false
 BinPackParameters: false  # If false, a function declaration's or function definition's parameters will either all be on the same line or will have one line each.
 BreakBeforeBraces: Custom
 BraceWrapping:
-  AfterCaseLabel:           true
+  AfterCaseLabel:           false
   AfterClass:               true
-  AfterControlStatement:    true
-  AfterEnum:                true
-  AfterFunction:            true
+  AfterControlStatement:    false
+  AfterEnum:                false
+  AfterFunction:            false
   AfterNamespace:           true
   AfterObjCDeclaration:     true
   AfterStruct:              true
   AfterUnion:               true
   BeforeCatch:              true
-  BeforeElse:               true
+  BeforeElse:               false
   IndentBraces:             false
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeTernaryOperators: true

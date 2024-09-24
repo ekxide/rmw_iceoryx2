@@ -7,12 +7,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include <gtest/gtest.h>
+#ifndef RMW_IOX2_NODE_IMPL_HPP_
+#define RMW_IOX2_NODE_IMPL_HPP_
 
-#include "rmw_iceoryx2_cxx/rmw_context_impl.hpp"
+#include <cstdint>
 
-TEST(RmwContextImpl, CanBeConstructed)
-{
-    iox2_rmw::ContextImpl context{};
-    ASSERT_TRUE(true);
-}
+const uint64_t IOX2_RMW_INITIALIZED_INSTANCE_ID = 42;
+
+#endif

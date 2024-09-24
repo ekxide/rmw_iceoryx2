@@ -7,14 +7,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/rmw_context_impl.hpp"
+#include <gtest/gtest.h>
 
-namespace iox2_rmw
-{
+#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
 
-ContextImpl::ContextImpl()
-    : m_node{iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().expect("failed to create iceoryx2 node")}
-{
+TEST(RmwContextImpl, CanBeConstructed) {
+    iox2_rmw::NodeImpl context{"/Sensors/Camera"};
+    ASSERT_TRUE(true);
 }
-
-} // namespace iox2_rmw
