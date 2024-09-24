@@ -8,7 +8,8 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  # NOTE: Remove -Wno-unused-parameter after implementation
+  add_compile_options(-Wall -Wextra -Wpedantic -Wno-unused-parameter)
 endif()
 
 if(CODE_COVERAGE AND
@@ -44,7 +45,20 @@ endforeach()
 # ----------------------------------------------------------------------------
 
 add_library(${PROJECT_NAME} SHARED
+  src/rmw_client.cpp
+  src/rmw_event.cpp
+  src/rmw_graph.cpp
+  src/rmw_guard_condition.cpp
+  src/rmw_identifier.cpp
   src/rmw_init.cpp
+  src/rmw_logging.cpp
+  src/rmw_node.cpp
+  src/rmw_publisher.cpp
+  src/rmw_qos.cpp
+  src/rmw_serialize.cpp
+  src/rmw_service.cpp
+  src/rmw_subscription.cpp
+  src/rmw_waitset.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
