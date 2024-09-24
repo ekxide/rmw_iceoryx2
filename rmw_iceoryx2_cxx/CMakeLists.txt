@@ -46,6 +46,7 @@ endforeach()
 
 add_library(${PROJECT_NAME} SHARED
   src/rmw_client.cpp
+  src/rmw_context_impl.cpp
   src/rmw_event.cpp
   src/rmw_graph.cpp
   src/rmw_guard_condition.cpp
@@ -109,6 +110,20 @@ register_rmw_implementation(
 # ----------------------------------------------------------------------------
 # Package
 # ----------------------------------------------------------------------------
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_rmw_iceoryx2_cxx 
+    test/test_rmw_allocator_helpers.cpp
+    test/test_rmw_context_impl.cpp
+    test/test_rmw_init.cpp
+  )
+  target_link_libraries(test_rmw_iceoryx2_cxx ${PROJECT_NAME})
+endif()
 
 ament_target_dependencies(${PROJECT_NAME}
   ${AMENT_PACKAGES}

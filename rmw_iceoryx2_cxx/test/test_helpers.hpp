@@ -1,0 +1,72 @@
+// Copyright (c) 2024 by Ekxide IO GmbH All rights reserved.
+//
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+#include "rmw/error_handling.h"
+#include "rmw/ret_types.h"
+#include <gtest/gtest.h>
+
+#define ASSERT_RMW_OK(expr)                                                                                            \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        rmw_ret_t result = (expr);                                                                                     \
+        if (result != RMW_RET_OK)                                                                                      \
+        {                                                                                                              \
+            rcutils_reset_error();                                                                                     \
+            FAIL() << "Got error: " << result;                                                                         \
+        }                                                                                                              \
+    } while (0)
+
+#define ASSERT_RMW_ERR(err, expr)                                                                                      \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        rmw_ret_t result = (expr);                                                                                     \
+        if (result != err)                                                                                             \
+        {                                                                                                              \
+            FAIL() << "Expected error " << err << ", got error: " << result;                                           \
+        }                                                                                                              \
+        rcutils_reset_error();                                                                                         \
+    } while (0)
+
+#define EXPECT_RMW_OK(expr)                                                                                            \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        rmw_ret_t result = (expr);                                                                                     \
+        if (result != RMW_RET_OK)                                                                                      \
+        {                                                                                                              \
+            rcutils_reset_error();                                                                                     \
+            ADD_FAILURE() << "Got error: " << result;                                                                  \
+        }                                                                                                              \
+    } while (0)
+
+#define EXPECT_RMW_ERR(err, expr)                                                                                      \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        rmw_ret_t result = (expr);                                                                                     \
+        if (result != err)                                                                                             \
+        {                                                                                                              \
+            ADD_FAILURE() << "Expected error " << err << ", got error: " << result;                                    \
+        }                                                                                                              \
+        rcutils_reset_error();                                                                                         \
+    } while (0)
+
+#define EXPECT_NULL_WITH_ERR(expr)                                                                                     \
+    [&]() -> decltype(expr) {                                                                                          \
+        auto result = (expr);                                                                                          \
+        if (result != nullptr)                                                                                         \
+        {                                                                                                              \
+            ADD_FAILURE() << "Expected nullptr but was: " << result;                                                   \
+        }                                                                                                              \
+        auto err = rcutils_get_error_state();                                                                          \
+        if (!err)                                                                                                      \
+        {                                                                                                              \
+            ADD_FAILURE() << "Expected error but there was no error";                                                  \
+        }                                                                                                              \
+        rcutils_reset_error();                                                                                         \
+        return result;                                                                                                 \
+    }()
