@@ -37,7 +37,7 @@ protected:
     }
 };
 
-TEST_F(AllocatorHelpersTest, AllocateCStringCopy) {
+TEST_F(AllocatorHelpersTest, allocate_cstr_copy) {
     const char* original = "Hello, World!";
     const char* copy = rmw::iox2::allocate_copy(original);
 
@@ -48,7 +48,7 @@ TEST_F(AllocatorHelpersTest, AllocateCStringCopy) {
     rmw::iox2::deallocate(copy);
 }
 
-TEST_F(AllocatorHelpersTest, AllocateEmptyCStringCopy) {
+TEST_F(AllocatorHelpersTest, allocate_empty_cstr_copy) {
     const char* empty = "";
     const char* copy = rmw::iox2::allocate_copy(empty);
 
@@ -59,7 +59,7 @@ TEST_F(AllocatorHelpersTest, AllocateEmptyCStringCopy) {
     rmw::iox2::deallocate(copy);
 }
 
-TEST_F(AllocatorHelpersTest, Allocate) {
+TEST_F(AllocatorHelpersTest, allocate_primitive) {
     int* ptr = rmw::iox2::allocate<int>();
     ASSERT_NE(ptr, nullptr);
     *ptr = 42;
@@ -68,7 +68,7 @@ TEST_F(AllocatorHelpersTest, Allocate) {
     rmw::iox2::deallocate(ptr);
 }
 
-TEST_F(AllocatorHelpersTest, AllocateMany) {
+TEST_F(AllocatorHelpersTest, allocate_many_primitives) {
     const size_t array_size = 5;
     int* array = rmw::iox2::allocate<int>(array_size);
     ASSERT_NE(array, nullptr);
@@ -83,7 +83,7 @@ TEST_F(AllocatorHelpersTest, AllocateMany) {
     rmw::iox2::deallocate(array);
 }
 
-TEST_F(AllocatorHelpersTest, AllocateLargeObject) {
+TEST_F(AllocatorHelpersTest, allocate_struct) {
     struct LargeObject
     {
         char data[1024];
@@ -96,12 +96,12 @@ TEST_F(AllocatorHelpersTest, AllocateLargeObject) {
     rmw::iox2::deallocate(large_obj);
 }
 
-TEST_F(AllocatorHelpersTest, DeallocateNullptr) {
+TEST_F(AllocatorHelpersTest, deallocate_nullptr) {
     int* ptr = nullptr;
     ASSERT_NO_THROW(rmw::iox2::deallocate(ptr));
 }
 
-TEST_F(AllocatorHelpersTest, Destruct) {
+TEST_F(AllocatorHelpersTest, destruct) {
     DummyClass* obj = rmw::iox2::allocate<DummyClass>();
     new (obj) DummyClass();
     ASSERT_EQ(obj->value, 42);
@@ -112,7 +112,7 @@ TEST_F(AllocatorHelpersTest, Destruct) {
     rmw::iox2::deallocate(obj);
 }
 
-TEST_F(AllocatorHelpersTest, DestructNullptr) {
+TEST_F(AllocatorHelpersTest, destruct_nullptr) {
     ASSERT_NO_THROW(rmw::iox2::destruct<int>(nullptr));
 }
 

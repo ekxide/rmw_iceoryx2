@@ -30,7 +30,7 @@ protected:
 protected:
 };
 
-TEST_F(RmwLoggingTest, can_set_log_severity) {
+TEST_F(RmwLoggingTest, set_log_severity) {
     ASSERT_RMW_OK(rmw_set_log_severity(RMW_LOG_SEVERITY_DEBUG));
     ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::DEBUG);
 

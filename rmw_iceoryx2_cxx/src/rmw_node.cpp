@@ -11,6 +11,7 @@
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/rmw_allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
 #include "rmw_iceoryx2_cxx/rmw_identifier.hpp"
 #include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
 
@@ -34,9 +35,9 @@ void inline destroy_node_impl(rmw_node_t* node) noexcept {
 } // namespace
 
 rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char* namespace_) {
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(name, nullptr);
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(namespace_, nullptr);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(name, nullptr);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(namespace_, nullptr);
 
     RMW_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_node: context",
                                      context->implementation_identifier,
@@ -45,7 +46,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
 
     rmw_node_t* node = rmw_node_allocate();
     if (!node) {
-        RMW_SET_ERROR_MSG("rmw_create_node: failed to allocate memory for node handle");
+        RMW_IOX2_SET_ERROR_MSG("failed to allocate memory for node handle");
         return nullptr;
     }
     node->implementation_identifier = rmw_get_implementation_identifier();
@@ -53,13 +54,13 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
     // node name
     node->name = rmw::iox2::allocate_copy(name);
     if (node->name == nullptr) {
-        RMW_SET_ERROR_MSG("rmw_create_node: failed to allocate memory for node name");
+        RMW_IOX2_SET_ERROR_MSG("failed to allocate memory for node name");
         destroy_node_impl(node);
         return nullptr;
     }
     node->namespace_ = rmw::iox2::allocate_copy(namespace_);
     if (node->namespace_ == nullptr) {
-        RMW_SET_ERROR_MSG("rmw_create_node: failed to allocate memory for node namespace");
+        RMW_IOX2_SET_ERROR_MSG("failed to allocate memory for node namespace");
         destroy_node_impl(node);
         return nullptr;
     }
@@ -74,7 +75,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
     // node implementation
     auto* data = rmw::iox2::allocate<rmw::iox2::NodeImpl>();
     if (data == nullptr) {
-        RMW_SET_ERROR_MSG("rmw_create_node: failed to allocate memory for node data");
+        RMW_IOX2_SET_ERROR_MSG("failed to allocate memory for node data");
         destroy_node_impl(node);
         return nullptr;
     }
@@ -87,7 +88,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
 }
 
 rmw_ret_t rmw_destroy_node(rmw_node_t* node) {
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
     RMW_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_node: node",
                                      node->implementation_identifier,
                                      rmw_get_implementation_identifier(),

@@ -21,7 +21,6 @@ class RmwNodeTest : public rmw::iox2::testing::TestBase
 {
 protected:
     void SetUp() override {
-        allocator = rcutils_get_default_allocator();
         init_options = rmw_get_zero_initialized_init_options();
         ASSERT_RMW_OK(rmw_init_options_init(&init_options, allocator));
         context = rmw_get_zero_initialized_context();
@@ -37,12 +36,11 @@ protected:
 protected:
     const char* test_name = "Perception";
     const char* test_namespace = "ADAS";
-    rcutils_allocator_t allocator;
     rmw_init_options_t init_options;
     rmw_context_t context;
 };
 
-TEST_F(RmwNodeTest, CreateAndDestroy) {
+TEST_F(RmwNodeTest, create_and_destroy) {
     auto node = rmw_create_node(&context, test_name, test_namespace);
 
     ASSERT_EQ(node->implementation_identifier, rmw_get_implementation_identifier());
@@ -56,7 +54,7 @@ TEST_F(RmwNodeTest, CreateAndDestroy) {
     ASSERT_EQ(node->data, nullptr);
 }
 
-TEST_F(RmwNodeTest, CreateWithInvalidArguments) {
+TEST_F(RmwNodeTest, create_with_invalid_args) {
     EXPECT_NULLPTR_WITH_RMW_ERR(rmw_create_node(nullptr, test_name, test_namespace));
     EXPECT_NULLPTR_WITH_RMW_ERR(rmw_create_node(&context, nullptr, test_namespace));
     EXPECT_NULLPTR_WITH_RMW_ERR(rmw_create_node(&context, test_name, nullptr));

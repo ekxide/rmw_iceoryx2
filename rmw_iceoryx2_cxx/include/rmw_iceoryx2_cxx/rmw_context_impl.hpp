@@ -10,23 +10,33 @@
 #ifndef RMW_IOX2_CONTEXT_IMPL_HPP_
 #define RMW_IOX2_CONTEXT_IMPL_HPP_
 
-#include "iox/optional.hpp"
-#include "iox2/node.hpp"
-#include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/rmw_guard_condition_impl.hpp"
+#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
+
+#include <atomic>
 
 extern "C" {
 
-/// RMW expects exactly this type to be defined for context implementations.
+/// RMW expects exactly this type to be defined for context implementations
 class RMW_PUBLIC rmw_context_impl_s
 {
-public:
-    explicit rmw_context_impl_s();
+    using NodeImpl = ::rmw::iox2::NodeImpl;
+    using GuardConditionImpl = ::rmw::iox2::GuardConditionImpl;
 
-    static auto get(void* ptr) -> iox::optional<rmw_context_impl_s*>;
+public:
+    explicit rmw_context_impl_s(const uint32_t id);
+
+    uint32_t id();
+    GuardConditionImpl* create_guard_condition();
 
 private:
-    iox2::Node<iox2::ServiceType::Ipc> m_node;
+    uint32_t next_guard_condition_id();
+
+private:
+    const uint32_t m_id;
+    NodeImpl m_node;
+    std::atomic<uint32_t> m_guard_condition_counter{0};
 };
 }
 

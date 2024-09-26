@@ -7,11 +7,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_NODE_IMPL_HPP_
-#define RMW_IOX2_NODE_IMPL_HPP_
+#ifndef RMW_IOX2_GUARD_CONDITION_IMPL_HPP_
+#define RMW_IOX2_GUARD_CONDITION_IMPL_HPP_
 
-#include "iox2/listener.hpp"
-#include "iox2/node.hpp"
+#include "iox/optional.hpp"
 #include "iox2/notifier.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
@@ -19,20 +18,20 @@
 namespace rmw::iox2
 {
 
-class RMW_PUBLIC NodeImpl
+class RMW_PUBLIC GuardConditionImpl
 {
-    using Node = ::iox2::Node<::iox2::ServiceType::Ipc>;
-    using Notifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
-    using Listener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
+    using ServiceType = ::iox2::ServiceType;
+    using Notifier = ::iox2::Notifier<ServiceType::Ipc>;
 
 public:
-    explicit NodeImpl(const std::string name);
+    GuardConditionImpl(uint32_t id, Notifier&& notifier);
 
-    auto create_notifier(const std::string name) -> Notifier;
-    auto create_listener(const std::string name) -> Listener;
+    uint32_t id() const;
+    bool trigger(const iox::optional<size_t>& id = iox::nullopt);
 
 private:
-    Node m_node;
+    const uint32_t m_id;
+    Notifier m_notifier;
 };
 
 } // namespace rmw::iox2

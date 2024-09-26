@@ -10,6 +10,7 @@
 #ifndef RMW_IOX2_ALLOCATOR_HELPERS_HPP_
 #define RMW_IOX2_ALLOCATOR_HELPERS_HPP_
 
+#include "iox/optional.hpp"
 #include "rmw/allocators.h"
 #include "rmw/visibility_control.h"
 
@@ -76,6 +77,18 @@ RMW_PUBLIC inline T* construct(T* ptr, Args&&... args) {
     }
     return nullptr;
 }
+
+template <typename T>
+auto unsafe_cast(void* ptr) -> iox::optional<T> {
+    if (!ptr) {
+        return iox::nullopt;
+    }
+    auto result = reinterpret_cast<T>(ptr);
+    if (!result) {
+        return iox::nullopt;
+    }
+    return iox::make_optional<T>(result);
+};
 
 } // namespace rmw::iox2
 

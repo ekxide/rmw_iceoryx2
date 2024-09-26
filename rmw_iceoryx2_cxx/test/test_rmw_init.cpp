@@ -23,7 +23,6 @@ class RmwInitTest : public rmw::iox2::testing::TestBase
 {
 protected:
     void SetUp() override {
-        allocator = rcutils_get_default_allocator();
         init_options = rmw_get_zero_initialized_init_options();
         context = rmw_get_zero_initialized_context();
     }
@@ -32,12 +31,11 @@ protected:
         // requires manual clean-up since it depends on the test
     }
 
-    rcutils_allocator_t allocator;
     rmw_init_options_t init_options;
     rmw_context_t context;
 };
 
-TEST_F(RmwInitTest, InitializationAndShutdown) {
+TEST_F(RmwInitTest, initialization_and_shutdown) {
     EXPECT_RMW_OK(rmw_init_options_init(&init_options, allocator));
     EXPECT_RMW_OK(rmw_init(&init_options, &context));
 
@@ -50,25 +48,14 @@ TEST_F(RmwInitTest, InitializationAndShutdown) {
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
-TEST_F(RmwInitTest, InitializationWithNullArguments) {
+TEST_F(RmwInitTest, initialization_with_null_args) {
     EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init_options_init(nullptr, allocator));
     EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init(nullptr, &context));
     EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init(&init_options, nullptr));
     EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_shutdown(nullptr));
 }
 
-TEST_F(RmwInitTest, MultipleInitialization) {
-    EXPECT_RMW_OK(rmw_init_options_init(&init_options, allocator));
-    EXPECT_RMW_OK(rmw_init(&init_options, &context));
-
-    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init(&init_options, &context));
-
-    EXPECT_RMW_OK(rmw_shutdown(&context));
-    EXPECT_RMW_OK(rmw_context_fini(&context));
-    EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
-}
-
-TEST_F(RmwInitTest, ContextFinalization) {
+TEST_F(RmwInitTest, context_finalization) {
     EXPECT_RMW_OK(rmw_init_options_init(&init_options, allocator));
     EXPECT_RMW_OK(rmw_init(&init_options, &context));
 

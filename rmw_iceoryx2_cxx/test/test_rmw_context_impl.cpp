@@ -25,8 +25,8 @@ protected:
     }
 };
 
-TEST_F(RmwContextImplTest, CanBeConstructed) {
-    rmw::iox2::ContextImpl context{};
+TEST_F(RmwContextImplTest, construction) {
+    rmw::iox2::ContextImpl context{0};
     ASSERT_TRUE(true);
 }
 

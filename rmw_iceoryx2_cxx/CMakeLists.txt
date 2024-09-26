@@ -50,6 +50,7 @@ add_library(${PROJECT_NAME} SHARED
   src/rmw_event.cpp
   src/rmw_graph.cpp
   src/rmw_guard_condition.cpp
+  src/rmw_guard_condition_impl.cpp
   src/rmw_identifier.cpp
   src/rmw_init.cpp
   src/rmw_logging.cpp
@@ -59,6 +60,7 @@ add_library(${PROJECT_NAME} SHARED
   src/rmw_qos.cpp
   src/rmw_serialize.cpp
   src/rmw_service.cpp
+  src/service_names.cpp
   src/rmw_subscription.cpp
   src/rmw_waitset.cpp
 )
@@ -122,6 +124,7 @@ if(BUILD_TESTING)
     test/test_rmw_allocator_helpers.cpp
     test/test_rmw_context_impl.cpp
     test/test_rmw_graph.cpp
+    test/test_rmw_guard_condition.cpp
     test/test_rmw_init.cpp
     test/test_rmw_logging.cpp
     test/test_rmw_node.cpp

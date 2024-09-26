@@ -11,6 +11,7 @@
 
 #include "rmw/error_handling.h"
 #include "rmw/ret_types.h"
+#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
 
 #define ASSERT_RMW_OK(expr)                                                                                            \
     do {                                                                                                               \
@@ -63,3 +64,12 @@
         rcutils_reset_error();                                                                                         \
         return result;                                                                                                 \
     }()
+
+#define RMW_ASSERT_PRED_FORMAT2(pred_format, v1, v2)                                                                   \
+    ASSERT_PRED_FORMAT2(pred_format, v1, v2) << RMW_IOX2_GET_ERROR_MSG()
+
+#define RMW_ASSERT_EQ(val1, val2) RMW_ASSERT_PRED_FORMAT2(::testing::internal::EqHelper::Compare, val1, val2)
+#define RMW_ASSERT_NE(val1, val2) RMW_ASSERT_PRED_FORMAT2(::testing::internal::CmpHelperNE, val1, val2)
+
+#define RMW_ASSERT_TRUE(condition) ASSERT_TRUE(condition) << RMW_IOX2_GET_ERROR_MSG()
+#define RMW_ASSERT_FALSE(condition) ASSERT_FALSE(condition) << RMW_IOX2_GET_ERROR_MSG()

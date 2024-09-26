@@ -20,7 +20,6 @@ class RmwGraphTest : public rmw::iox2::testing::TestBase
 {
 protected:
     void SetUp() override {
-        allocator = rcutils_get_default_allocator();
         init_options = rmw_get_zero_initialized_init_options();
         ASSERT_RMW_OK(rmw_init_options_init(&init_options, allocator));
         context = rmw_get_zero_initialized_context();
@@ -58,12 +57,11 @@ protected:
     }
 
 protected:
-    rcutils_allocator_t allocator;
     rmw_init_options_t init_options;
     rmw_context_t context;
 };
 
-TEST_F(RmwGraphTest, CanListNodes) {
+TEST_F(RmwGraphTest, list_nodes) {
     auto camera_node = rmw_create_node(&context, "Camera", "Sensors");
     auto lidar_node = rmw_create_node(&context, "Lidar", "Sensors");
     auto perception_node = rmw_create_node(&context, "Perception", "ADAS");

@@ -8,26 +8,34 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
+#include "iox/expected.hpp"
 
 namespace rmw::iox2
 {
 
-NodeImpl::NodeImpl(const char* name)
+// TODO: fallable constructors
+//       make underlying type an optional, set RMW error on failure
+NodeImpl::NodeImpl(const std::string name)
     : m_node{::iox2::NodeBuilder()
-                 .name(::iox2::NodeName::create(name).expect("failed to create node name"))
+                 .name(::iox2::NodeName::create(name.c_str()).expect("failed to create node name"))
                  .create<::iox2::ServiceType::Ipc>()
                  .expect("failed to create iceoryx2 node")} {
 }
 
-auto get(void* ptr) -> iox::optional<NodeImpl*> {
-    if (!ptr) {
-        return iox::nullopt;
-    }
-    return reinterpret_cast<NodeImpl*>(ptr);
-};
+auto NodeImpl::create_notifier(const std::string name) -> Notifier {
+    auto service_name = ::iox2::ServiceName::create(name.c_str()).expect("TODO: propagate");
+    auto service = m_node.service_builder(service_name).event().open_or_create().expect("TODO: propagate");
+    auto notifier = service.notifier_builder().create().expect("TODO: propagate");
 
-auto NodeImpl::impl() -> const ::iox2::Node<::iox2::ServiceType::Ipc>& {
-    return m_node;
-};
+    return notifier;
+}
+
+auto NodeImpl::create_listener(const std::string name) -> Listener {
+    auto service_name = ::iox2::ServiceName::create(name.c_str()).expect("TODO: propagate");
+    auto service = m_node.service_builder(service_name).event().open_or_create().expect("TODO: propagate");
+    auto listener = service.listener_builder().create().expect("TODO: propagate");
+
+    return listener;
+}
 
 } // namespace rmw::iox2

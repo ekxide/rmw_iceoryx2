@@ -17,16 +17,11 @@
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
 #include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
 
 #include "rmw/error_handling.h"
 #include <set>
-
-// TODO: move to common
-#define RETURN_IF_ERROR(result)                                                                                        \
-    if (result != RMW_RET_OK) {                                                                                        \
-        return result;                                                                                                 \
-    }
 
 struct NodeName
 {
@@ -66,17 +61,17 @@ extern "C" {
 rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
                              rcutils_string_array_t* node_names,
                              rcutils_string_array_t* node_namespaces) {
-    using IceoryxServiceType = iox2::ServiceType;
-    using IceoryxNode = iox2::Node<IceoryxServiceType::Ipc>;
-    using IceoryxConfig = iox2::Config;
+    using iox2::ServiceType;
+    using Node = iox2::Node<ServiceType::Ipc>;
     using iox2::CallbackProgression;
+    using iox2::Config;
     using rmw::iox2::NodeImpl;
 
     rmw_ret_t result = RMW_RET_OK;
 
     // retrieve names from node
     std::set<NodeName> names{};
-    IceoryxNode::list(IceoryxConfig::global_config(), [&names](auto node) {
+    Node::list(Config::global_config(), [&names](auto node) {
         node.alive([&names](const auto view) {
             view.details().and_then([&names](const auto details) {
                 auto parts = parse_node_name(details.name().to_string().c_str());
@@ -85,21 +80,21 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
         });
         return CallbackProgression::Continue;
     }).or_else([&result](auto) { result = RMW_RET_ERROR; });
-    RETURN_IF_ERROR(result);
+    RMW_IOX2_OK_OR_RETURN(result);
 
     // allocate output
     rcutils_allocator_t allocator = rcutils_get_default_allocator();
     rcutils_ret_t rcutils_ret = rcutils_string_array_init(node_names, names.size(), &allocator);
     if (rcutils_ret != RCUTILS_RET_OK) {
-        RMW_SET_ERROR_MSG(rcutils_get_error_string().str);
+        RMW_IOX2_SET_ERROR_MSG(rcutils_get_error_string().str);
         result = rmw_convert_rcutils_ret_to_rmw_ret(rcutils_ret);
-        RETURN_IF_ERROR(result);
+        return result;
     }
     rcutils_ret = rcutils_string_array_init(node_namespaces, names.size(), &allocator);
     if (rcutils_ret != RCUTILS_RET_OK) {
-        RMW_SET_ERROR_MSG(rcutils_get_error_string().str);
+        RMW_IOX2_SET_ERROR_MSG(rcutils_get_error_string().str);
         result = rmw_convert_rcutils_ret_to_rmw_ret(rcutils_ret);
-        RETURN_IF_ERROR(result);
+        return result;
     }
 
     // set output
@@ -107,15 +102,15 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
     for (auto name : names) {
         node_names->data[i] = rcutils_strdup(name.name.c_str(), allocator);
         if (!node_names->data[i]) {
-            RMW_SET_ERROR_MSG("could not allocate memory for node name");
+            RMW_IOX2_SET_ERROR_MSG("could not allocate memory for node name");
             result = RMW_RET_ERROR;
-            RETURN_IF_ERROR(result);
+            return result;
         }
         node_namespaces->data[i] = rcutils_strdup(name.namespace_.c_str(), allocator);
         if (!node_namespaces->data[i]) {
-            RMW_SET_ERROR_MSG("could not allocate memory for node namespace");
+            RMW_IOX2_SET_ERROR_MSG("could not allocate memory for node namespace");
             result = RMW_RET_ERROR;
-            RETURN_IF_ERROR(result);
+            return result;
         }
         ++i;
     }

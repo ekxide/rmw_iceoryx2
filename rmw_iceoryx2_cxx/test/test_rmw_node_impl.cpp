@@ -25,7 +25,7 @@ protected:
     }
 };
 
-TEST_F(RmwNodeImplTest, CanBeConstructed) {
+TEST_F(RmwNodeImplTest, construction) {
     rmw::iox2::NodeImpl node{"/Sensors/Camera"};
     ASSERT_TRUE(true);
 }
