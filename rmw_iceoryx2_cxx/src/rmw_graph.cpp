@@ -70,7 +70,7 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
     using IceoryxNode = iox2::Node<IceoryxServiceType::Ipc>;
     using IceoryxConfig = iox2::Config;
     using iox2::CallbackProgression;
-    using iox2_rmw::NodeImpl;
+    using rmw::iox2::NodeImpl;
 
     rmw_ret_t result = RMW_RET_OK;
 

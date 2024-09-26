@@ -15,7 +15,7 @@
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
 
-namespace iox2_rmw
+namespace rmw::iox2
 {
 
 class RMW_PUBLIC NodeImpl
@@ -25,12 +25,12 @@ public:
 
     static auto get(void* ptr) -> iox::optional<NodeImpl*>;
 
-    auto impl() -> const iox2::Node<iox2::ServiceType::Ipc>&;
+    auto impl() -> const ::iox2::Node<::iox2::ServiceType::Ipc>&;
 
 private:
-    iox2::Node<iox2::ServiceType::Ipc> m_node;
+    ::iox2::Node<::iox2::ServiceType::Ipc> m_node;
 };
 
-} // namespace iox2_rmw
+} // namespace rmw::iox2
 
 #endif

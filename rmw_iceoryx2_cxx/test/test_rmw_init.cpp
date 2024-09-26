@@ -13,9 +13,13 @@
 #include "rmw/init_options.h"
 #include "rmw_iceoryx2_cxx/rmw_identifier.hpp"
 #include "rmw_iceoryx2_cxx/rmw_init.hpp"
-#include "test_helpers.hpp"
+#include "testing/assertions.hpp"
+#include "testing/base.hpp"
 
-class RmwInitTest : public ::testing::Test
+namespace
+{
+
+class RmwInitTest : public rmw::iox2::testing::TestBase
 {
 protected:
     void SetUp() override {
@@ -38,7 +42,7 @@ TEST_F(RmwInitTest, InitializationAndShutdown) {
     EXPECT_RMW_OK(rmw_init(&init_options, &context));
 
     EXPECT_EQ(context.implementation_identifier, rmw_get_implementation_identifier());
-    EXPECT_EQ(context.instance_id, IOX2_RMW_INITIALIZED_INSTANCE_ID);
+    EXPECT_EQ(context.instance_id, rmw::iox2::INITIALIZED_INSTANCE_ID);
     EXPECT_EQ(context.impl, nullptr);
 
     EXPECT_RMW_OK(rmw_shutdown(&context));
@@ -75,3 +79,5 @@ TEST_F(RmwInitTest, ContextFinalization) {
     EXPECT_EQ(context.instance_id, 0);
     EXPECT_EQ(context.impl, nullptr);
 }
+
+} // namespace

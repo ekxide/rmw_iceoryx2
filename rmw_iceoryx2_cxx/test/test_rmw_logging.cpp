@@ -10,11 +10,15 @@
 #include <gtest/gtest.h>
 
 #include "rmw/rmw.h"
-#include "test_helpers.hpp"
+#include "testing/assertions.hpp"
+#include "testing/base.hpp"
 
 #include "iox2/log.hpp"
 
-class RmwLoggingTest : public ::testing::Test
+namespace
+{
+
+class RmwLoggingTest : public rmw::iox2::testing::TestBase
 {
 protected:
     void SetUp() override {
@@ -42,3 +46,5 @@ TEST_F(RmwLoggingTest, can_set_log_severity) {
     ASSERT_RMW_OK(rmw_set_log_severity(RMW_LOG_SEVERITY_FATAL));
     ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::FATAL);
 }
+
+} // namespace

@@ -11,9 +11,13 @@
 
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/rmw_identifier.hpp"
-#include "test_helpers.hpp"
+#include "testing/assertions.hpp"
+#include "testing/base.hpp"
 
-class RmwNodeTest : public ::testing::Test
+namespace
+{
+
+class RmwNodeTest : public rmw::iox2::testing::TestBase
 {
 protected:
     void SetUp() override {
@@ -57,3 +61,5 @@ TEST_F(RmwNodeTest, CreateWithInvalidArguments) {
     EXPECT_NULLPTR_WITH_RMW_ERR(rmw_create_node(&context, nullptr, test_namespace));
     EXPECT_NULLPTR_WITH_RMW_ERR(rmw_create_node(&context, test_name, nullptr));
 }
+
+} // namespace

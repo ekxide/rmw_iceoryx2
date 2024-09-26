@@ -10,9 +10,13 @@
 #include <gtest/gtest.h>
 
 #include "rmw/rmw.h"
-#include "test_helpers.hpp"
+#include "testing/assertions.hpp"
+#include "testing/base.hpp"
 
-class RmwGraphTest : public ::testing::Test
+namespace
+{
+
+class RmwGraphTest : public rmw::iox2::testing::TestBase
 {
 protected:
     void SetUp() override {
@@ -82,3 +86,5 @@ TEST_F(RmwGraphTest, CanListNodes) {
     ASSERT_RMW_OK(rmw_destroy_node(lidar_node));
     ASSERT_RMW_OK(rmw_destroy_node(perception_node));
 }
+
+} // namespace

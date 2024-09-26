@@ -16,7 +16,7 @@
 #include <cstring>
 #include <iostream>
 
-namespace iox2_rmw
+namespace rmw::iox2
 {
 
 RMW_PUBLIC inline const char* allocate_copy(const char* cstr) {
@@ -77,6 +77,6 @@ RMW_PUBLIC inline T* construct(T* ptr, Args&&... args) {
     return nullptr;
 }
 
-} // namespace iox2_rmw
+} // namespace rmw::iox2
 
 #endif // RMW_IOX2_ALLOCATOR_HELPERS_HPP_

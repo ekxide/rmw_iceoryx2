@@ -46,6 +46,7 @@ endforeach()
 
 add_library(${PROJECT_NAME} SHARED
   src/rmw_client.cpp
+  src/rmw_context_impl.cpp
   src/rmw_event.cpp
   src/rmw_graph.cpp
   src/rmw_guard_condition.cpp
@@ -119,6 +120,7 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_rmw_iceoryx2_cxx 
     test/test_rmw_allocator_helpers.cpp
+    test/test_rmw_context_impl.cpp
     test/test_rmw_graph.cpp
     test/test_rmw_init.cpp
     test/test_rmw_logging.cpp

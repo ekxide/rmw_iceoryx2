@@ -7,9 +7,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include <gtest/gtest.h>
+
 #include "rmw/error_handling.h"
 #include "rmw/ret_types.h"
-#include <gtest/gtest.h>
 
 #define ASSERT_RMW_OK(expr)                                                                                            \
     do {                                                                                                               \

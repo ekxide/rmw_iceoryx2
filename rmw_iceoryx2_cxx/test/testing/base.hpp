@@ -7,15 +7,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_NODE_IMPL_HPP_
-#define RMW_IOX2_NODE_IMPL_HPP_
+#include "iox2/log.hpp"
+#include <gtest/gtest.h>
 
-#include <cstdint>
-
-namespace rmw::iox2
+namespace rmw::iox2::testing
 {
-/// Chosen arbitrariliy. Enforces single initialization per process.
-const uint64_t INITIALIZED_INSTANCE_ID = 42;
-} // namespace rmw::iox2
 
-#endif
+class TestBase : public ::testing::Test
+{
+protected:
+    static void SetUpTestSuite() {
+        ::iox2::set_log_level(::iox2::LogLevel::ERROR);
+    }
+};
+
+} // namespace rmw::iox2::testing

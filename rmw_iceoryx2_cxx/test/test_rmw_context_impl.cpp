@@ -9,13 +9,13 @@
 
 #include <gtest/gtest.h>
 
-#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
+#include "rmw_iceoryx2_cxx/rmw_context_impl.hpp"
 #include "testing/base.hpp"
 
 namespace
 {
 
-class RmwNodeImplTest : public rmw::iox2::testing::TestBase
+class RmwContextImplTest : public rmw::iox2::testing::TestBase
 {
 protected:
     void SetUp() override {
@@ -25,8 +25,8 @@ protected:
     }
 };
 
-TEST_F(RmwNodeImplTest, CanBeConstructed) {
-    rmw::iox2::NodeImpl node{"/Sensors/Camera"};
+TEST_F(RmwContextImplTest, CanBeConstructed) {
+    rmw::iox2::ContextImpl context{};
     ASSERT_TRUE(true);
 }
 

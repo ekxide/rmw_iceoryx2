@@ -9,13 +9,13 @@
 
 #include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
 
-namespace iox2_rmw
+namespace rmw::iox2
 {
 
 NodeImpl::NodeImpl(const char* name)
-    : m_node{iox2::NodeBuilder()
-                 .name(iox2::NodeName::create(name).expect("failed to create node name"))
-                 .create<iox2::ServiceType::Ipc>()
+    : m_node{::iox2::NodeBuilder()
+                 .name(::iox2::NodeName::create(name).expect("failed to create node name"))
+                 .create<::iox2::ServiceType::Ipc>()
                  .expect("failed to create iceoryx2 node")} {
 }
 
@@ -26,8 +26,8 @@ auto get(void* ptr) -> iox::optional<NodeImpl*> {
     return reinterpret_cast<NodeImpl*>(ptr);
 };
 
-auto NodeImpl::impl() -> const iox2::Node<iox2::ServiceType::Ipc>& {
+auto NodeImpl::impl() -> const ::iox2::Node<::iox2::ServiceType::Ipc>& {
     return m_node;
 };
 
-} // namespace iox2_rmw
+} // namespace rmw::iox2

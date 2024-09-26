@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/rmw_init.hpp"
+
 #include "iox2/log.hpp"
 #include "rmw/check_type_identifiers_match.h"
 #include "rmw/error_handling.h"
@@ -16,6 +17,7 @@
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"
 #include "rmw_iceoryx2_cxx/rmw_allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/rmw_context_impl.hpp"
 #include "rmw_iceoryx2_cxx/rmw_identifier.hpp"
 
 extern "C" {
@@ -30,7 +32,7 @@ rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_alloca
 
     init_options->implementation_identifier = rmw_get_implementation_identifier();
     init_options->allocator = allocator;
-    init_options->instance_id = IOX2_RMW_INITIALIZED_INSTANCE_ID;
+    init_options->instance_id = rmw::iox2::INITIALIZED_INSTANCE_ID;
     init_options->impl = nullptr; // no implementation-specific data
 
     return RMW_RET_OK;
@@ -73,16 +75,15 @@ rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
                                      options->implementation_identifier,
                                      rmw_get_implementation_identifier(),
                                      return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (context->instance_id == IOX2_RMW_INITIALIZED_INSTANCE_ID) {
+    if (context->instance_id == rmw::iox2::INITIALIZED_INSTANCE_ID) {
         RMW_SET_ERROR_MSG("rmw_init: context is already initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
+    // instance descriptors
     context->instance_id = options->instance_id;
     context->implementation_identifier = rmw_get_implementation_identifier();
-    context->impl = nullptr; // no implementation-specific data
-
-    iox2::set_log_level(iox2::LogLevel::WARN);
+    context->impl = nullptr;
 
     return RMW_RET_OK;
 }
@@ -93,8 +94,6 @@ rmw_ret_t rmw_shutdown(rmw_context_t* context) {
                                      context->implementation_identifier,
                                      rmw_get_implementation_identifier(),
                                      return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-
-    // nothing to do as nothing implementation-specific
 
     return RMW_RET_OK;
 }

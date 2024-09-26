@@ -21,11 +21,11 @@ namespace
 
 void inline destroy_node_impl(rmw_node_t* node) noexcept {
     if (node) {
-        iox2_rmw::deallocate(node->name);
-        iox2_rmw::deallocate(node->namespace_);
+        rmw::iox2::deallocate(node->name);
+        rmw::iox2::deallocate(node->namespace_);
         if (node->data) {
-            iox2_rmw::destruct<iox2_rmw::NodeImpl>(node->data);
-            iox2_rmw::deallocate(node->data);
+            rmw::iox2::destruct<rmw::iox2::NodeImpl>(node->data);
+            rmw::iox2::deallocate(node->data);
         }
         rmw_node_free(node);
     }
@@ -51,13 +51,13 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
     node->implementation_identifier = rmw_get_implementation_identifier();
 
     // node name
-    node->name = iox2_rmw::allocate_copy(name);
+    node->name = rmw::iox2::allocate_copy(name);
     if (node->name == nullptr) {
         RMW_SET_ERROR_MSG("rmw_create_node: failed to allocate memory for node name");
         destroy_node_impl(node);
         return nullptr;
     }
-    node->namespace_ = iox2_rmw::allocate_copy(namespace_);
+    node->namespace_ = rmw::iox2::allocate_copy(namespace_);
     if (node->namespace_ == nullptr) {
         RMW_SET_ERROR_MSG("rmw_create_node: failed to allocate memory for node namespace");
         destroy_node_impl(node);
@@ -72,13 +72,13 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
     full_node_name += std::string(name);
 
     // node implementation
-    auto* data = iox2_rmw::allocate<iox2_rmw::NodeImpl>();
+    auto* data = rmw::iox2::allocate<rmw::iox2::NodeImpl>();
     if (data == nullptr) {
         RMW_SET_ERROR_MSG("rmw_create_node: failed to allocate memory for node data");
         destroy_node_impl(node);
         return nullptr;
     }
-    iox2_rmw::construct<iox2_rmw::NodeImpl>(data, full_node_name.c_str());
+    rmw::iox2::construct<rmw::iox2::NodeImpl>(data, full_node_name.c_str());
     node->data = data;
 
     // TODO: graph guard condition
