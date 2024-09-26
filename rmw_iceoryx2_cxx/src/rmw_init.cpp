@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/rmw_init.hpp"
+#include "iox2/log.hpp"
 #include "rmw/check_type_identifiers_match.h"
 #include "rmw/error_handling.h"
 #include "rmw/impl/cpp/macros.hpp"

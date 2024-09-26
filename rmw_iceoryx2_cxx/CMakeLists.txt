@@ -121,6 +121,7 @@ if(BUILD_TESTING)
     test/test_rmw_allocator_helpers.cpp
     test/test_rmw_graph.cpp
     test/test_rmw_init.cpp
+    test/test_rmw_logging.cpp
     test/test_rmw_node.cpp
     test/test_rmw_node_impl.cpp
   )
