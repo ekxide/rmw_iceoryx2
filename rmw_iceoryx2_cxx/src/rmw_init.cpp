@@ -83,7 +83,14 @@ rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
     // instance descriptors
     context->instance_id = options->instance_id;
     context->implementation_identifier = rmw_get_implementation_identifier();
-    context->impl = nullptr;
+
+    // context implementation
+    auto impl = rmw::iox2::allocate<rmw_context_impl_s>();
+    if (impl == nullptr) {
+        RMW_SET_ERROR_MSG("rmw_init: failed to allocate memory for rmw_context_impl_s");
+    }
+    rmw::iox2::construct<rmw_context_impl_s>(impl);
+    context->impl = impl;
 
     return RMW_RET_OK;
 }
@@ -94,6 +101,9 @@ rmw_ret_t rmw_shutdown(rmw_context_t* context) {
                                      context->implementation_identifier,
                                      rmw_get_implementation_identifier(),
                                      return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    rmw::iox2::destruct<rmw_context_impl_s>(context->impl);
+    rmw::iox2::deallocate(context->impl);
 
     return RMW_RET_OK;
 }
