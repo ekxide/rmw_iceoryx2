@@ -7,7 +7,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "iox/assertions_addendum.hpp"
 #include "rmw/qos_profiles.h"
 #include "rmw/ret_types.h"
 
@@ -17,6 +16,15 @@ rmw_ret_t rmw_qos_profile_check_compatible(const rmw_qos_profile_t publisher_pro
                                            rmw_qos_compatibility_type_t* compatibility,
                                            char* reason,
                                            size_t reason_size) {
-    IOX_TODO();
+    RCUTILS_CHECK_ARGUMENT_FOR_NULL(compatibility, RMW_RET_INVALID_ARGUMENT);
+    RCUTILS_CHECK_ARGUMENT_FOR_NULL(reason, RMW_RET_INVALID_ARGUMENT);
+
+    // All QoS assumed compatible - to be determined at gateways
+    *compatibility = RMW_QOS_COMPATIBILITY_OK;
+
+    // Un-terminated char array leads to crashes in rqt_graph
+    reason[0] = '\0';
+
+    return RMW_RET_OK;
 }
 }
