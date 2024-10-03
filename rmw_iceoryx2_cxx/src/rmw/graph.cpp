@@ -18,8 +18,8 @@
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
-#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 #include <set>
 

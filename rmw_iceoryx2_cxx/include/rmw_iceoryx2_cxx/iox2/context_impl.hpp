@@ -11,8 +11,8 @@
 #define RMW_IOX2_CONTEXT_IMPL_HPP_
 
 #include "rmw/visibility_control.h"
-#include "rmw_iceoryx2_cxx/rmw_guard_condition_impl.hpp"
-#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 #include <atomic>
 

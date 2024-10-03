@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "iox//assertions_addendum.hpp"
+#include "iox/assertions_addendum.hpp"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 

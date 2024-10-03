@@ -9,11 +9,10 @@
 
 #include <gtest/gtest.h>
 
+#include "iox2/log.hpp"
 #include "rmw/rmw.h"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
-
-#include "iox2/log.hpp"
 
 namespace
 {

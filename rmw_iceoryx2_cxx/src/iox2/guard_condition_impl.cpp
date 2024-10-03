@@ -7,10 +7,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/rmw_guard_condition_impl.hpp"
-#include "rcutils/error_handling.h"
+#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 
 #include "iox2/event_id.hpp"
+#include "rcutils/error_handling.h"
 
 namespace rmw::iox2
 {

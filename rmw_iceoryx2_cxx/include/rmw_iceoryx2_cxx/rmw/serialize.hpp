@@ -7,27 +7,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include <gtest/gtest.h>
+#ifndef RMW_IOX2_SERIALIZATION_FORMAT_HPP_
+#define RMW_IOX2_SERIALIZATION_FORMAT_HPP_
 
-#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
-#include "testing/base.hpp"
+#include "rmw/visibility_control.h"
 
-namespace
-{
+extern "C" {
 
-class RmwContextImplTest : public rmw::iox2::testing::TestBase
-{
-protected:
-    void SetUp() override {
-    }
+RMW_PUBLIC
+extern const char* const rmw_iox2_serialization_format;
 
-    void TearDown() override {
-    }
-};
+const char* rmw_get_serialization_format(void);
 
-TEST_F(RmwContextImplTest, construction) {
-    rmw::iox2::ContextImpl context{0};
-    ASSERT_TRUE(true);
-}
+} // extern "C"
 
-} // namespace
+#endif // RMW_IOX2_SERIALIZATION_FORMAT_HPP_

@@ -45,24 +45,24 @@ endforeach()
 # ----------------------------------------------------------------------------
 
 add_library(${PROJECT_NAME} SHARED
-  src/rmw_client.cpp
-  src/rmw_context_impl.cpp
-  src/rmw_event.cpp
-  src/rmw_graph.cpp
-  src/rmw_guard_condition.cpp
-  src/rmw_guard_condition_impl.cpp
-  src/rmw_identifier.cpp
-  src/rmw_init.cpp
-  src/rmw_logging.cpp
-  src/rmw_node.cpp
-  src/rmw_node_impl.cpp
-  src/rmw_publisher.cpp
-  src/rmw_qos.cpp
-  src/rmw_serialize.cpp
-  src/rmw_service.cpp
-  src/service_names.cpp
-  src/rmw_subscription.cpp
-  src/rmw_waitset.cpp
+  src/iox2/service_names.cpp
+  src/iox2/context_impl.cpp
+  src/iox2/guard_condition_impl.cpp
+  src/iox2/node_impl.cpp
+  src/rmw/client.cpp
+  src/rmw/event.cpp
+  src/rmw/graph.cpp
+  src/rmw/guard_condition.cpp
+  src/rmw/identifier.cpp
+  src/rmw/init.cpp
+  src/rmw/logging.cpp
+  src/rmw/node.cpp
+  src/rmw/publisher.cpp
+  src/rmw/qos.cpp
+  src/rmw/serialize.cpp
+  src/rmw/service.cpp
+  src/rmw/subscription.cpp
+  src/rmw/waitset.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

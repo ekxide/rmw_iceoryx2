@@ -11,10 +11,10 @@
 
 #include "iox/optional.hpp"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/rmw_allocator_helpers.hpp"
-#include "rmw_iceoryx2_cxx/rmw_guard_condition_impl.hpp"
-#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
-#include "rmw_iceoryx2_cxx/service_names.hpp"
+#include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/service_names.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 

@@ -10,10 +10,10 @@
 #include "rmw/check_type_identifiers_match.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/rmw_allocator_helpers.hpp"
-#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
-#include "rmw_iceoryx2_cxx/rmw_identifier.hpp"
-#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
+#include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 
 extern "C" {
 

@@ -7,17 +7,23 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_IDENTIFIER_HPP_
-#define RMW_IOX2_IDENTIFIER_HPP_
+#ifndef RMW_IOX2_SERVICE_NAMES_HPP_
+#define RMW_IOX2_SERVICE_NAMES_HPP_
 
 #include "rmw/visibility_control.h"
 
-extern "C" {
-extern const char* const rmw_iceoryx2_cpp_identifier;
+#include <cstdint>
+#include <string>
+
+namespace rmw::iox2
+{
 
 RMW_PUBLIC
-const char* rmw_get_implementation_identifier();
+std::string context_node_name(const uint32_t context_id);
 
-} // extern "C"
+RMW_PUBLIC
+std::string guard_condition_service_name(const uint32_t context_id, const uint32_t guard_condition_id);
 
-#endif // RMW_IOX2_IDENTIFIER_HPP_
+} // namespace rmw::iox2
+
+#endif // RMW_IOX2_SERVICE_NAMES_HPP_

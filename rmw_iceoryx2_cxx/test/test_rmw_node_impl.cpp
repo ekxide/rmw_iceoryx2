@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "testing/base.hpp"
 
 namespace

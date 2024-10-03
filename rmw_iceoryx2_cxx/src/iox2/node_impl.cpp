@@ -7,8 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/rmw_node_impl.hpp"
-#include "iox/expected.hpp"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 namespace rmw::iox2
 {

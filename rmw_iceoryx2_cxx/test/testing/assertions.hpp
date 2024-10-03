@@ -11,7 +11,7 @@
 
 #include "rmw/error_handling.h"
 #include "rmw/ret_types.h"
-#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 
 #define ASSERT_RMW_OK(expr)                                                                                            \
     do {                                                                                                               \

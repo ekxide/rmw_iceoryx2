@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/service_names.hpp"
+#include "rmw_iceoryx2_cxx/iox2/service_names.hpp"
 
 namespace rmw::iox2
 {

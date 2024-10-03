@@ -12,7 +12,7 @@
 #include "iox2/log.hpp"
 #include "rcutils/allocator.h"
 #include "rmw/error_handling.h"
-#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 
 #include <random>
 

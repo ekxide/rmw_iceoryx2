@@ -7,11 +7,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/rmw_context_impl.hpp"
-#include "iox2/service_name.hpp"
-#include "rmw_iceoryx2_cxx/rmw_allocator_helpers.hpp"
-#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
-#include "rmw_iceoryx2_cxx/service_names.hpp"
+#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
+
+#include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/service_names.hpp"
 
 // TODO: fallable constructors
 //       make underlying type an optional, set RMW error on failure

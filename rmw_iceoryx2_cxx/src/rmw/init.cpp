@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/rmw_init.hpp"
+#include "rmw_iceoryx2_cxx/rmw/init.hpp"
 
 #include "iox2/log.hpp"
 #include "rmw/check_type_identifiers_match.h"
@@ -16,10 +16,10 @@
 #include "rmw/init.h"
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"
-#include "rmw_iceoryx2_cxx/rmw_allocator_helpers.hpp"
-#include "rmw_iceoryx2_cxx/rmw_context_impl.hpp"
-#include "rmw_iceoryx2_cxx/rmw_error_handling.hpp"
-#include "rmw_iceoryx2_cxx/rmw_identifier.hpp"
+#include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
+#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 
 extern "C" {
 
