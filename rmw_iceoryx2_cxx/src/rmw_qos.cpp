@@ -7,6 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "iox/assertions_addendum.hpp"
 #include "rmw/qos_profiles.h"
 #include "rmw/ret_types.h"
 
@@ -15,8 +16,7 @@ rmw_ret_t rmw_qos_profile_check_compatible(const rmw_qos_profile_t publisher_pro
                                            const rmw_qos_profile_t subscription_profile,
                                            rmw_qos_compatibility_type_t* compatibility,
                                            char* reason,
-                                           size_t reason_size)
-{
-    return RMW_RET_ERROR;
+                                           size_t reason_size) {
+    IOX_TODO();
 }
 }
