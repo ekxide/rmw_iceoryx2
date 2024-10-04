@@ -9,8 +9,6 @@
 
 #include "rmw_iceoryx2_cxx/rmw/init.hpp"
 
-#include "rmw/check_type_identifiers_match.h"
-#include "rmw/error_handling.h"
 #include "rmw/init.h"
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"
@@ -64,6 +62,10 @@ rmw_ret_t rmw_init_options_fini(rmw_init_options_t* init_options) {
 }
 
 rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
+    using rmw::iox2::allocate;
+    using rmw::iox2::construct;
+    using rmw::iox2::deallocate;
+
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(options, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_init: options",
@@ -73,14 +75,14 @@ rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
     context->instance_id = options->instance_id;
     context->implementation_identifier = rmw_get_implementation_identifier();
 
-    auto ptr = rmw::iox2::allocate<rmw_context_impl_s>();
+    auto ptr = allocate<rmw_context_impl_s>();
     if (ptr.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_context_impl_s");
         return RMW_RET_ERROR;
     }
 
-    if (rmw::iox2::construct<rmw_context_impl_s>(ptr.value(), context->instance_id).has_error()) {
-        rmw::iox2::deallocate(ptr.value());
+    if (construct<rmw_context_impl_s>(ptr.value(), context->instance_id).has_error()) {
+        deallocate(ptr.value());
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct rmw_context_impl_s");
         return RMW_RET_ERROR;
     }
@@ -90,14 +92,17 @@ rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
 }
 
 rmw_ret_t rmw_shutdown(rmw_context_t* context) {
+    using rmw::iox2::deallocate;
+    using rmw::iox2::destruct;
+
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_shutdown: context",
                                           context->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    rmw::iox2::destruct<rmw_context_impl_s>(context->impl);
-    rmw::iox2::deallocate(context->impl);
+    destruct<rmw_context_impl_s>(context->impl);
+    deallocate(context->impl);
 
     return RMW_RET_OK;
 }

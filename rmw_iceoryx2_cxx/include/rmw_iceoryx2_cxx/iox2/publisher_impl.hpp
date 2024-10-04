@@ -22,7 +22,6 @@ namespace rmw::iox2
 
 class RMW_PUBLIC PublisherImpl
 {
-    using NodeImpl = rmw::iox2::NodeImpl;
     using IceoryxPublisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, ::iox::Slice<uint8_t>, void>;
 
 public:

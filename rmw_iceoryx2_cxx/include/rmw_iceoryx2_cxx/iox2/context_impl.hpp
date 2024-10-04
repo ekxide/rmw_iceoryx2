@@ -11,7 +11,6 @@
 #define RMW_IOX2_CONTEXT_IMPL_HPP_
 
 #include "rmw/visibility_control.h"
-#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 #include <atomic>
@@ -22,7 +21,6 @@ extern "C" {
 class RMW_PUBLIC rmw_context_impl_s
 {
     using NodeImpl = ::rmw::iox2::NodeImpl;
-    using GuardConditionImpl = ::rmw::iox2::GuardConditionImpl;
 
 public:
     explicit rmw_context_impl_s(const uint32_t id);

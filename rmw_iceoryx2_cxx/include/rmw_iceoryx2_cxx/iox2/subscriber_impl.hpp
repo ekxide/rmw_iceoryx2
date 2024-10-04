@@ -22,7 +22,6 @@ namespace rmw::iox2
 
 class RMW_PUBLIC SubscriberImpl
 {
-    using NodeImpl = rmw::iox2::NodeImpl;
     using IceoryxSubscriber = ::iox2::Subscriber<::iox2::ServiceType::Ipc, ::iox::Slice<uint8_t>, void>;
 
 public:

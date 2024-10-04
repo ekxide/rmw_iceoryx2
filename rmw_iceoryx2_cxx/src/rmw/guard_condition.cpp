@@ -16,6 +16,9 @@
 
 extern "C" {
 rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
+    using rmw::iox2::allocate;
+    using rmw::iox2::construct;
+    using rmw::iox2::deallocate;
     using rmw::iox2::GuardConditionImpl;
     using rmw::iox2::unsafe_cast;
 
@@ -35,16 +38,17 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
     guard_condition->context = context;
     guard_condition->implementation_identifier = rmw_get_implementation_identifier();
 
-    auto ptr = rmw::iox2::allocate<GuardConditionImpl>();
+    auto ptr = allocate<GuardConditionImpl>();
     if (ptr.has_error()) {
         rmw_guard_condition_free(guard_condition);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for GuardConditionImpl");
         return nullptr;
     }
 
-    if (auto construction = rmw::iox2::construct<GuardConditionImpl>(
-            ptr.value(), context->impl->node(), context->impl->context_id(), context->impl->next_guard_condition_id());
-        construction.has_error()) {
+    if (construct<GuardConditionImpl>(
+            ptr.value(), context->impl->node(), context->impl->context_id(), context->impl->next_guard_condition_id())
+            .has_error()) {
+        deallocate<GuardConditionImpl>(ptr.value());
         rmw_guard_condition_free(guard_condition);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct GuardConditionImpl");
         return nullptr;
@@ -55,6 +59,8 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
 }
 
 rmw_ret_t rmw_destroy_guard_condition(rmw_guard_condition_t* guard_condition) {
+    using rmw::iox2::deallocate;
+    using rmw::iox2::destruct;
     using rmw::iox2::GuardConditionImpl;
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(guard_condition, RMW_RET_INVALID_ARGUMENT);
@@ -64,8 +70,8 @@ rmw_ret_t rmw_destroy_guard_condition(rmw_guard_condition_t* guard_condition) {
                                           return RMW_RET_ERROR);
 
     if (guard_condition->data) {
-        rmw::iox2::destruct<GuardConditionImpl>(guard_condition->data);
-        rmw::iox2::deallocate(guard_condition->data);
+        destruct<GuardConditionImpl>(guard_condition->data);
+        deallocate(guard_condition->data);
     }
 
     rmw_guard_condition_free(guard_condition);

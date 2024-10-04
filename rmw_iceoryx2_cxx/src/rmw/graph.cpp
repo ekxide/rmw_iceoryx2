@@ -19,7 +19,6 @@
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
-#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 #include <set>
 
@@ -71,7 +70,6 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
     using Node = iox2::Node<ServiceType::Ipc>;
     using iox2::CallbackProgression;
     using iox2::Config;
-    using rmw::iox2::NodeImpl;
 
     rmw_ret_t result = RMW_RET_OK;
 

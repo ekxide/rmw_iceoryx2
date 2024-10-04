@@ -27,9 +27,9 @@ rmw_ret_t rmw_serialize(const void* ros_message,
     using rmw::iox2::is_trivially_copyable;
     using rmw::iox2::message_size;
 
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
     if (!is_trivially_copyable(type_support)) {
         RMW_IOX2_CHAIN_ERROR_MSG("non-trivially-copiable types are unsupported");
@@ -53,9 +53,9 @@ rmw_ret_t rmw_deserialize(const rmw_serialized_message_t* serialized_message,
                           void* ros_message) {
     using rmw::iox2::is_trivially_copyable;
 
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
     if (!is_trivially_copyable(type_support)) {
         RMW_IOX2_CHAIN_ERROR_MSG("non-trivially-copiable types are unsupported");

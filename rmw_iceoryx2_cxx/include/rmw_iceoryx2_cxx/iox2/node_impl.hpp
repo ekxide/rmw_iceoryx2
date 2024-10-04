@@ -10,9 +10,7 @@
 #ifndef RMW_IOX2_NODE_IMPL_HPP_
 #define RMW_IOX2_NODE_IMPL_HPP_
 
-#include "iox2/listener.hpp"
 #include "iox2/node.hpp"
-#include "iox2/notifier.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
 
