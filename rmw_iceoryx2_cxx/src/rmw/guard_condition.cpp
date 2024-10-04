@@ -7,15 +7,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw/check_type_identifiers_match.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 
 extern "C" {
 rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
+    using rmw::iox2::GuardConditionImpl;
     using rmw::iox2::unsafe_cast;
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
@@ -27,19 +28,28 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
 
     auto* guard_condition = rmw_guard_condition_allocate();
     if (guard_condition == nullptr) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for guard condition");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_guard_condition_t");
         return nullptr;
     }
 
     guard_condition->context = context;
     guard_condition->implementation_identifier = rmw_get_implementation_identifier();
 
-    guard_condition->data = context->impl->create_guard_condition();
-    if (guard_condition->data == nullptr) {
+    auto ptr = rmw::iox2::allocate<GuardConditionImpl>();
+    if (ptr.has_error()) {
         rmw_guard_condition_free(guard_condition);
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to create guard condition impl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for GuardConditionImpl");
         return nullptr;
     }
+
+    if (auto construction = rmw::iox2::construct<GuardConditionImpl>(
+            ptr.value(), context->impl->node(), context->impl->context_id(), context->impl->next_guard_condition_id());
+        construction.has_error()) {
+        rmw_guard_condition_free(guard_condition);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to construct GuardConditionImpl");
+        return nullptr;
+    }
+    guard_condition->data = ptr.value();
 
     return guard_condition;
 }

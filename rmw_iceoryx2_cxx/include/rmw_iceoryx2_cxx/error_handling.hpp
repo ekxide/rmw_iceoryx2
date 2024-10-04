@@ -10,6 +10,7 @@
 #ifndef RMW_IOX2_ERROR_HANDLING_HPP_
 #define RMW_IOX2_ERROR_HANDLING_HPP_
 
+#include "rmw/check_type_identifiers_match.h"
 #include "rmw/error_handling.h"
 #include <stddef.h>
 

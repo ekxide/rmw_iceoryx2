@@ -10,23 +10,26 @@
 #ifndef RMW_IOX2_PUBLISHER_IMPL_HPP_
 #define RMW_IOX2_PUBLISHER_IMPL_HPP_
 
+#include "iox/optional.hpp"
 #include "iox/slice.hpp"
 #include "iox2/publisher.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 namespace rmw::iox2
 {
 
 class RMW_PUBLIC PublisherImpl
 {
+    using NodeImpl = rmw::iox2::NodeImpl;
     using IceoryxPublisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, ::iox::Slice<uint8_t>, void>;
 
 public:
-    explicit PublisherImpl(const std::string name, IceoryxPublisher&& publisher);
+    explicit PublisherImpl(NodeImpl& node, const std::string& name);
 
 private:
-    IceoryxPublisher m_publisher;
+    iox::optional<IceoryxPublisher> m_publisher;
 };
 
 } // namespace rmw::iox2

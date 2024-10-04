@@ -21,20 +21,8 @@ NodeImpl::NodeImpl(const std::string& name)
                  .expect("failed to create iceoryx2 node")} {
 }
 
-auto NodeImpl::create_notifier(const std::string name) -> Notifier {
-    auto service_name = ::iox2::ServiceName::create(name.c_str()).expect("TODO: propagate");
-    auto service = m_node.service_builder(service_name).event().open_or_create().expect("TODO: propagate");
-    auto notifier = service.notifier_builder().create().expect("TODO: propagate");
-
-    return notifier;
-}
-
-auto NodeImpl::create_listener(const std::string name) -> Listener {
-    auto service_name = ::iox2::ServiceName::create(name.c_str()).expect("TODO: propagate");
-    auto service = m_node.service_builder(service_name).event().open_or_create().expect("TODO: propagate");
-    auto listener = service.listener_builder().create().expect("TODO: propagate");
-
-    return listener;
+auto NodeImpl::as_iox2() -> IceoryxNode& {
+    return m_node;
 }
 
 } // namespace rmw::iox2

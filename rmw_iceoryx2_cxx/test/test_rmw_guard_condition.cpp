@@ -23,6 +23,8 @@ namespace
 
 class RmwGuardConditionTest : public rmw::iox2::testing::TestBase
 {
+    using IceoryxListener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
+
 protected:
     void SetUp() override {
         init_options = rmw_get_zero_initialized_init_options();
@@ -44,6 +46,16 @@ protected:
         }
         return m_node.value();
     }
+
+    template <typename String>
+    auto test_listener(String&& name) -> IceoryxListener {
+        auto service_name = ::iox2::ServiceName::create(name.c_str()).expect("TODO: propagate");
+        auto service =
+            test_node().as_iox2().service_builder(service_name).event().open_or_create().expect("TODO: propagate");
+        auto listener = service.listener_builder().create().expect("TODO: propagate");
+
+        return listener;
+    };
 
 protected:
     rmw_init_options_t init_options;
@@ -67,16 +79,15 @@ TEST_F(RmwGuardConditionTest, create_and_destroy) {
 TEST_F(RmwGuardConditionTest, trigger) {
     using ::rmw::iox2::GuardConditionImpl;
     using ::rmw::iox2::unsafe_cast;
+    namespace names = ::rmw::iox2::names;
 
     auto guard_condition = rmw_create_guard_condition(&context);
     EXPECT_NE(guard_condition, nullptr);
     EXPECT_NE(guard_condition->data, nullptr);
 
     // TODO: An easier way to access the guard condition ID?
-    auto impl =
-        rmw::iox2::unsafe_cast<GuardConditionImpl*>(guard_condition->data).expect("failed to get guard condition impl");
-    auto listener = test_node().create_listener(
-        rmw::iox2::names::guard_condition(guard_condition->context->instance_id, impl->id()));
+    auto impl = unsafe_cast<GuardConditionImpl*>(guard_condition->data).expect("failed to get guard condition impl");
+    auto listener = test_listener(names::guard_condition(guard_condition->context->instance_id, impl->id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
     auto event =

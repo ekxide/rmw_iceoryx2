@@ -14,24 +14,24 @@
 #include "iox2/notifier.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 namespace rmw::iox2
 {
 
 class RMW_PUBLIC GuardConditionImpl
 {
-    using ServiceType = ::iox2::ServiceType;
-    using Notifier = ::iox2::Notifier<ServiceType::Ipc>;
+    using IceoryxNotifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
 
 public:
-    GuardConditionImpl(uint32_t id, Notifier&& notifier);
+    GuardConditionImpl(NodeImpl& node, const uint32_t context_id, const uint32_t guard_condition_id);
 
     uint32_t id() const;
     bool trigger(const iox::optional<size_t>& id = iox::nullopt);
 
 private:
     const uint32_t m_id;
-    Notifier m_notifier;
+    iox::optional<IceoryxNotifier> m_notifier;
 };
 
 } // namespace rmw::iox2

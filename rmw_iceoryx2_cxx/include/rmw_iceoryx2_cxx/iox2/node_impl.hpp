@@ -21,18 +21,15 @@ namespace rmw::iox2
 
 class RMW_PUBLIC NodeImpl
 {
-    using Node = ::iox2::Node<::iox2::ServiceType::Ipc>;
-    using Notifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
-    using Listener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
+    using IceoryxNode = ::iox2::Node<::iox2::ServiceType::Ipc>;
 
 public:
     explicit NodeImpl(const std::string& name);
 
-    auto create_notifier(const std::string name) -> Notifier;
-    auto create_listener(const std::string name) -> Listener;
+    auto as_iox2() -> IceoryxNode&;
 
 private:
-    Node m_node;
+    IceoryxNode m_node;
 };
 
 } // namespace rmw::iox2

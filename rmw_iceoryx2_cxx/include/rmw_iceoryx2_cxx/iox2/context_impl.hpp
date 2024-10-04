@@ -27,11 +27,9 @@ class RMW_PUBLIC rmw_context_impl_s
 public:
     explicit rmw_context_impl_s(const uint32_t id);
 
-    uint32_t id();
-    GuardConditionImpl* create_guard_condition();
-
-private:
-    uint32_t next_guard_condition_id();
+    auto context_id() -> uint32_t;
+    auto next_guard_condition_id() -> uint32_t;
+    auto node() -> NodeImpl&;
 
 private:
     const uint32_t m_id;
