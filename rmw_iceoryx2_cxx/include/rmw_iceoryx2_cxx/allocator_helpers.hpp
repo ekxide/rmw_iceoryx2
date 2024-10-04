@@ -10,84 +10,112 @@
 #ifndef RMW_IOX2_ALLOCATOR_HELPERS_HPP_
 #define RMW_IOX2_ALLOCATOR_HELPERS_HPP_
 
-#include "iox/optional.hpp"
+#include "iox/expected.hpp"
 #include "rmw/allocators.h"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/error.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 
 #include <cstring>
-#include <iostream>
 
 namespace rmw::iox2
 {
 
-RMW_PUBLIC inline const char* allocate_copy(const char* cstr) {
+template <typename T>
+RMW_PUBLIC inline auto allocate(size_t num = 1) -> iox::expected<T*, MemoryError> {
+    using iox::err;
+    using iox::ok;
+    using rmw::iox2::MemoryError;
+
+    if (num == 0) {
+        RMW_IOX2_CHAIN_ERROR_MSG("attempted to allocate nothing");
+        return err(MemoryError::ALLOCATION);
+    }
+
+    auto ptr = static_cast<T*>(rmw_allocate(sizeof(T) * num));
+    if (!ptr) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate");
+        return err(MemoryError::ALLOCATION);
+    }
+    return ok(ptr);
+}
+
+RMW_PUBLIC inline auto allocate_copy(const char* cstr) -> iox::expected<char*, MemoryError> {
+    using iox::err;
+    using iox::ok;
+    using rmw::iox2::MemoryError;
+
     auto length = strlen(cstr);
     auto ptr = static_cast<char*>(rmw_allocate(sizeof(char) * length + 1));
     if (!ptr) {
-        return nullptr;
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate");
+        return err(MemoryError::ALLOCATION);
     }
     memcpy(ptr, cstr, length + 1);
-    return ptr;
+    return ok(ptr);
 }
 
 template <typename T>
-RMW_PUBLIC inline T* allocate(size_t num = 1) {
-    if (num == 0) {
-        return nullptr;
-    }
-    auto ptr = static_cast<T*>(rmw_allocate(sizeof(T) * num));
-    return ptr;
-}
-
-template <typename T>
-RMW_PUBLIC inline void deallocate(T*& ptr) {
+RMW_PUBLIC inline auto deallocate(T*& ptr) -> void {
     if (ptr) {
         rmw_free(static_cast<void*>(ptr));
         ptr = nullptr;
     }
 }
 
-RMW_PUBLIC inline void deallocate(char*& ptr) {
+RMW_PUBLIC inline auto deallocate(char*& ptr) -> void {
     if (ptr) {
         rmw_free(static_cast<void*>(ptr));
         ptr = nullptr;
     }
 }
 
-RMW_PUBLIC inline void deallocate(const char*& ptr) {
+RMW_PUBLIC inline auto deallocate(const char*& ptr) -> void {
     if (ptr) {
         rmw_free(const_cast<void*>(static_cast<const void*>(ptr)));
         ptr = nullptr;
     }
 }
 
+template <typename T, typename... Args>
+RMW_PUBLIC inline auto construct(T* ptr, Args&&... args) -> iox::expected<T*, MemoryError> {
+    using iox::err;
+    using iox::ok;
+    using rmw::iox2::MemoryError;
+
+    if (ptr == nullptr) {
+        RMW_IOX2_CHAIN_ERROR_MSG("attempted to construct at nullptr");
+        return err(MemoryError::CONSTRUCTION);
+    }
+    new (ptr) T(std::forward<Args>(args)...);
+    return ok(ptr);
+}
+
 template <typename T>
-RMW_PUBLIC inline void destruct(void* ptr) {
+RMW_PUBLIC inline auto destruct(void* ptr) -> void {
     if (ptr != nullptr) {
         T* typed_ptr = static_cast<T*>(ptr);
         typed_ptr->~T();
     }
 }
 
-template <typename T, typename... Args>
-RMW_PUBLIC inline T* construct(T* ptr, Args&&... args) {
-    if (ptr != nullptr) {
-        new (ptr) T(std::forward<Args>(args)...);
-        return ptr;
-    }
-    return nullptr;
-}
-
 template <typename T>
-auto unsafe_cast(void* ptr) -> iox::optional<T> {
+auto unsafe_cast(void* ptr) -> iox::expected<T, MemoryError> {
+    using iox::err;
+    using iox::ok;
+    using rmw::iox2::MemoryError;
+
     if (!ptr) {
-        return iox::nullopt;
+        RMW_IOX2_CHAIN_ERROR_MSG("attempted to cast nullptr");
+        return err(MemoryError::CAST);
     }
+
     auto result = reinterpret_cast<T>(ptr);
     if (!result) {
-        return iox::nullopt;
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to cast void pointer");
+        return err(MemoryError::CAST);
     }
-    return iox::make_optional<T>(result);
+    return ok(result);
 };
 
 } // namespace rmw::iox2

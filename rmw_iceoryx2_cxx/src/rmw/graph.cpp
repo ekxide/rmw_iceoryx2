@@ -86,13 +86,13 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
     rcutils_allocator_t allocator = rcutils_get_default_allocator();
     rcutils_ret_t rcutils_ret = rcutils_string_array_init(node_names, names.size(), &allocator);
     if (rcutils_ret != RCUTILS_RET_OK) {
-        RMW_IOX2_SET_ERROR_MSG(rcutils_get_error_string().str);
+        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
         result = rmw_convert_rcutils_ret_to_rmw_ret(rcutils_ret);
         return result;
     }
     rcutils_ret = rcutils_string_array_init(node_namespaces, names.size(), &allocator);
     if (rcutils_ret != RCUTILS_RET_OK) {
-        RMW_IOX2_SET_ERROR_MSG(rcutils_get_error_string().str);
+        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
         result = rmw_convert_rcutils_ret_to_rmw_ret(rcutils_ret);
         return result;
     }
@@ -102,13 +102,13 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
     for (auto name : names) {
         node_names->data[i] = rcutils_strdup(name.name.c_str(), allocator);
         if (!node_names->data[i]) {
-            RMW_IOX2_SET_ERROR_MSG("could not allocate memory for node name");
+            RMW_IOX2_CHAIN_ERROR_MSG("could not allocate memory for node name");
             result = RMW_RET_ERROR;
             return result;
         }
         node_namespaces->data[i] = rcutils_strdup(name.namespace_.c_str(), allocator);
         if (!node_namespaces->data[i]) {
-            RMW_IOX2_SET_ERROR_MSG("could not allocate memory for node namespace");
+            RMW_IOX2_CHAIN_ERROR_MSG("could not allocate memory for node namespace");
             result = RMW_RET_ERROR;
             return result;
         }

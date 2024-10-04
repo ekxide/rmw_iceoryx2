@@ -9,10 +9,8 @@
 
 #include "rmw_iceoryx2_cxx/rmw/init.hpp"
 
-#include "iox2/log.hpp"
 #include "rmw/check_type_identifiers_match.h"
 #include "rmw/error_handling.h"
-#include "rmw/impl/cpp/macros.hpp"
 #include "rmw/init.h"
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"
@@ -25,7 +23,7 @@ extern "C" {
 
 rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_allocator_t allocator) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(init_options, RMW_RET_INVALID_ARGUMENT);
-    RCUTILS_CHECK_ALLOCATOR(&allocator, return RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ALLOCATOR(&allocator, return RMW_RET_INVALID_ARGUMENT);
 
     init_options->implementation_identifier = rmw_get_implementation_identifier();
     init_options->allocator = allocator;
@@ -38,12 +36,12 @@ rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_alloca
 rmw_ret_t rmw_init_options_copy(const rmw_init_options_t* src, rmw_init_options_t* dst) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(src, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(dst, RMW_RET_INVALID_ARGUMENT);
-    RMW_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_init_options_copy: source options",
-                                     src->implementation_identifier,
-                                     rmw_get_implementation_identifier(),
-                                     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_init_options_copy: source options",
+                                          src->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     if (dst->implementation_identifier != nullptr) {
-        RMW_IOX2_SET_ERROR_MSG("expected zero-initialized dst");
+        RMW_IOX2_CHAIN_ERROR_MSG("expected zero-initialized dst");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
@@ -54,11 +52,11 @@ rmw_ret_t rmw_init_options_copy(const rmw_init_options_t* src, rmw_init_options_
 
 rmw_ret_t rmw_init_options_fini(rmw_init_options_t* init_options) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(init_options, RMW_RET_INVALID_ARGUMENT);
-    RCUTILS_CHECK_ALLOCATOR(&(init_options->allocator), return RMW_RET_INVALID_ARGUMENT);
-    RMW_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_init_options_fini: options",
-                                     init_options->implementation_identifier,
-                                     rmw_get_implementation_identifier(),
-                                     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_CHECK_ALLOCATOR(&(init_options->allocator), return RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_init_options_fini: options",
+                                          init_options->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     *init_options = rmw_get_zero_initialized_init_options();
 
@@ -68,31 +66,37 @@ rmw_ret_t rmw_init_options_fini(rmw_init_options_t* init_options) {
 rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(options, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
-    RMW_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_init: options",
-                                     options->implementation_identifier,
-                                     rmw_get_implementation_identifier(),
-                                     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_init: options",
+                                          options->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     // instance descriptors
     context->instance_id = options->instance_id;
     context->implementation_identifier = rmw_get_implementation_identifier();
 
     // context implementation
-    auto impl = rmw::iox2::allocate<rmw_context_impl_s>();
-    if (impl == nullptr) {
-        RMW_IOX2_SET_ERROR_MSG("failed to allocate memory for rmw_context_impl_s");
+    auto ptr = rmw::iox2::allocate<rmw_context_impl_s>();
+    if (ptr.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_context_impl_s");
+        return RMW_RET_ERROR;
     }
-    rmw::iox2::construct<rmw_context_impl_s>(impl, context->instance_id);
-    context->impl = impl;
+
+    if (rmw::iox2::construct<rmw_context_impl_s>(ptr.value(), context->instance_id).has_error()) {
+        rmw::iox2::deallocate(ptr.value());
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to construct rmw_context_impl_s");
+        return RMW_RET_ERROR;
+    }
+    context->impl = ptr.value();
 
     return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_shutdown(rmw_context_t* context) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
-    RMW_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_shutdown: context",
-                                     context->implementation_identifier,
-                                     rmw_get_implementation_identifier(),
-                                     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_shutdown: context",
+                                          context->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     rmw::iox2::destruct<rmw_context_impl_s>(context->impl);
     rmw::iox2::deallocate(context->impl);
@@ -102,10 +106,10 @@ rmw_ret_t rmw_shutdown(rmw_context_t* context) {
 
 rmw_ret_t rmw_context_fini(rmw_context_t* context) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
-    RMW_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_context_fini: context",
-                                     context->implementation_identifier,
-                                     rmw_get_implementation_identifier(),
-                                     return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_context_fini: context",
+                                          context->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     *context = rmw_get_zero_initialized_context();
 

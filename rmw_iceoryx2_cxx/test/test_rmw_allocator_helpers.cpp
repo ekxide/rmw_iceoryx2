@@ -37,11 +37,55 @@ protected:
     }
 };
 
+TEST_F(AllocatorHelpersTest, allocate_primitive) {
+    auto result = rmw::iox2::allocate<int>();
+    ASSERT_TRUE(result.has_value());
+
+    auto ptr = result.value();
+    *ptr = 42;
+    ASSERT_EQ(*ptr, 42);
+
+    rmw::iox2::deallocate(ptr);
+}
+
+TEST_F(AllocatorHelpersTest, allocate_many_primitives) {
+    const size_t num = 5;
+    auto result = rmw::iox2::allocate<int>(num);
+    ASSERT_TRUE(result.has_value());
+
+    auto ptr = result.value();
+    for (size_t i = 0; i < num; ++i) {
+        ptr[i] = i;
+    }
+    for (size_t i = 0; i < num; ++i) {
+        ASSERT_EQ(ptr[i], i);
+    }
+
+    rmw::iox2::deallocate(ptr);
+}
+
+TEST_F(AllocatorHelpersTest, allocate_struct) {
+    struct LargeObject
+    {
+        char data[1024];
+    };
+    auto result = rmw::iox2::allocate<LargeObject>();
+    ASSERT_TRUE(result.has_value());
+
+    auto ptr = result.value();
+    memset(ptr->data, 'A', sizeof(ptr->data));
+    ASSERT_EQ(ptr->data[0], 'A');
+    ASSERT_EQ(ptr->data[1023], 'A');
+
+    rmw::iox2::deallocate(ptr);
+}
+
 TEST_F(AllocatorHelpersTest, allocate_cstr_copy) {
     const char* original = "Hello, World!";
-    const char* copy = rmw::iox2::allocate_copy(original);
+    const auto result = rmw::iox2::allocate_copy(original);
+    ASSERT_TRUE(result.has_value());
 
-    ASSERT_NE(copy, nullptr);
+    auto copy = result.value();
     ASSERT_STREQ(copy, original);
     ASSERT_NE(copy, original); // address should be different
 
@@ -50,50 +94,15 @@ TEST_F(AllocatorHelpersTest, allocate_cstr_copy) {
 
 TEST_F(AllocatorHelpersTest, allocate_empty_cstr_copy) {
     const char* empty = "";
-    const char* copy = rmw::iox2::allocate_copy(empty);
 
-    ASSERT_NE(copy, nullptr);
+    const auto result = rmw::iox2::allocate_copy(empty);
+    ASSERT_TRUE(result.has_value());
+
+    auto copy = result.value();
     ASSERT_STREQ(copy, empty);
     ASSERT_NE(copy, empty); // address should be different
 
     rmw::iox2::deallocate(copy);
-}
-
-TEST_F(AllocatorHelpersTest, allocate_primitive) {
-    int* ptr = rmw::iox2::allocate<int>();
-    ASSERT_NE(ptr, nullptr);
-    *ptr = 42;
-    ASSERT_EQ(*ptr, 42);
-
-    rmw::iox2::deallocate(ptr);
-}
-
-TEST_F(AllocatorHelpersTest, allocate_many_primitives) {
-    const size_t array_size = 5;
-    int* array = rmw::iox2::allocate<int>(array_size);
-    ASSERT_NE(array, nullptr);
-
-    for (size_t i = 0; i < array_size; ++i) {
-        array[i] = i;
-    }
-    for (size_t i = 0; i < array_size; ++i) {
-        ASSERT_EQ(array[i], i);
-    }
-
-    rmw::iox2::deallocate(array);
-}
-
-TEST_F(AllocatorHelpersTest, allocate_struct) {
-    struct LargeObject
-    {
-        char data[1024];
-    };
-    LargeObject* large_obj = rmw::iox2::allocate<LargeObject>();
-    ASSERT_NE(large_obj, nullptr);
-    memset(large_obj->data, 'A', sizeof(large_obj->data));
-    ASSERT_EQ(large_obj->data[0], 'A');
-    ASSERT_EQ(large_obj->data[1023], 'A');
-    rmw::iox2::deallocate(large_obj);
 }
 
 TEST_F(AllocatorHelpersTest, deallocate_nullptr) {
@@ -101,9 +110,15 @@ TEST_F(AllocatorHelpersTest, deallocate_nullptr) {
     ASSERT_NO_THROW(rmw::iox2::deallocate(ptr));
 }
 
-TEST_F(AllocatorHelpersTest, destruct) {
-    DummyClass* obj = rmw::iox2::allocate<DummyClass>();
-    new (obj) DummyClass();
+TEST_F(AllocatorHelpersTest, construct_and_destruct) {
+    auto allocation = rmw::iox2::allocate<DummyClass>();
+    ASSERT_TRUE(allocation.has_value());
+
+    auto ptr = allocation.value();
+    auto constructed = rmw::iox2::construct(ptr);
+    ASSERT_TRUE(constructed.has_value());
+
+    auto obj = constructed.value();
     ASSERT_EQ(obj->value, 42);
 
     rmw::iox2::destruct<DummyClass>(obj);

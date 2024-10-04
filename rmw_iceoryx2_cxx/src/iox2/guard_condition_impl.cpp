@@ -10,7 +10,7 @@
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 
 #include "iox2/event_id.hpp"
-#include "rcutils/error_handling.h"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 
 namespace rmw::iox2
 {
@@ -29,12 +29,12 @@ bool GuardConditionImpl::trigger(const iox::optional<size_t>& id) {
     bool result = true;
     if (id.has_value()) {
         if (m_notifier.notify_with_custom_event_id(EventId(id.value())).has_error()) {
-            RCUTILS_SET_ERROR_MSG("failed to send notification");
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to send notification");
             result = false;
         };
     } else {
         if (m_notifier.notify().has_error()) {
-            RCUTILS_SET_ERROR_MSG("failed to send notification");
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to send notification");
             result = false;
         }
     }

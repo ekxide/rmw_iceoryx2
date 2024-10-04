@@ -9,6 +9,7 @@
 
 #include "rmw/qos_profiles.h"
 #include "rmw/ret_types.h"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 
 extern "C" {
 rmw_ret_t rmw_qos_profile_check_compatible(const rmw_qos_profile_t publisher_profile,
@@ -16,8 +17,8 @@ rmw_ret_t rmw_qos_profile_check_compatible(const rmw_qos_profile_t publisher_pro
                                            rmw_qos_compatibility_type_t* compatibility,
                                            char* reason,
                                            size_t reason_size) {
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(compatibility, RMW_RET_INVALID_ARGUMENT);
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(reason, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(compatibility, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(reason, RMW_RET_INVALID_ARGUMENT);
 
     // All QoS assumed compatible - to be determined at gateways
     *compatibility = RMW_QOS_COMPATIBILITY_OK;

@@ -92,7 +92,7 @@ size_t message_size(const rosidl_message_type_support_t* type_support) {
         return members->size_of_;
     }
 
-    RMW_IOX2_SET_ERROR_MSG("failed to determine message size");
+    RMW_IOX2_CHAIN_ERROR_MSG("failed to determine message size");
     return 0;
 }
 

@@ -7,7 +7,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "iox/assertions_addendum.hpp"
 #include "rmw/dynamic_message_type_support.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -33,13 +32,13 @@ rmw_ret_t rmw_serialize(const void* ros_message,
     RCUTILS_CHECK_ARGUMENT_FOR_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
     if (!is_trivially_copyable(type_support)) {
-        RMW_IOX2_SET_ERROR_MSG("non-trivially-copiable types are unsupported");
+        RMW_IOX2_CHAIN_ERROR_MSG("non-trivially-copiable types are unsupported");
         return RMW_RET_UNSUPPORTED;
     }
 
     auto size = message_size(type_support);
     if (auto result = rmw_serialized_message_resize(serialized_message, size) != RMW_RET_OK) {
-        RMW_IOX2_SET_ERROR_MSG("failed to resize serialized message");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to resize serialized message");
         return result;
     }
 
@@ -59,7 +58,7 @@ rmw_ret_t rmw_deserialize(const rmw_serialized_message_t* serialized_message,
     RCUTILS_CHECK_ARGUMENT_FOR_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
     if (!is_trivially_copyable(type_support)) {
-        RMW_IOX2_SET_ERROR_MSG("non-trivially-copiable types are unsupported");
+        RMW_IOX2_CHAIN_ERROR_MSG("non-trivially-copiable types are unsupported");
         return RMW_RET_UNSUPPORTED;
     }
 
