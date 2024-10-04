@@ -11,13 +11,13 @@
 
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
-#include "rmw_iceoryx2_cxx/iox2/service_names.hpp"
+#include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
 // TODO: fallable constructors
 //       make underlying type an optional, set RMW error on failure
 rmw_context_impl_s::rmw_context_impl_s(const uint32_t id)
     : m_id{id}
-    , m_node{NodeImpl(rmw::iox2::context_node_name(id).c_str())} {
+    , m_node{NodeImpl(rmw::iox2::names::context(id).c_str())} {
 }
 
 uint32_t rmw_context_impl_s::id() {
@@ -34,7 +34,7 @@ rmw_context_impl_s::GuardConditionImpl* rmw_context_impl_s::create_guard_conditi
     }
 
     auto guard_condition_id = next_guard_condition_id();
-    auto notifier = m_node.create_notifier(rmw::iox2::guard_condition_service_name(m_id, guard_condition_id).c_str());
+    auto notifier = m_node.create_notifier(rmw::iox2::names::guard_condition(m_id, guard_condition_id).c_str());
     if (rmw::iox2::construct<GuardConditionImpl>(ptr.value(), guard_condition_id, std::move(notifier)).has_error()) {
         rmw::iox2::deallocate(ptr.value());
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct GuardConditionImpl");

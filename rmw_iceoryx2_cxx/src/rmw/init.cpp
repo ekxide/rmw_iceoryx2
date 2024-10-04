@@ -70,11 +70,9 @@ rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
                                           options->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    // instance descriptors
     context->instance_id = options->instance_id;
     context->implementation_identifier = rmw_get_implementation_identifier();
 
-    // context implementation
     auto ptr = rmw::iox2::allocate<rmw_context_impl_s>();
     if (ptr.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_context_impl_s");

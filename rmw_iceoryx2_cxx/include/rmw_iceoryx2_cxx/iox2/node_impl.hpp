@@ -26,7 +26,7 @@ class RMW_PUBLIC NodeImpl
     using Listener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
 
 public:
-    explicit NodeImpl(const std::string name);
+    explicit NodeImpl(const std::string& name);
 
     auto create_notifier(const std::string name) -> Notifier;
     auto create_listener(const std::string name) -> Listener;

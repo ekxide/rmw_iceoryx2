@@ -13,8 +13,8 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/names.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/service_names.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -76,7 +76,7 @@ TEST_F(RmwGuardConditionTest, trigger) {
     auto impl =
         rmw::iox2::unsafe_cast<GuardConditionImpl*>(guard_condition->data).expect("failed to get guard condition impl");
     auto listener = test_node().create_listener(
-        rmw::iox2::guard_condition_service_name(guard_condition->context->instance_id, impl->id()));
+        rmw::iox2::names::guard_condition(guard_condition->context->instance_id, impl->id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
     auto event =

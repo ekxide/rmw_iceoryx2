@@ -15,15 +15,18 @@
 #include <cstdint>
 #include <string>
 
-namespace rmw::iox2
+namespace rmw::iox2::names
 {
 
 RMW_PUBLIC
-std::string context_node_name(const uint32_t context_id);
+std::string context(const uint32_t context_id);
 
 RMW_PUBLIC
-std::string guard_condition_service_name(const uint32_t context_id, const uint32_t guard_condition_id);
+std::string node(const uint32_t context_id, const char* name, const char* ns);
 
-} // namespace rmw::iox2
+RMW_PUBLIC
+std::string guard_condition(const uint32_t context_id, const uint32_t guard_condition_id);
+
+} // namespace rmw::iox2::names
 
 #endif // RMW_IOX2_SERVICE_NAMES_HPP_

@@ -14,7 +14,7 @@ namespace rmw::iox2
 
 // TODO: fallable constructors
 //       make underlying type an optional, set RMW error on failure
-NodeImpl::NodeImpl(const std::string name)
+NodeImpl::NodeImpl(const std::string& name)
     : m_node{::iox2::NodeBuilder()
                  .name(::iox2::NodeName::create(name.c_str()).expect("failed to create node name"))
                  .create<::iox2::ServiceType::Ipc>()

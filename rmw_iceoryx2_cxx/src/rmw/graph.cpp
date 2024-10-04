@@ -36,21 +36,27 @@ struct NodeName
     }
 };
 
+// TODO: make more intuitive... maybe wrap in class that can parse the parts?
 const NodeName parse_node_name(const char* full_name) {
     NodeName result{};
 
-    const char* last_slash = strrchr(full_name, '/');
-    if (last_slash == nullptr) {
-        // no slashes found, treat the whole string as the name
-        result.name = full_name;
-    } else {
-        // extract parts
-        result.namespace_ = std::string(full_name, last_slash - full_name);
-        result.name = std::string(last_slash + 1);
+    const char* node_part = strstr(full_name, "::node::");
 
-        // remove leading slash from namespace, if namespace is present
-        if (!result.namespace_.empty() && result.namespace_[0] == '/') {
-            result.namespace_ = result.namespace_.substr(1);
+    if (node_part == nullptr) {
+        return result;
+    }
+
+    const char* namespace_start = node_part + 8;
+    const char* last_colon = strrchr(namespace_start, ':');
+
+    if (last_colon == nullptr) {
+        result.name = namespace_start;
+    } else {
+        result.namespace_ = std::string(namespace_start, last_colon - namespace_start);
+        result.name = std::string(last_colon + 1);
+
+        while (!result.namespace_.empty() && result.namespace_.back() == ':') {
+            result.namespace_.pop_back();
         }
     }
 

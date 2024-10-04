@@ -46,9 +46,9 @@ endforeach()
 
 add_library(${PROJECT_NAME} SHARED
   src/introspection/message.cpp
-  src/iox2/service_names.cpp
   src/iox2/context_impl.cpp
   src/iox2/guard_condition_impl.cpp
+  src/iox2/names.cpp
   src/iox2/node_impl.cpp
   src/rmw/client.cpp
   src/rmw/event.cpp

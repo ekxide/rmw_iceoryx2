@@ -12,6 +12,7 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/names.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 
@@ -66,13 +67,6 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
     }
     node->namespace_ = namespace_copy.value();
 
-    // TODO: factor out into reusable function
-    std::string full_node_name = "/";
-    if (namespace_ && namespace_[0] != '\0') {
-        full_node_name += std::string(namespace_) + "/";
-    }
-    full_node_name += std::string(name);
-
     auto ptr = rmw::iox2::allocate<rmw::iox2::NodeImpl>();
     if (ptr.has_error()) {
         destroy_node_impl(node);
@@ -80,7 +74,8 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
         return nullptr;
     }
 
-    if (auto construction = rmw::iox2::construct<rmw::iox2::NodeImpl>(ptr.value(), full_node_name.c_str());
+    if (auto construction = rmw::iox2::construct<rmw::iox2::NodeImpl>(
+            ptr.value(), rmw::iox2::names::node(context->instance_id, node->name, node->namespace_).c_str());
         construction.has_error()) {
         destroy_node_impl(node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct NodeImpl");
