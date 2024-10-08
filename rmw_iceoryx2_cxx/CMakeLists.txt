@@ -50,6 +50,8 @@ add_library(${PROJECT_NAME} SHARED
   src/iox2/guard_condition_impl.cpp
   src/iox2/names.cpp
   src/iox2/node_impl.cpp
+  src/iox2/publisher_impl.cpp
+  src/iox2/subscriber_impl.cpp
   src/rmw/client.cpp
   src/rmw/event.cpp
   src/rmw/graph.cpp
@@ -117,21 +119,32 @@ register_rmw_implementation(
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
-
   find_package(ament_cmake_gtest REQUIRED)
 
+  ament_lint_auto_find_test_dependencies()
+
   ament_add_gtest(test_rmw_iceoryx2_cxx 
+    test/testing/base.cpp
+    test/test_iox2_context_impl.cpp
+    test/test_iox2_guard_condition_impl.cpp
+    test/test_iox2_node_impl.cpp
+    test/test_iox2_publisher_impl.cpp
     test/test_rmw_allocator_helpers.cpp
-    test/test_rmw_context_impl.cpp
     test/test_rmw_graph.cpp
     test/test_rmw_guard_condition.cpp
     test/test_rmw_init.cpp
     test/test_rmw_logging.cpp
     test/test_rmw_node.cpp
-    test/test_rmw_node_impl.cpp
+    test/test_rmw_publisher.cpp
   )
-  target_link_libraries(test_rmw_iceoryx2_cxx ${PROJECT_NAME})
+  target_link_libraries(test_rmw_iceoryx2_cxx 
+    ${PROJECT_NAME}
+  )
+  ament_target_dependencies(test_rmw_iceoryx2_cxx
+    rmw_iceoryx2_cxx_test_msgs
+    rosidl_typesupport_cpp
+  )
+
 endif()
 
 ament_target_dependencies(${PROJECT_NAME}

@@ -18,9 +18,11 @@ namespace rmw::iox2
 
 GuardConditionImpl::GuardConditionImpl(NodeImpl& node, const uint32_t context_id, const uint32_t guard_condition_id)
     : m_id{guard_condition_id} {
+    using ::iox2::ServiceName;
+    namespace names = rmw::iox2::names;
+
     auto service_name =
-        ::iox2::ServiceName::create(rmw::iox2::names::guard_condition(context_id, guard_condition_id).c_str())
-            .expect("TODO: propagate");
+        ServiceName::create(names::guard_condition(context_id, guard_condition_id).c_str()).expect("TODO: propagate");
     auto service = node.as_iox2().service_builder(service_name).event().open_or_create().expect("TODO: propagate");
     auto notifier = service.notifier_builder().create().expect("TODO: propagate");
     m_notifier.emplace(std::move(notifier));

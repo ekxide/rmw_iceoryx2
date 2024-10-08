@@ -96,4 +96,71 @@ size_t message_size(const rosidl_message_type_support_t* type_support) {
     return 0;
 }
 
+constexpr size_t introspect_member_size(const rosidl_typesupport_introspection_cpp::MessageMember& member) {
+    size_t size = 0;
+
+    switch (member.type_id_) {
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_BOOLEAN:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_OCTET:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT8:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_INT8:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_CHAR:
+        size = 1;
+        break;
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT16:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_INT16:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_WCHAR:
+        size = 2;
+        break;
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT32:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_INT32:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_FLOAT:
+        size = 4;
+        break;
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_UINT64:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_INT64:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_DOUBLE:
+        size = 8;
+        break;
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_LONG_DOUBLE:
+        size = 16;
+        break;
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING:
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_WSTRING:
+        // TODO: Magic number
+        size = 1024;
+        break;
+    case rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE: {
+        const rosidl_message_type_support_t* nested_ts =
+            static_cast<const rosidl_message_type_support_t*>(member.members_->data);
+        size = introspect_message_size(nested_ts);
+        break;
+    }
+    default:
+        size = 0;
+        break;
+    }
+
+    if (member.array_size_ > 0 || member.is_array_) {
+        // TODO: Magic number
+        size_t array_size = member.array_size_ > 0 ? member.array_size_ : 1024;
+        size *= array_size;
+    }
+
+    return size;
+}
+
+constexpr size_t introspect_message_size(const rosidl_message_type_support_t* ts) {
+    const auto* members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(ts->data);
+
+    size_t total_size = 0;
+
+    for (size_t i = 0; i < members->member_count_; ++i) {
+        const auto& member = members->members_[i];
+        total_size += introspect_member_size(member);
+    }
+
+    return total_size;
+}
+
 } // namespace rmw::iox2

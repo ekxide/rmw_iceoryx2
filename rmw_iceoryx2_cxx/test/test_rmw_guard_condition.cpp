@@ -21,28 +21,25 @@
 namespace
 {
 
-class RmwGuardConditionTest : public rmw::iox2::testing::TestBase
+using namespace rmw::iox2::testing;
+
+class RmwGuardConditionTest : public TestBase
 {
     using IceoryxListener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
 
 protected:
     void SetUp() override {
-        init_options = rmw_get_zero_initialized_init_options();
-        ASSERT_RMW_OK(rmw_init_options_init(&init_options, allocator));
-        init_options.instance_id = unique_id;
-        context = rmw_get_zero_initialized_context();
-        ASSERT_RMW_OK(rmw_init(&init_options, &context));
+        initialize_test_context();
     }
 
     void TearDown() override {
-        EXPECT_RMW_OK(rmw_shutdown(&context));
-        EXPECT_RMW_OK(rmw_context_fini(&context));
-        EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
+        cleanup_test_context();
+        print_rmw_errors();
     }
 
     rmw::iox2::NodeImpl& test_node() {
         if (!m_node) {
-            m_node.emplace(test_node_name().c_str());
+            m_node.emplace(names::test_node(test_id()).c_str());
         }
         return m_node.value();
     }
@@ -56,10 +53,6 @@ protected:
 
         return listener;
     };
-
-protected:
-    rmw_init_options_t init_options;
-    rmw_context_t context;
 
 private:
     iox::optional<::rmw::iox2::NodeImpl> m_node;

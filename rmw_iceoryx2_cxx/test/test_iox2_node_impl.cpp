@@ -15,7 +15,9 @@
 namespace
 {
 
-class RmwNodeImplTest : public rmw::iox2::testing::TestBase
+using namespace rmw::iox2::testing;
+
+class RmwNodeImplTest : public TestBase
 {
 protected:
     void SetUp() override {

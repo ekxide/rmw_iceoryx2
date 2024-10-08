@@ -15,6 +15,8 @@
 namespace
 {
 
+using namespace rmw::iox2::testing;
+
 class DummyClass
 {
 public:
@@ -27,13 +29,14 @@ public:
     int value;
 };
 
-class AllocatorHelpersTest : public rmw::iox2::testing::TestBase
+class AllocatorHelpersTest : public TestBase
 {
 protected:
     void SetUp() override {
     }
 
     void TearDown() override {
+        print_rmw_errors();
     }
 };
 

@@ -15,7 +15,9 @@
 namespace
 {
 
-class RmwContextImplTest : public rmw::iox2::testing::TestBase
+using namespace rmw::iox2::testing;
+
+class RmwContextImplTest : public TestBase
 {
 protected:
     void SetUp() override {
@@ -26,7 +28,7 @@ protected:
 };
 
 TEST_F(RmwContextImplTest, construction) {
-    rmw::iox2::ContextImpl context{0};
+    rmw::iox2::ContextImpl context{test_id()};
     ASSERT_TRUE(true);
 }
 

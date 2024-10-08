@@ -9,9 +9,9 @@
 
 #include <gtest/gtest.h>
 
+#include "assertions.hpp"
 #include "iox2/log.hpp"
 #include "rcutils/allocator.h"
-#include "rmw/error_handling.h"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 
 #include <random>
@@ -22,35 +22,56 @@ namespace rmw::iox2::testing
 class TestBase : public ::testing::Test
 {
 protected:
-    TestBase() {
-        allocator = rcutils_get_default_allocator();
-    }
-
     static void SetUpTestSuite() {
         ::iox2::set_log_level(::iox2::LogLevel::DEBUG);
     }
 
-    void SetUp() override {
+    TestBase() {
+        allocator = rcutils_get_default_allocator();
+
         static std::random_device rd;
         static std::mt19937 gen(rd());
         static std::uniform_int_distribution<uint32_t> dis(0, std::numeric_limits<uint32_t>::max());
-        unique_id = dis(gen);
+        m_unique_id = dis(gen);
     }
 
-    void TearDown() override {
+    uint32_t test_id() {
+        return m_unique_id;
+    }
+
+    void initialize_test_context() {
+        init_options = rmw_get_zero_initialized_init_options();
+        ASSERT_RMW_OK(rmw_init_options_init(&init_options, allocator));
+        init_options.instance_id = test_id();
+        context = rmw_get_zero_initialized_context();
+        ASSERT_RMW_OK(rmw_init(&init_options, &context));
+    }
+
+    void cleanup_test_context() {
+        EXPECT_RMW_OK(rmw_shutdown(&context));
+        EXPECT_RMW_OK(rmw_context_fini(&context));
+        EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
+    }
+
+    void print_rmw_errors() {
         auto error_msg = RMW_IOX2_GET_ERROR_MSG();
         if (error_msg != "") {
             std::cerr << error_msg;
         }
     }
 
-    std::string test_node_name() {
-        return std::string("::test_node::" + std::to_string(unique_id));
-    }
-
 protected:
     rcutils_allocator_t allocator;
-    uint32_t unique_id{0}; // avoid collisions between test cases
+    rmw_init_options_t init_options;
+    rmw_context_t context;
+
+private:
+    uint32_t m_unique_id{0}; // avoid collisions between test cases
 };
+
+namespace names
+{
+std::string test_node(uint32_t test_id);
+}
 
 } // namespace rmw::iox2::testing

@@ -67,13 +67,12 @@ rmw_ret_t rmw_destroy_guard_condition(rmw_guard_condition_t* guard_condition) {
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_guard_condition: guard_condition",
                                           guard_condition->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_ERROR);
+                                          return RMW_RET_INVALID_ARGUMENT);
 
     if (guard_condition->data) {
         destruct<GuardConditionImpl>(guard_condition->data);
         deallocate(guard_condition->data);
     }
-
     rmw_guard_condition_free(guard_condition);
 
     return RMW_RET_OK;
@@ -87,7 +86,7 @@ rmw_ret_t rmw_trigger_guard_condition(const rmw_guard_condition_t* guard_conditi
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_trigger_guard_condition: guard_condition",
                                           guard_condition->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_ERROR);
+                                          return RMW_RET_INVALID_ARGUMENT);
 
     rmw_ret_t result = RMW_RET_ERROR;
     unsafe_cast<GuardConditionImpl*>(guard_condition->data).and_then([&result](auto impl) {

@@ -7,19 +7,4 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_ERROR_HPP_
-#define RMW_IOX2_ERROR_HPP_
-
-#include <cstdint>
-
-namespace rmw::iox2
-{
-
-enum class IceoryxError : uint8_t { ERROR };
-enum class MemoryError : uint8_t { ALLOCATION, CONSTRUCTION, CAST };
-enum class LoanError : uint8_t { IOX2_ERROR, INVALID_PAYLOAD };
-enum class PublishError : uint8_t { IOX2_ERROR, INVALID_PAYLOAD };
-
-} // namespace rmw::iox2
-
-#endif
+#include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"

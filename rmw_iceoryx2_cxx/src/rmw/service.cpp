@@ -16,7 +16,7 @@ rmw_service_t* rmw_create_service(const rmw_node_t* node,
                                   const rosidl_service_type_support_t* type_support,
                                   const char* service_name,
                                   const rmw_qos_profile_t* qos_profile) {
-    IOX_UNSUPPORTED();
+    IOX_TODO();
 }
 
 rmw_ret_t rmw_destroy_service(rmw_node_t* node, rmw_service_t* service) {

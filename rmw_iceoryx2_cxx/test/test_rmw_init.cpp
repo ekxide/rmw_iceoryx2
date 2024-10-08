@@ -19,7 +19,9 @@
 namespace
 {
 
-class RmwInitTest : public rmw::iox2::testing::TestBase
+using namespace rmw::iox2::testing;
+
+class RmwInitTest : public TestBase
 {
 protected:
     void SetUp() override {
@@ -28,7 +30,8 @@ protected:
     }
 
     void TearDown() override {
-        // requires manual clean-up since it depends on the test
+        // requires manual clean-up in tests since it depends on the test case
+        print_rmw_errors();
     }
 
     rmw_init_options_t init_options;

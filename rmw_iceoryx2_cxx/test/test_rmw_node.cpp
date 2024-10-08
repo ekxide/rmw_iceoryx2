@@ -17,27 +17,23 @@
 namespace
 {
 
-class RmwNodeTest : public rmw::iox2::testing::TestBase
+using namespace rmw::iox2::testing;
+
+class RmwNodeTest : public TestBase
 {
 protected:
     void SetUp() override {
-        init_options = rmw_get_zero_initialized_init_options();
-        ASSERT_RMW_OK(rmw_init_options_init(&init_options, allocator));
-        context = rmw_get_zero_initialized_context();
-        ASSERT_RMW_OK(rmw_init(&init_options, &context));
+        initialize_test_context();
     }
 
     void TearDown() override {
-        ASSERT_RMW_OK(rmw_shutdown(&context));
-        ASSERT_RMW_OK(rmw_context_fini(&context));
-        ASSERT_RMW_OK(rmw_init_options_fini(&init_options));
+        cleanup_test_context();
+        print_rmw_errors();
     }
 
 protected:
     const char* test_name = "Perception";
     const char* test_namespace = "ADAS";
-    rmw_init_options_t init_options;
-    rmw_context_t context;
 };
 
 TEST_F(RmwNodeTest, create_and_destroy) {

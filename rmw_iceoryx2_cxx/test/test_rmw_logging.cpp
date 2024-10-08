@@ -17,13 +17,16 @@
 namespace
 {
 
-class RmwLoggingTest : public rmw::iox2::testing::TestBase
+using namespace rmw::iox2::testing;
+
+class RmwLoggingTest : public TestBase
 {
 protected:
     void SetUp() override {
     }
 
     void TearDown() override {
+        print_rmw_errors();
     }
 
 protected:

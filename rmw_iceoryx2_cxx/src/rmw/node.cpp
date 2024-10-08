@@ -42,6 +42,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
     using rmw::iox2::allocate;
     using rmw::iox2::allocate_copy;
     using rmw::iox2::construct;
+    using rmw::iox2::NodeImpl;
     namespace names = rmw::iox2::names;
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
@@ -61,29 +62,29 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
 
     auto name_copy = allocate_copy(name);
     if (name_copy.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node name");
         destroy_node_impl(node);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node name");
         return nullptr;
     }
     node->name = name_copy.value();
 
     auto namespace_copy = allocate_copy(namespace_);
     if (namespace_copy.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node namespace");
         destroy_node_impl(node);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node namespace");
         return nullptr;
     }
     node->namespace_ = namespace_copy.value();
 
-    auto ptr = allocate<rmw::iox2::NodeImpl>();
+    auto ptr = allocate<NodeImpl>();
     if (ptr.has_error()) {
         destroy_node_impl(node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for NodeImpl");
         return nullptr;
     }
 
-    if (auto construction = construct<rmw::iox2::NodeImpl>(
-            ptr.value(), names::node(context->instance_id, node->name, node->namespace_).c_str());
+    if (auto construction =
+            construct<NodeImpl>(ptr.value(), names::node(context->instance_id, node->name, node->namespace_).c_str());
         construction.has_error()) {
         destroy_node_impl(node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct NodeImpl");

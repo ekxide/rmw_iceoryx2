@@ -31,8 +31,26 @@ rmw_ret_t rmw_subscription_count_matched_publishers(const rmw_subscription_t* su
     IOX_TODO();
 }
 
-
 rmw_ret_t rmw_subscription_get_actual_qos(const rmw_subscription_t* subscription, rmw_qos_profile_t* qos) {
+    IOX_TODO();
+}
+
+rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
+                                  void** loaned_message,
+                                  bool* taken,
+                                  rmw_subscription_allocation_t* allocation) {
+    IOX_TODO();
+}
+
+rmw_ret_t rmw_take_loaned_message_with_info(const rmw_subscription_t* subscription,
+                                            void** loaned_message,
+                                            bool* taken,
+                                            rmw_message_info_t* message_info,
+                                            rmw_subscription_allocation_t* allocation) {
+    IOX_TODO();
+}
+
+rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* subscription, void* loaned_message) {
     IOX_TODO();
 }
 
@@ -65,7 +83,7 @@ rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* subscription,
                                       rmw_serialized_message_t* serialized_message,
                                       bool* taken,
                                       rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_take_serialized_message_with_info(const rmw_subscription_t* subscription,
@@ -73,34 +91,14 @@ rmw_ret_t rmw_take_serialized_message_with_info(const rmw_subscription_t* subscr
                                                 bool* taken,
                                                 rmw_message_info_t* message_info,
                                                 rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    return RMW_RET_UNSUPPORTED;
 }
-
-rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
-                                  void** loaned_message,
-                                  bool* taken,
-                                  rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
-}
-
-rmw_ret_t rmw_take_loaned_message_with_info(const rmw_subscription_t* subscription,
-                                            void** loaned_message,
-                                            bool* taken,
-                                            rmw_message_info_t* message_info,
-                                            rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
-}
-
-rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* subscription, void* loaned_message) {
-    IOX_TODO();
-}
-
 
 rmw_ret_t rmw_take_dynamic_message(const rmw_subscription_t* subscription,
                                    rosidl_dynamic_typesupport_dynamic_data_t* dynamic_message,
                                    bool* taken,
                                    rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_take_dynamic_message_with_info(const rmw_subscription_t* subscription,
@@ -108,7 +106,7 @@ rmw_ret_t rmw_take_dynamic_message_with_info(const rmw_subscription_t* subscript
                                              bool* taken,
                                              rmw_message_info_t* message_info,
                                              rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_init_subscription_allocation(const rosidl_message_type_support_t* type_support,
