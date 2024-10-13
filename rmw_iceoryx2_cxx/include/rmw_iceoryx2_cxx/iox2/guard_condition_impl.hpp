@@ -26,11 +26,14 @@ class RMW_PUBLIC GuardConditionImpl
 public:
     GuardConditionImpl(NodeImpl& node, const uint32_t context_id, const uint32_t guard_condition_id);
 
-    uint32_t id() const;
-    bool trigger(const iox::optional<size_t>& id = iox::nullopt);
+    auto id() const -> uint32_t;
+    auto service_name() const -> const std::string&;
+    auto trigger(const iox::optional<size_t>& id = iox::nullopt) -> bool;
 
 private:
     const uint32_t m_id;
+    const std::string m_service_name;
+
     iox::optional<IceoryxNotifier> m_notifier;
 };
 

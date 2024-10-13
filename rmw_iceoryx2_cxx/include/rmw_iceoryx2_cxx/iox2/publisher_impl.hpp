@@ -24,7 +24,6 @@
 namespace rmw::iox2
 {
 
-/// TODO: Implement and use iox::Slice to enable dynamically-sized types
 /**
  * @brief Implementation of an RMW publisher using iceoryx2.
  *
@@ -35,6 +34,7 @@ class RMW_PUBLIC PublisherImpl
     using Payload = ::iox::Slice<uint8_t>;
     using Sample = ::iox2::SampleMut<::iox2::ServiceType::Ipc, Payload, void>;
     using IceoryxPublisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, void>;
+    // TODO: IntraPublisher
 
     /**
      * @brief Storage for loaned samples.
@@ -76,17 +76,24 @@ class RMW_PUBLIC PublisherImpl
     };
 
 public:
-    explicit PublisherImpl(NodeImpl& node, const char* topic, const char* type);
+    explicit PublisherImpl(NodeImpl& node, const uint32_t context_id, const char* topic, const char* type);
 
     /**
      * @brief Get the topic name.
      */
-    auto topic() -> const std::string&;
+    auto topic() const -> const std::string&;
 
     /**
      * @brief Get the type name.
      */
-    auto type() -> const std::string&;
+    auto type() const -> const std::string&;
+
+    /**
+     * @brief Get the iceoryx2 service name.
+     *
+     * @return Name of the service representing this subscriber.
+     */
+    auto service_name() const -> const std::string&;
 
     /**
      * @brief Loan memory from iceoryx2 to be populated with data to publish.
@@ -116,8 +123,9 @@ public:
     auto publish(void* loaned_memory) -> iox::expected<void, PublishError>;
 
 private:
-    std::string m_topic;
-    std::string m_type;
+    const std::string m_topic;
+    const std::string m_type;
+    const std::string m_service_name;
 
     iox::optional<IceoryxPublisher> m_publisher;
     SampleRegistry m_registry;

@@ -18,7 +18,7 @@ rmw_context_impl_s::rmw_context_impl_s(const uint32_t id)
     , m_node{NodeImpl(rmw::iox2::names::context(id).c_str())} {
 }
 
-auto rmw_context_impl_s::context_id() -> uint32_t {
+auto rmw_context_impl_s::id() -> uint32_t {
     return m_id;
 }
 

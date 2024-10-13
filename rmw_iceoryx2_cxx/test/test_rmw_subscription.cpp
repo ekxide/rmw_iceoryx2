@@ -11,16 +11,16 @@
 
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
-
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
 namespace
 {
+
 using namespace rmw::iox2::testing;
 
-class RmwSubscriberTest : public TestBase
+class RmwSubscriptionTest : public TestBase
 {
 protected:
     void SetUp() override {
@@ -29,8 +29,8 @@ protected:
     }
 
     void TearDown() override {
-        cleanup_test_context();
         cleanup_test_node();
+        cleanup_test_context();
         print_rmw_errors();
     }
 
@@ -60,7 +60,7 @@ private:
     const char* m_test_topic = "Croak";
 };
 
-TEST_F(RmwSubscriberTest, create_and_destroy) {
+TEST_F(RmwSubscriptionTest, create_and_destroy) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto subscription =

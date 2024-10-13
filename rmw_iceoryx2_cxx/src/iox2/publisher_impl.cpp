@@ -9,17 +9,18 @@
 
 #include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
 #include "iox2/sample_mut_uninit.hpp"
+#include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
 namespace rmw::iox2
 {
 
-PublisherImpl::PublisherImpl(NodeImpl& node, const char* topic, const char* type)
+PublisherImpl::PublisherImpl(NodeImpl& node, const uint32_t context_id, const char* topic, const char* type)
     : m_topic{topic}
-    , m_type{type} {
+    , m_type{type}
+    , m_service_name{::rmw::iox2::names::topic(context_id, topic)} {
     using ::iox2::ServiceName;
 
-    // TODO: make human-readable name
-    auto service_name = ServiceName::create(topic).expect("TODO: propagate");
+    auto service_name = ServiceName::create(m_service_name.c_str()).expect("TODO: propagate");
     auto service = node.as_iox2()
                        .service_builder(service_name)
                        .publish_subscribe<Payload>()
@@ -29,13 +30,18 @@ PublisherImpl::PublisherImpl(NodeImpl& node, const char* topic, const char* type
     m_publisher.emplace(std::move(publisher));
 }
 
-auto PublisherImpl::topic() -> const std::string& {
+auto PublisherImpl::topic() const -> const std::string& {
     return m_topic;
 }
 
-auto PublisherImpl::type() -> const std::string& {
+auto PublisherImpl::type() const -> const std::string& {
     return m_type;
 }
+
+auto PublisherImpl::service_name() const -> const std::string& {
+    return m_service_name;
+}
+
 auto PublisherImpl::loan() -> iox::expected<void*, LoanError> {
     using iox::err;
     using iox::ok;

@@ -8,17 +8,18 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
 namespace rmw::iox2
 {
 
-SubscriberImpl::SubscriberImpl(NodeImpl& node, const char* topic, const char* type)
+SubscriberImpl::SubscriberImpl(NodeImpl& node, const uint32_t context_id, const char* topic, const char* type)
     : m_topic{topic}
-    , m_type{type} {
+    , m_type{type}
+    , m_service_name{::rmw::iox2::names::topic(context_id, topic)} {
     using ::iox2::ServiceName;
 
-    // TODO: make human-readable name
-    auto service_name = ServiceName::create(topic).expect("TODO: propagate");
+    auto service_name = ServiceName::create(m_service_name.c_str()).expect("TODO: propagate");
     auto service = node.as_iox2()
                        .service_builder(service_name)
                        .publish_subscribe<Payload>()
@@ -28,12 +29,16 @@ SubscriberImpl::SubscriberImpl(NodeImpl& node, const char* topic, const char* ty
     m_subscriber.emplace(std::move(subscriber));
 }
 
-auto SubscriberImpl::topic() -> const std::string& {
+auto SubscriberImpl::topic() const -> const std::string& {
     return m_topic;
 }
 
-auto SubscriberImpl::type() -> const std::string& {
+auto SubscriberImpl::type() const -> const std::string& {
     return m_type;
+}
+
+auto SubscriberImpl::service_name() const -> const std::string& {
+    return m_service_name;
 }
 
 auto SubscriberImpl::take_loan() -> iox::optional<Sample> {

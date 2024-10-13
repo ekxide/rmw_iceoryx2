@@ -24,9 +24,12 @@ class RMW_PUBLIC NodeImpl
 public:
     explicit NodeImpl(const std::string& name);
 
+    auto node_name() const -> const std::string&;
+
     auto as_iox2() -> IceoryxNode&;
 
 private:
+    const std::string m_node_name;
     IceoryxNode m_node;
 };
 

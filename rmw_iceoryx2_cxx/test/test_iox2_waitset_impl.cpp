@@ -9,8 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/waitset_impl.hpp"
 #include "testing/base.hpp"
 
 namespace
@@ -18,7 +17,7 @@ namespace
 
 using namespace rmw::iox2::testing;
 
-class RmwGuardConditionImplTest : public TestBase
+class RmwWaitSetImplTest : public TestBase
 {
 protected:
     void SetUp() override {
@@ -28,9 +27,9 @@ protected:
     }
 };
 
-TEST_F(RmwGuardConditionImplTest, construction) {
+TEST_F(RmwWaitSetImplTest, construction) {
     rmw::iox2::ContextImpl context{test_id()};
-    rmw::iox2::GuardConditionImpl guard_condition{context.node(), context.id(), context.next_guard_condition_id()};
+    rmw::iox2::WaitSetImpl waitset{context};
     ASSERT_TRUE(true);
 }
 

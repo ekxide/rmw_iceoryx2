@@ -12,12 +12,19 @@
 namespace rmw::iox2::names
 {
 
+
+// TODO: Better convention for these names...
 std::string context(const uint32_t context_id) {
     return "::ros2::" + std::to_string(context_id) + "::context";
 }
 
 std::string node(const uint32_t context_id, const char* name, const char* ns) {
     auto s = "::ros2::" + std::to_string(context_id) + "::node::" + std ::string(ns) + "::" + std::string(name);
+    return s;
+}
+
+std::string topic(const uint32_t context_id, const char* topic) {
+    auto s = "::ros2::" + std::to_string(context_id) + "::topic::" + std::string(topic);
     return s;
 }
 

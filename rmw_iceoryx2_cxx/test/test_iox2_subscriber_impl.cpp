@@ -31,7 +31,7 @@ protected:
 
 TEST_F(RmwSubscriberImplTest, construction) {
     rmw::iox2::ContextImpl context{test_id()};
-    rmw::iox2::SubscriberImpl publsher{context.node(), "Topic", "Type"};
+    rmw::iox2::SubscriberImpl subscriber{context.node(), context.id(), "Topic", "Type"};
     ASSERT_TRUE(true);
 }
 

@@ -21,6 +21,10 @@ NodeImpl::NodeImpl(const std::string& name)
                  .expect("failed to create iceoryx2 node")} {
 }
 
+auto NodeImpl::node_name() const -> const std::string& {
+    return m_node_name;
+}
+
 auto NodeImpl::as_iox2() -> IceoryxNode& {
     return m_node;
 }

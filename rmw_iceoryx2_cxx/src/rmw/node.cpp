@@ -58,6 +58,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node handle");
         return nullptr;
     }
+    node->context = context;
     node->implementation_identifier = rmw_get_implementation_identifier();
 
     auto name_copy = allocate_copy(name);

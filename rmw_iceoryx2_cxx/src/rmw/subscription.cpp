@@ -14,6 +14,7 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
 
 extern "C" {
@@ -32,6 +33,8 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
     using rmw::iox2::unsafe_cast;
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context, nullptr);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context->impl, nullptr);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, nullptr);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_subscriber: node",
@@ -68,7 +71,11 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for SubscriberImpl");
         return nullptr;
     } else {
-        if (construct<SubscriberImpl>(ptr.value(), *node_impl.value(), topic_name, type_support->typesupport_identifier)
+        if (construct<SubscriberImpl>(ptr.value(),
+                                      *node_impl.value(),
+                                      node->context->impl->id(),
+                                      topic_name,
+                                      type_support->typesupport_identifier)
                 .has_error()) {
             deallocate<SubscriberImpl>(ptr.value());
             rmw_subscription_free(subscription);
