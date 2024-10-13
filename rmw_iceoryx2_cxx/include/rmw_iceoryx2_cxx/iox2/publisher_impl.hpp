@@ -11,7 +11,6 @@
 #define RMW_IOX2_PUBLISHER_IMPL_HPP_
 
 #include "iox/optional.hpp"
-#include "iox/vector.hpp"
 #include "iox2/node.hpp"
 #include "iox2/publisher.hpp"
 #include "iox2/sample_mut.hpp"

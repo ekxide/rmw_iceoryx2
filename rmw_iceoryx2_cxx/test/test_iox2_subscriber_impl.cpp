@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -19,7 +19,7 @@ namespace
 
 using namespace rmw::iox2::testing;
 
-class RmwPublisherImplTest : public TestBase
+class RmwSubscriberImplTest : public TestBase
 {
 protected:
     void SetUp() override {
@@ -29,19 +29,10 @@ protected:
     }
 };
 
-TEST_F(RmwPublisherImplTest, construction) {
+TEST_F(RmwSubscriberImplTest, construction) {
     rmw::iox2::ContextImpl context{test_id()};
-    rmw::iox2::PublisherImpl publsher{context.node(), "Topic", "Type"};
+    rmw::iox2::SubscriberImpl publsher{context.node(), "Topic", "Type"};
     ASSERT_TRUE(true);
 }
-
-// TEST_F(RmwPublisherImplTest, loan_and_return) {
-//     rmw::iox2::ContextImpl context{test_id()};
-//     rmw::iox2::PublisherImpl publisher{context.node(), "Topic", "Type"};
-//
-//     auto loaned_memory = publisher.loan();
-//     EXPECT_FALSE(loaned_memory.has_error());
-//     EXPECT_FALSE(publisher.return_loan(loaned_memory.value()).has_error());
-// }
 
 } // namespace

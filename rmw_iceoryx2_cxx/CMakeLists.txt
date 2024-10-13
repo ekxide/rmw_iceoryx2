@@ -129,6 +129,7 @@ if(BUILD_TESTING)
     test/test_iox2_guard_condition_impl.cpp
     test/test_iox2_node_impl.cpp
     test/test_iox2_publisher_impl.cpp
+    test/test_iox2_subscriber_impl.cpp
     test/test_rmw_allocator_helpers.cpp
     test/test_rmw_graph.cpp
     test/test_rmw_guard_condition.cpp
@@ -136,6 +137,7 @@ if(BUILD_TESTING)
     test/test_rmw_logging.cpp
     test/test_rmw_node.cpp
     test/test_rmw_publisher.cpp
+    test/test_rmw_subscription.cpp
   )
   target_link_libraries(test_rmw_iceoryx2_cxx 
     ${PROJECT_NAME}

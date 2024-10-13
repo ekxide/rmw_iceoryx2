@@ -18,6 +18,7 @@ namespace rmw::iox2
 enum class IceoryxError : uint8_t { ERROR };
 enum class MemoryError : uint8_t { ALLOCATION, CONSTRUCTION, CAST };
 enum class LoanError : uint8_t { IOX2_ERROR, INVALID_PAYLOAD };
+enum class TakeError : uint8_t { IOX2_ERROR };
 enum class PublishError : uint8_t { IOX2_ERROR, INVALID_PAYLOAD };
 
 } // namespace rmw::iox2

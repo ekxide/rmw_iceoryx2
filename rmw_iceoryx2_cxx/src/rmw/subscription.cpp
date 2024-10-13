@@ -12,6 +12,9 @@
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
 
 extern "C" {
 
@@ -20,11 +23,83 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
                                             const char* topic_name,
                                             const rmw_qos_profile_t* qos_policies,
                                             const rmw_subscription_options_t* subscription_options) {
-    IOX_TODO();
+    using rmw::iox2::allocate;
+    using rmw::iox2::allocate_copy;
+    using rmw::iox2::construct;
+    using rmw::iox2::deallocate;
+    using rmw::iox2::NodeImpl;
+    using rmw::iox2::SubscriberImpl;
+    using rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, nullptr);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_subscriber: node",
+                                          node->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return nullptr);
+
+    auto* subscription = rmw_subscription_allocate();
+    if (subscription == nullptr) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocator memoery for rmw_subscription_t");
+        return nullptr;
+    }
+
+    subscription->implementation_identifier = rmw_get_implementation_identifier();
+    subscription->can_loan_messages = true;
+
+    if (auto ptr = allocate_copy(topic_name); ptr.has_error()) {
+        rmw_subscription_free(subscription);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
+        return nullptr;
+    } else {
+        subscription->topic_name = ptr.value();
+    }
+
+    auto node_impl = unsafe_cast<NodeImpl*>(node->data);
+    if (node_impl.has_error()) {
+        rmw_subscription_free(subscription);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve NodeImpl");
+        return nullptr;
+    }
+
+    if (auto ptr = allocate<SubscriberImpl>(); ptr.has_error()) {
+        rmw_subscription_free(subscription);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for SubscriberImpl");
+        return nullptr;
+    } else {
+        if (construct<SubscriberImpl>(ptr.value(), *node_impl.value(), topic_name, type_support->typesupport_identifier)
+                .has_error()) {
+            deallocate<SubscriberImpl>(ptr.value());
+            rmw_subscription_free(subscription);
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct SubscriberImpl");
+            return nullptr;
+        } else {
+            subscription->data = ptr.value();
+        }
+    }
+
+    return subscription;
 }
 
 rmw_ret_t rmw_destroy_subscription(rmw_node_t* node, rmw_subscription_t* subscription) {
-    IOX_TODO();
+    using rmw::iox2::deallocate;
+    using rmw::iox2::destruct;
+    using rmw::iox2::SubscriberImpl;
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_subscription: subscription",
+                                          subscription->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INVALID_ARGUMENT);
+
+    if (subscription->data) {
+        destruct<SubscriberImpl>(subscription->data);
+        deallocate(subscription->data);
+    }
+    rmw_subscription_free(subscription);
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_subscription_count_matched_publishers(const rmw_subscription_t* subscription, size_t* publisher_count) {
