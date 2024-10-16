@@ -13,6 +13,11 @@
 
 extern "C" {
 
+/*
+ *  The basic functionality of events can already be implemented using iceoryx2.
+ *  Delayed as not required for minimal functionality.
+ */
+
 rmw_ret_t
 rmw_publisher_event_init(rmw_event_t* rmw_event, const rmw_publisher_t* publisher, rmw_event_type_t event_type) {
     return RMW_RET_UNSUPPORTED;

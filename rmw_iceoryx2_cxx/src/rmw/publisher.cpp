@@ -142,7 +142,28 @@ rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publi
 rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
                                      void* ros_message,
                                      rmw_publisher_allocation_t* allocation) {
-    IOX_TODO();
+    using rmw::iox2::PublisherImpl;
+    using rmw::iox2::unsafe_cast;
+
+    // TODO: check other args for null
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_borrow_loaned_message: publisher",
+                                          publisher->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_ERROR);
+
+    auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
+    if (publisher_impl.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
+        return RMW_RET_ERROR;
+    }
+
+    if (auto result = publisher_impl.value()->publish(nullptr); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to publish sample");
+        return RMW_RET_ERROR;
+    }
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_publish_serialized_message(const rmw_publisher_t* publisher,

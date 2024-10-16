@@ -23,11 +23,44 @@ WaitSetImpl::WaitSetImpl(ContextImpl& context)
     m_waitset.emplace(std::move(waitset));
 }
 
-auto WaitSetImpl::attach(GuardConditionImpl& guard_condition, Callback callback) -> void {
+auto WaitSetImpl::attach(GuardConditionImpl& guard_condition) -> iox::expected<void, WaitSetError> {
     using ::iox2::ServiceName;
 
+    return attach_listener(guard_condition.service_name());
+}
 
-    auto service_name = guard_condition.service_name();
+auto WaitSetImpl::attach(SubscriberImpl& subscriber) -> iox::expected<void, WaitSetError> {
+    using ::iox2::ServiceName;
+
+    return attach_listener(subscriber.service_name());
+}
+
+auto WaitSetImpl::wait(const Duration& timeout) -> void {
+    using ::iox2::ServiceType;
+    using ::iox2::WaitSetAttachmentId;
+
+    // Timeout is only valid for this call. Will be cleaned up and removed automatically at end of scope.
+    iox::optional<Guard> timeout_guard;
+    iox::optional<AttachmentId> timeout_id;
+    auto on_timeout = [this, &timeout_id](AttachmentId& id) {
+        if (timeout_id && timeout_id.value() == id) {
+            m_waitset->stop();
+        }
+    };
+    if (timeout != Duration::zero()) {
+        timeout_guard.emplace(m_waitset->attach_interval(timeout).expect("TODO: propagate"));
+        timeout_id.emplace(AttachmentId::from_guard(timeout_guard.value()));
+    }
+
+    auto result = m_waitset->wait_and_process([this, &on_timeout](auto id) {
+        on_timeout(id);
+        on_trigger(id);
+    });
+}
+
+auto WaitSetImpl::attach_listener(const std::string& service_name) -> iox::expected<void, WaitSetError> {
+    using ::iox::ok;
+
     if (std::find_if(m_attached_listeners.begin(),
                      m_attached_listeners.end(),
                      [&service_name](const auto& attached) { return attached.service_name == service_name; })
@@ -45,49 +78,25 @@ auto WaitSetImpl::attach(GuardConditionImpl& guard_condition, Callback callback)
         m_attached_listeners.push_back(
             AttachedListener{service_name, std::move(attachment_id), std::move(guard), std::move(listener)});
     }
+
+    return ok();
 }
 
-auto WaitSetImpl::attach(SubscriberImpl& subscriber) -> void {
-}
-
-auto WaitSetImpl::wait(const Duration& timeout) -> void {
-    using ::iox2::ServiceType;
-    using ::iox2::WaitSetAttachmentId;
-
-    auto on_trigger = [this](AttachmentId& id) {
-        auto it = std::find_if(m_attached_listeners.begin(), m_attached_listeners.end(), [&id](const auto& attached) {
-            return attached.id == id;
-        });
-        if (it != m_attached_listeners.end()) {
-            auto& listener = it->listener;
-            if (listener
-                    .try_wait_all([this](auto) {
-                        // TODO: What to do when getting a trigger?
-                        this->m_waitset->stop();
-                    })
-                    .has_error()) {
-                // TODO: Propagate error
-            };
-        }
-    };
-
-    // Timeout is only valid for this call. Will be cleaned up and removed automatically at end of scope.
-    iox::optional<Guard> timeout_guard;
-    iox::optional<AttachmentId> timeout_id;
-    auto on_timeout = [this, &timeout_id](AttachmentId& id) {
-        if (timeout_id && timeout_id.value() == id) {
-            m_waitset->stop();
-        }
-    };
-    if (timeout != Duration::zero()) {
-        timeout_guard.emplace(m_waitset->attach_interval(timeout).expect("TODO: propagate"));
-        timeout_id.emplace(AttachmentId::from_guard(timeout_guard.value()));
-    }
-
-    auto result = m_waitset->wait_and_process([&on_trigger, &on_timeout](auto id) {
-        on_timeout(id);
-        on_trigger(id);
+auto WaitSetImpl::on_trigger(AttachmentId& id) -> void {
+    auto it = std::find_if(m_attached_listeners.begin(), m_attached_listeners.end(), [&id](const auto& attached) {
+        return attached.id == id;
     });
+    if (it != m_attached_listeners.end()) {
+        auto& listener = it->listener;
+        if (listener
+                .try_wait_all([this](auto) {
+                    // TODO: What to do when getting a trigger?
+                    this->m_waitset->stop();
+                })
+                .has_error()) {
+            // TODO: Propagate error
+        };
+    }
 }
 
 } // namespace rmw::iox2

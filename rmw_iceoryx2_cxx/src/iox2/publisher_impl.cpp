@@ -21,13 +21,19 @@ PublisherImpl::PublisherImpl(NodeImpl& node, const uint32_t context_id, const ch
     using ::iox2::ServiceName;
 
     auto service_name = ServiceName::create(m_service_name.c_str()).expect("TODO: propagate");
-    auto service = node.as_iox2()
-                       .service_builder(service_name)
-                       .publish_subscribe<Payload>()
-                       .open_or_create()
-                       .expect("TODO: propagate");
-    auto publisher = service.publisher_builder().create().expect("TODO: propagate");
+    auto payload_service = node.as_iox2()
+                               .service_builder(service_name)
+                               .publish_subscribe<Payload>()
+                               .open_or_create()
+                               .expect("TODO: propagate");
+    auto publisher = payload_service.publisher_builder().create().expect("TODO: propagate");
     m_publisher.emplace(std::move(publisher));
+
+
+    auto event_service =
+        node.as_iox2().service_builder(service_name).event().open_or_create().expect("TODO: propagate");
+    auto notifier = event_service.notifier_builder().create().expect("TODO: propagate");
+    m_notifier.emplace(std::move(notifier));
 }
 
 auto PublisherImpl::topic() const -> const std::string& {
@@ -66,6 +72,11 @@ auto PublisherImpl::return_loan(void* loaned_memory) -> iox::expected<void, Loan
 auto PublisherImpl::publish(void* loaned_memory) -> iox::expected<void, PublishError> {
     using iox::err;
     using iox::ok;
+
+    // TODO: send payload
+
+    m_notifier->notify().expect("TODO: propagate");
+
     return ok();
 }
 

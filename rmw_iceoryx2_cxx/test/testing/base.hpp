@@ -12,7 +12,9 @@
 #include "assertions.hpp"
 #include "iox2/log.hpp"
 #include "rcutils/allocator.h"
+#include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rosidl_typesupport_cpp/message_type_support.hpp"
 
 #include <random>
 
@@ -39,12 +41,33 @@ protected:
         return m_unique_id;
     }
 
+    rmw_node_t* test_node() {
+        return m_test_node;
+    }
+
+    const char* test_topic() {
+        return m_test_topic;
+    }
+
+    template <typename MessageT>
+    const rosidl_message_type_support_t* test_type_support() {
+        return rosidl_typesupport_cpp::get_message_type_support_handle<MessageT>();
+    }
+
     void initialize_test_context() {
         init_options = rmw_get_zero_initialized_init_options();
         ASSERT_RMW_OK(rmw_init_options_init(&init_options, allocator));
         init_options.instance_id = test_id();
         context = rmw_get_zero_initialized_context();
         ASSERT_RMW_OK(rmw_init(&init_options, &context));
+    }
+
+    void initialize_test_node() {
+        m_test_node = rmw_create_node(&context, "HypnoToad", "GloryTo");
+    }
+
+    void cleanup_test_node() {
+        EXPECT_RMW_OK(rmw_destroy_node(m_test_node));
     }
 
     void cleanup_test_context() {
@@ -64,6 +87,8 @@ protected:
     rcutils_allocator_t allocator;
     rmw_init_options_t init_options;
     rmw_context_t context;
+    rmw_node_t* m_test_node;
+    const char* m_test_topic = "Croak";
 
 private:
     uint32_t m_unique_id{0}; // avoid collisions between test cases

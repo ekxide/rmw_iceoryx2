@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -79,6 +80,13 @@ TEST_F(RmwWaitSetTest, wakes_up_on_guard_condition_trigger) {
 
     ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
     ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
+}
+
+TEST_F(RmwWaitSetTest, wakes_up_on_message_sent_to_subscriber) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    // create publisher
+    auto publisher = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
 }
 
 } // namespace

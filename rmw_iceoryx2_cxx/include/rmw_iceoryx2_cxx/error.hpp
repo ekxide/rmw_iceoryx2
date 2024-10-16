@@ -15,11 +15,13 @@
 namespace rmw::iox2
 {
 
+// TODO: Revise and consolidate once distinct errors are known.
 enum class IceoryxError : uint8_t { ERROR };
 enum class MemoryError : uint8_t { ALLOCATION, CONSTRUCTION, CAST };
 enum class LoanError : uint8_t { IOX2_ERROR, INVALID_PAYLOAD };
 enum class TakeError : uint8_t { IOX2_ERROR };
 enum class PublishError : uint8_t { IOX2_ERROR, INVALID_PAYLOAD };
+enum class WaitSetError : uint8_t { IOX2_ERROR };
 
 } // namespace rmw::iox2
 

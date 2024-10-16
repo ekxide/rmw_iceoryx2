@@ -33,31 +33,6 @@ protected:
         cleanup_test_context();
         print_rmw_errors();
     }
-
-    void initialize_test_node() {
-        m_test_node = rmw_create_node(&context, "HypnoToad", "GloryTo");
-    }
-
-    void cleanup_test_node() {
-        EXPECT_RMW_OK(rmw_destroy_node(m_test_node));
-    }
-
-    rmw_node_t* test_node() {
-        return m_test_node;
-    }
-
-    template <typename MessageT>
-    const rosidl_message_type_support_t* test_type_support() {
-        return rosidl_typesupport_cpp::get_message_type_support_handle<MessageT>();
-    }
-
-    const char* test_topic() {
-        return m_test_topic;
-    }
-
-private:
-    rmw_node_t* m_test_node;
-    const char* m_test_topic = "Croak";
 };
 
 TEST_F(RmwPublisherTest, create_and_destroy) {

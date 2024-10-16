@@ -15,6 +15,7 @@
 #include "iox2/listener.hpp"
 #include "iox2/waitset.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
@@ -38,7 +39,6 @@ class RMW_PUBLIC WaitSetImpl
     // TODO: Remove use of std. Current solution is only for prototyping.
     using Callback = std::function<void(void)>;
 
-
 public:
     /**
      * @brief The iceoryx2 implementation of a WaitSet.
@@ -48,9 +48,13 @@ public:
     WaitSetImpl(ContextImpl& context);
 
     // TODO: Don't pass callback by value
-    auto attach(GuardConditionImpl& guard_condition, Callback callback = []() {}) -> void;
-    auto attach(SubscriberImpl& subscriber) -> void;
+    auto attach(GuardConditionImpl& guard_condition) -> iox::expected<void, WaitSetError>;
+    auto attach(SubscriberImpl& subscriber) -> iox::expected<void, WaitSetError>;
     auto wait(const Duration& timeout = iox::units::Duration::fromSeconds(0)) -> void;
+
+private:
+    auto attach_listener(const std::string& service_name) -> iox::expected<void, WaitSetError>;
+    auto on_trigger(AttachmentId& id) -> void;
 
 private:
     ContextImpl& m_context;

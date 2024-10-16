@@ -78,10 +78,11 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
                    rmw_guard_conditions_t* guard_conditions,
                    rmw_services_t* /* NOT SUPPORTED */,
                    rmw_clients_t* /* NOT SUPPORTED */,
-                   rmw_events_t* events,
+                   rmw_events_t* /* NOT SUPPORTED */,
                    rmw_wait_set_t* wait_set,
                    const rmw_time_t* wait_timeout) {
     using rmw::iox2::GuardConditionImpl;
+    using rmw::iox2::SubscriberImpl;
     using rmw::iox2::unsafe_cast;
     using rmw::iox2::WaitSetImpl;
 
@@ -102,14 +103,29 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     if (guard_conditions) {
         for (size_t i = 0; i < guard_conditions->guard_condition_count; i++) {
             auto guard_condition = static_cast<const rmw_guard_condition_t*>(guard_conditions->guard_conditions[i]);
-            if (auto result = unsafe_cast<GuardConditionImpl*>(guard_condition->data); !result.has_error()) {
-                waitset_impl->attach(*result.value());
+            auto guard_condition_impl = unsafe_cast<GuardConditionImpl*>(guard_condition->data);
+            if (guard_condition_impl.has_error()) {
+                // TODO: handle error
+            }
+            if (auto result = waitset_impl->attach(*guard_condition_impl.value()); result.has_error()) {
+                // TODO: handle error
             }
         }
     }
 
-    // TODO: Attach all subscriptions to waitset
-    // TODO: Attach all events to waitset
+    // Attach all subscriptions to waitset
+    if (subscriptions) {
+        for (size_t i = 0; i < subscriptions->subscriber_count; i++) {
+            auto subscriber = static_cast<const rmw_guard_condition_t*>(subscriptions->subscribers[i]);
+            auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscriber->data);
+            if (subscriber_impl.has_error()) {
+                // TODO: handle error
+            }
+            if (auto result = waitset_impl->attach(*subscriber_impl.value()); result.has_error()) {
+                // TODO: handle error
+            }
+        }
+    }
 
     // Wait and process
     auto secs = iox::units::Duration::fromSeconds(wait_timeout->sec);

@@ -11,6 +11,7 @@
 #define RMW_IOX2_PUBLISHER_IMPL_HPP_
 
 #include "iox/optional.hpp"
+#include "iox/slice.hpp"
 #include "iox2/node.hpp"
 #include "iox2/publisher.hpp"
 #include "iox2/sample_mut.hpp"
@@ -33,6 +34,7 @@ class RMW_PUBLIC PublisherImpl
 {
     using Payload = ::iox::Slice<uint8_t>;
     using Sample = ::iox2::SampleMut<::iox2::ServiceType::Ipc, Payload, void>;
+    using IceoryxNotifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
     using IceoryxPublisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, void>;
     // TODO: IntraPublisher
 
@@ -127,6 +129,7 @@ private:
     const std::string m_type;
     const std::string m_service_name;
 
+    iox::optional<IceoryxNotifier> m_notifier;
     iox::optional<IceoryxPublisher> m_publisher;
     SampleRegistry m_registry;
 };
