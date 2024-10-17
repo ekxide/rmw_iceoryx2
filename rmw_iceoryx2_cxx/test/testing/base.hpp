@@ -35,6 +35,8 @@ protected:
         static std::mt19937 gen(rd());
         static std::uniform_int_distribution<uint32_t> dis(0, std::numeric_limits<uint32_t>::max());
         m_unique_id = dis(gen);
+
+        m_test_topic = std::to_string(m_unique_id);
     }
 
     uint32_t test_id() {
@@ -46,7 +48,7 @@ protected:
     }
 
     const char* test_topic() {
-        return m_test_topic;
+        return m_test_topic.c_str();
     }
 
     template <typename MessageT>
@@ -63,7 +65,7 @@ protected:
     }
 
     void initialize_test_node() {
-        m_test_node = rmw_create_node(&context, "HypnoToad", "GloryTo");
+        m_test_node = rmw_create_node(&context, std::to_string(m_unique_id).c_str(), "TestNode");
     }
 
     void cleanup_test_node() {
@@ -88,7 +90,7 @@ protected:
     rmw_init_options_t init_options;
     rmw_context_t context;
     rmw_node_t* m_test_node;
-    const char* m_test_topic = "Croak";
+    std::string m_test_topic;
 
 private:
     uint32_t m_unique_id{0}; // avoid collisions between test cases

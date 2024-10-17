@@ -23,7 +23,7 @@ SubscriberImpl::SubscriberImpl(NodeImpl& node, const uint32_t context_id, const 
     auto service = node.as_iox2()
                        .service_builder(service_name)
                        .publish_subscribe<Payload>()
-                       .payload_alignment(alignof(std::max_align_t)) // TODO: How to provide the correct alignment?
+                       .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                        .open_or_create()
                        .expect("TODO: propagate");
     auto subscriber = service.subscriber_builder().create().expect("TODO: propagate");
@@ -42,12 +42,29 @@ auto SubscriberImpl::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto SubscriberImpl::take_loan() -> iox::optional<Sample> {
-    return iox::nullopt;
+auto SubscriberImpl::take() -> iox::expected<iox::optional<const void*>, LoanError> {
+    using iox::err;
+    using iox::nullopt;
+    using iox::ok;
+    using iox::optional;
+
+    auto result = m_subscriber->receive();
+    if (result.has_error()) {
+        return err(LoanError::FAILED_TO_LOAN);
+    }
+    auto sample = std::move(result.value());
+
+    if (sample.has_value()) {
+        auto ptr = sample.value().payload_slice().data();
+        m_registry.store(std::move(sample.value()));
+        return ok(optional<const void*>(ptr));
+    } else {
+        return ok(optional<const void*>{nullopt});
+    }
 }
 
-auto SubscriberImpl::take_copy() -> iox::optional<Payload> {
-    return iox::nullopt;
+auto SubscriberImpl::return_loan(void* loaned_memory) -> iox::expected<void, LoanError> {
+    return m_registry.release(static_cast<uint8_t*>(loaned_memory));
 }
 
 } // namespace rmw::iox2

@@ -33,10 +33,6 @@ bool is_trivially_copyable(const rosidl_typesupport_introspection_cpp::MessageMe
 bool is_trivially_copyable(const rosidl_message_type_support_t* type_support);
 size_t message_size(const rosidl_message_type_support_t* type_support);
 
-// TODO: Clean-up when usage is clear. Probably needed to set worst-case message size when using slice.
-constexpr size_t introspect_message_size(const rosidl_message_type_support_t* ts);
-constexpr size_t introspect_member_size(const rosidl_typesupport_introspection_cpp::MessageMember& member);
-
 } // namespace rmw::iox2
 
 #endif // RMW_IOX2_INTROSPECTION_MESSAGE_HPP_

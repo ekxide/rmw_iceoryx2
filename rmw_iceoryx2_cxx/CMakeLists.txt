@@ -130,6 +130,7 @@ if(BUILD_TESTING)
     test/test_iox2_guard_condition_impl.cpp
     test/test_iox2_node_impl.cpp
     test/test_iox2_publisher_impl.cpp
+    test/test_iox2_sample_registry.cpp
     test/test_iox2_subscriber_impl.cpp
     test/test_iox2_waitset_impl.cpp
     test/test_rmw_allocator_helpers.cpp
@@ -140,6 +141,7 @@ if(BUILD_TESTING)
     test/test_rmw_node.cpp
     test/test_rmw_publisher.cpp
     test/test_rmw_subscription.cpp
+    test/test_rmw_publish_subscribe.cpp
     test/test_rmw_waitset.cpp
   )
   target_link_libraries(test_rmw_iceoryx2_cxx 

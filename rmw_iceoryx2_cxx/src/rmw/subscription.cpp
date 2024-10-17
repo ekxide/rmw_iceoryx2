@@ -121,7 +121,39 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
                                   void** loaned_message,
                                   bool* taken,
                                   rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    using rmw::iox2::SubscriberImpl;
+    using rmw::iox2::unsafe_cast;
+
+    (void)allocation; // not used
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_loaned_message: subscription",
+                                          subscription->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INVALID_ARGUMENT);
+
+    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
+    if (subscriber_impl.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
+        return RMW_RET_ERROR;
+    }
+
+    auto loan = subscriber_impl.value()->take();
+    if (loan.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
+        return RMW_RET_ERROR;
+    }
+
+    auto sample = std::move(loan.value());
+    if (sample.has_value()) {
+        *loaned_message = const_cast<void*>(sample.value()); // const cast forced by RMW API
+        *taken = true;
+    } else {
+        *taken = false;
+    }
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_take_loaned_message_with_info(const rmw_subscription_t* subscription,
@@ -129,10 +161,42 @@ rmw_ret_t rmw_take_loaned_message_with_info(const rmw_subscription_t* subscripti
                                             bool* taken,
                                             rmw_message_info_t* message_info,
                                             rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    (void)message_info; // TODO: support this
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_loaned_message_with_info: subscription",
+                                          subscription->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INVALID_ARGUMENT);
+
+    return rmw_take_loaned_message(subscription, loaned_message, taken, allocation);
 }
 
 rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* subscription, void* loaned_message) {
+    using rmw::iox2::SubscriberImpl;
+    using rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_return_loaned_message_from_subscription: subscription",
+                                          subscription->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_ERROR);
+
+    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
+    if (subscriber_impl.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
+        return RMW_RET_ERROR;
+    }
+
+    if (auto result = subscriber_impl.value()->return_loan(loaned_message); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned message to publisher");
+        return RMW_RET_ERROR;
+    }
+
+    return RMW_RET_OK;
+
     IOX_TODO();
 }
 
@@ -148,7 +212,16 @@ rmw_ret_t rmw_take_with_info(const rmw_subscription_t* subscription,
                              bool* taken,
                              rmw_message_info_t* message_info,
                              rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    (void)message_info; // TODO: support this
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_with_info: subscription",
+                                          subscription->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INVALID_ARGUMENT);
+
+    return rmw_take(subscription, ros_message, taken, allocation);
 }
 
 

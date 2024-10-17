@@ -19,8 +19,8 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/sample_registry.hpp"
 
-#include <unordered_map>
 
 namespace rmw::iox2
 {
@@ -34,48 +34,10 @@ class RMW_PUBLIC PublisherImpl
 {
     using Payload = ::iox::Slice<uint8_t>;
     using Sample = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, void>;
+    using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
     using IceoryxNotifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
     using IceoryxPublisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, void>;
     // TODO: IntraPublisher
-
-    /**
-     * @brief Storage for loaned samples.
-     *
-     * Samples loaned from iceoryx2 must be retained until being published.
-     * This struct stores samples, organized by the address of their payloads. This is because
-     * this is the addressed that will be provided to the upper ROS layers to write the payload,
-     * and then provided back to the RMW to execute the publish.
-     */
-    class SampleRegistry
-    {
-    public:
-        auto store(Sample&& sample) -> void {
-            m_samples.emplace(sample.payload_slice_mut().data(), std::move(sample));
-        }
-        auto retrieve(void* loaned_memory) -> iox::optional<Sample*> {
-            using iox::nullopt;
-
-            auto it = m_samples.find(loaned_memory);
-            if (it != m_samples.end()) {
-                return &(it->second);
-            }
-            return nullopt;
-        }
-        auto release(void* loaned_memory) -> iox::expected<void, LoanError> {
-            using iox::err;
-            using iox::ok;
-
-            auto it = m_samples.find(loaned_memory);
-            if (it == m_samples.end()) {
-                return err(LoanError::INVALID_PAYLOAD);
-            }
-            m_samples.erase(it);
-            return ok();
-        }
-
-    private:
-        std::unordered_map<const void*, Sample> m_samples;
-    };
 
 public:
     explicit PublisherImpl(
@@ -118,6 +80,7 @@ public:
 
     /**
      * @brief Publish memory previously loaned by this publisher.
+     * @details The loaned memory is automatically released on successful publish.
      *
      * @param ros_message Pointer to the beginning of the loaned memory
      *
@@ -129,7 +92,7 @@ private:
     const std::string m_topic;
     const std::string m_type;
     const std::string m_service_name;
-    const uint64_t m_size;
+    const uint64_t m_payload_size;
 
     iox::optional<IceoryxNotifier> m_notifier;
     iox::optional<IceoryxPublisher> m_publisher;

@@ -17,6 +17,7 @@
 #include "iox2/subscriber.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/sample_registry.hpp"
 
 namespace rmw::iox2
 {
@@ -25,6 +26,7 @@ class RMW_PUBLIC SubscriberImpl
 {
     using Payload = ::iox::Slice<uint8_t>;
     using Sample = ::iox2::Sample<::iox2::ServiceType::Ipc, Payload, void>;
+    using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
     using IceoryxSubscriber = ::iox2::Subscriber<::iox2::ServiceType::Ipc, Payload, void>;
     // TODO: IntraSubscriber
 
@@ -51,16 +53,11 @@ public:
     /**
      * @brief Take a loan to the next sample in shared memory.
      *
-     * @return Empty optional if no data available
+     * @return Empty optional if no samples available
      */
-    auto take_loan() -> iox::optional<Sample>;
+    auto take() -> iox::expected<iox::optional<const void*>, LoanError>;
 
-    /**
-     * @brief Take a copy of the next sample's payload.
-     *
-     * @return Empty optional if no data available
-     */
-    auto take_copy() -> iox::optional<Payload>;
+    auto return_loan(void* loaned_memory) -> iox::expected<void, LoanError>;
 
 private:
     const std::string m_topic;
@@ -68,6 +65,7 @@ private:
     const std::string m_service_name;
 
     iox::optional<IceoryxSubscriber> m_subscriber;
+    SampleRegistry m_registry;
 };
 
 } // namespace rmw::iox2

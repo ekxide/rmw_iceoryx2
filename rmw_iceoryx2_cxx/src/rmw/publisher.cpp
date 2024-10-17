@@ -128,6 +128,7 @@ rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* publisher,
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher->data, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_borrow_loaned_message: publisher",
                                           publisher->implementation_identifier,
                                           rmw_get_implementation_identifier(),
@@ -155,7 +156,7 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* publis
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_borrow_loaned_message: publisher",
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_return_loaned_message_from_publisher: publisher",
                                           publisher->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_ERROR);
@@ -183,11 +184,12 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
                                      void* ros_message,
                                      rmw_publisher_allocation_t* allocation) {
     using rmw::iox2::PublisherImpl;
+    using rmw::iox2::PublishError;
     using rmw::iox2::unsafe_cast;
 
-    // TODO: check other args for null
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_borrow_loaned_message: publisher",
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_publish_loaned_message: publisher",
                                           publisher->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_ERROR);
@@ -198,8 +200,13 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
         return RMW_RET_ERROR;
     }
 
-    if (auto result = publisher_impl.value()->publish(nullptr); result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to publish sample");
+    if (auto result = publisher_impl.value()->publish(ros_message); result.has_error()) {
+        switch (result.error()) {
+        case PublishError::INVALID_PAYLOAD:
+            RMW_IOX2_CHAIN_ERROR_MSG("attempted to publish a sample that was not loaned");
+        case PublishError::FAILED_TO_SEND:
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to send sample");
+        }
         return RMW_RET_ERROR;
     }
 
