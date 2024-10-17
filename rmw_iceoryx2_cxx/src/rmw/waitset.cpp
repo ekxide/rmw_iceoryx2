@@ -95,6 +95,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
 
     auto ptr = unsafe_cast<WaitSetImpl*>(wait_set->data);
     if (ptr.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve WaitSetImpl");
         return RMW_RET_ERROR;
     }
     auto waitset_impl = ptr.value();
@@ -105,10 +106,14 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
             auto guard_condition = static_cast<const rmw_guard_condition_t*>(guard_conditions->guard_conditions[i]);
             auto guard_condition_impl = unsafe_cast<GuardConditionImpl*>(guard_condition->data);
             if (guard_condition_impl.has_error()) {
-                // TODO: handle error
+                // TODO: maybe detach previously attached elements? Detach all?
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardConditionImpl");
+                return RMW_RET_ERROR;
             }
             if (auto result = waitset_impl->attach(*guard_condition_impl.value()); result.has_error()) {
-                // TODO: handle error
+                // TODO: maybe detach previously attached elements? Detach all?
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardConditionImpl to WaitSetImpl");
+                return RMW_RET_ERROR;
             }
         }
     }
@@ -119,10 +124,14 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
             auto subscriber = static_cast<const rmw_guard_condition_t*>(subscriptions->subscribers[i]);
             auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscriber->data);
             if (subscriber_impl.has_error()) {
-                // TODO: handle error
+                // TODO: maybe detach previously attached elements? Detach all?
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
+                return RMW_RET_ERROR;
             }
             if (auto result = waitset_impl->attach(*subscriber_impl.value()); result.has_error()) {
-                // TODO: handle error
+                // TODO: maybe detach previously attached elements? Detach all?
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach SubscriberImpl to WaitSetImpl");
+                return RMW_RET_ERROR;
             }
         }
     }

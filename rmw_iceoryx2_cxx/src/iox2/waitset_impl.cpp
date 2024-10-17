@@ -8,7 +8,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/iox2/waitset_impl.hpp"
-#include "iox2/service_name.hpp"
 #include "iox2/waitset.hpp"
 
 namespace rmw::iox2
@@ -24,14 +23,10 @@ WaitSetImpl::WaitSetImpl(ContextImpl& context)
 }
 
 auto WaitSetImpl::attach(GuardConditionImpl& guard_condition) -> iox::expected<void, WaitSetError> {
-    using ::iox2::ServiceName;
-
     return attach_listener(guard_condition.service_name());
 }
 
 auto WaitSetImpl::attach(SubscriberImpl& subscriber) -> iox::expected<void, WaitSetError> {
-    using ::iox2::ServiceName;
-
     return attach_listener(subscriber.service_name());
 }
 

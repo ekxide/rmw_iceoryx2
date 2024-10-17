@@ -59,26 +59,31 @@ TEST_F(RmwWaitSetTest, wait_with_timeout) {
 TEST_F(RmwWaitSetTest, wakes_up_on_guard_condition_trigger) {
     // create a guard condition
     auto guard_condition = rmw_create_guard_condition(&context);
-    auto guard_conditions_array = static_cast<rmw_guard_condition_t**>(rmw_allocate(sizeof(rmw_guard_condition_t)));
-    guard_conditions_array[0] = guard_condition;
+    auto guard_condition_array = static_cast<rmw_guard_condition_t**>(rmw_allocate(sizeof(rmw_guard_condition_t)));
+    guard_condition_array[0] = guard_condition;
 
     // create the guard condition collection struct
     auto guard_conditions = static_cast<rmw_guard_conditions_t*>(rmw_allocate(sizeof(rmw_guard_conditions_t)));
     *guard_conditions = rmw_guard_conditions_t{};
-    guard_conditions->guard_conditions = reinterpret_cast<void**>(guard_conditions_array);
+    guard_conditions->guard_conditions = reinterpret_cast<void**>(guard_condition_array);
     guard_conditions->guard_condition_count = 1;
 
-    // wait on the guard condition
+    // create a waitset
     auto waitset = rmw_create_wait_set(&context, 0);
 
-    // trigger guard condition
+    // trigger guard condition after delay
     std::thread([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         ASSERT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
     }).detach();
 
+    // wait on the waitset
     auto timeout = rmw_time_t{0, 0}; // no timeout, stalling test indicates a bug, could be done better..
     ASSERT_RMW_OK(rmw_wait(nullptr, guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout));
+
+    // clean up
+    rmw_free(guard_condition_array);
+    rmw_free(guard_conditions);
 
     ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
     ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
@@ -89,6 +94,42 @@ TEST_F(RmwWaitSetTest, wakes_up_on_message_sent_to_subscriber) {
 
     // create publisher
     auto publisher = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+
+    // create_subscription
+    auto subscription =
+        rmw_create_subscription(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+    auto subscription_array = static_cast<rmw_subscription_t**>(rmw_allocate(sizeof(rmw_subscription_t)));
+    subscription_array[0] = subscription;
+
+    // create the subscription collection struct
+    auto subscriptions = static_cast<rmw_subscriptions_t*>(rmw_allocate(sizeof(rmw_subscriptions_t)));
+    *subscriptions = rmw_subscriptions_t{};
+    subscriptions->subscribers = reinterpret_cast<void**>(subscription_array);
+    subscriptions->subscriber_count = 1;
+
+    // create a waitset
+    auto waitset = rmw_create_wait_set(&context, 0);
+
+    // publish to subscription after delay
+    std::thread([&]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        void* publisher_loan = nullptr;
+        EXPECT_RMW_OK(rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &publisher_loan));
+        new (publisher_loan) Defaults{};
+        EXPECT_RMW_OK(rmw_publish_loaned_message(publisher, publisher_loan, nullptr));
+    }).detach();
+
+    // wait on the waitset
+    auto timeout = rmw_time_t{0, 0}; // no timeout, stalling test indicates a bug, could be done better..
+    ASSERT_RMW_OK(rmw_wait(subscriptions, nullptr, nullptr, nullptr, nullptr, waitset, &timeout));
+
+    // clean up
+    rmw_free(subscription_array);
+    rmw_free(subscriptions);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
 }
 
 } // namespace
