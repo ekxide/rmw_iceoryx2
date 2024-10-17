@@ -55,6 +55,7 @@ add_library(${PROJECT_NAME} SHARED
   src/iox2/waitset_impl.cpp
   src/rmw/client.cpp
   src/rmw/event.cpp
+  src/rmw/feature.cpp
   src/rmw/graph.cpp
   src/rmw/guard_condition.cpp
   src/rmw/identifier.cpp
