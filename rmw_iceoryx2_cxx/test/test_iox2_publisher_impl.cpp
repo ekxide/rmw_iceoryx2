@@ -31,7 +31,7 @@ protected:
 
 TEST_F(RmwPublisherImplTest, construction) {
     rmw::iox2::ContextImpl context{test_id()};
-    rmw::iox2::PublisherImpl publsher{context.node(), context.id(), "Topic", "Type"};
+    rmw::iox2::PublisherImpl publsher{context.node(), context.id(), "Topic", "Type", 8};
     ASSERT_TRUE(true);
 }
 

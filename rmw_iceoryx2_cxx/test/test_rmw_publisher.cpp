@@ -49,16 +49,16 @@ TEST_F(RmwPublisherTest, create_and_destroy) {
     ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
 }
 
-// TEST_F(RmwPublisherTest, borrow_and_return) {
-//     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
-//
-//     auto publisher = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr,
-//     nullptr); auto loaned_message = nullptr;
-//
-//     EXPECT_RMW_OK(rmw_borrow_loaned_message(publisher, test_type_support(), loaned_message));
-//     EXPECT_RMW_OK(rmw_return_loaned_message_from_publisher(publisher, loaned_message));
-//
-//     ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
-// }
+TEST_F(RmwPublisherTest, borrow_and_return) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto publisher = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+    void* loaned_message = nullptr;
+
+    EXPECT_RMW_OK(rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &loaned_message));
+    EXPECT_RMW_OK(rmw_return_loaned_message_from_publisher(publisher, loaned_message));
+
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
+}
 
 } // namespace

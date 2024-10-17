@@ -26,8 +26,10 @@ class RmwWaitSetTest : public TestBase
 protected:
     void SetUp() override {
         initialize_test_context();
+        initialize_test_node();
     }
     void TearDown() override {
+        cleanup_test_node();
         cleanup_test_context();
         print_rmw_errors();
     }

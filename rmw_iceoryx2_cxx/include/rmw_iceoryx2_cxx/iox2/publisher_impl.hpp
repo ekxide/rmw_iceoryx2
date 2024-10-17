@@ -14,7 +14,7 @@
 #include "iox/slice.hpp"
 #include "iox2/node.hpp"
 #include "iox2/publisher.hpp"
-#include "iox2/sample_mut.hpp"
+#include "iox2/sample_mut_uninit.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/error.hpp"
@@ -33,7 +33,7 @@ namespace rmw::iox2
 class RMW_PUBLIC PublisherImpl
 {
     using Payload = ::iox::Slice<uint8_t>;
-    using Sample = ::iox2::SampleMut<::iox2::ServiceType::Ipc, Payload, void>;
+    using Sample = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, void>;
     using IceoryxNotifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
     using IceoryxPublisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, void>;
     // TODO: IntraPublisher
@@ -50,7 +50,7 @@ class RMW_PUBLIC PublisherImpl
     {
     public:
         auto store(Sample&& sample) -> void {
-            m_samples.emplace(sample.payload_mut().begin(), std::move(sample));
+            m_samples.emplace(sample.payload_slice_mut().data(), std::move(sample));
         }
         auto retrieve(void* loaned_memory) -> iox::optional<Sample*> {
             using iox::nullopt;
@@ -78,7 +78,8 @@ class RMW_PUBLIC PublisherImpl
     };
 
 public:
-    explicit PublisherImpl(NodeImpl& node, const uint32_t context_id, const char* topic, const char* type);
+    explicit PublisherImpl(
+        NodeImpl& node, const uint32_t context_id, const char* topic, const char* type, const uint64_t size);
 
     /**
      * @brief Get the topic name.
@@ -128,6 +129,7 @@ private:
     const std::string m_topic;
     const std::string m_type;
     const std::string m_service_name;
+    const uint64_t m_size;
 
     iox::optional<IceoryxNotifier> m_notifier;
     iox::optional<IceoryxPublisher> m_publisher;

@@ -23,6 +23,7 @@ SubscriberImpl::SubscriberImpl(NodeImpl& node, const uint32_t context_id, const 
     auto service = node.as_iox2()
                        .service_builder(service_name)
                        .publish_subscribe<Payload>()
+                       .payload_alignment(alignof(std::max_align_t)) // TODO: How to provide the correct alignment?
                        .open_or_create()
                        .expect("TODO: propagate");
     auto subscriber = service.subscriber_builder().create().expect("TODO: propagate");

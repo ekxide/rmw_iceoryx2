@@ -8,27 +8,31 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
+#include "iox/memory.hpp"
 #include "iox2/sample_mut_uninit.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
+#include <cstddef>
 
 namespace rmw::iox2
 {
 
-PublisherImpl::PublisherImpl(NodeImpl& node, const uint32_t context_id, const char* topic, const char* type)
+PublisherImpl::PublisherImpl(
+    NodeImpl& node, const uint32_t context_id, const char* topic, const char* type, const uint64_t size)
     : m_topic{topic}
     , m_type{type}
-    , m_service_name{::rmw::iox2::names::topic(context_id, topic)} {
+    , m_service_name{::rmw::iox2::names::topic(context_id, topic)}
+    , m_size{size} {
     using ::iox2::ServiceName;
 
     auto service_name = ServiceName::create(m_service_name.c_str()).expect("TODO: propagate");
     auto payload_service = node.as_iox2()
                                .service_builder(service_name)
                                .publish_subscribe<Payload>()
+                               .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                .open_or_create()
                                .expect("TODO: propagate");
-    auto publisher = payload_service.publisher_builder().create().expect("TODO: propagate");
+    auto publisher = payload_service.publisher_builder().max_slice_len(size).create().expect("TODO: propagate");
     m_publisher.emplace(std::move(publisher));
-
 
     auto event_service =
         node.as_iox2().service_builder(service_name).event().open_or_create().expect("TODO: propagate");
@@ -52,12 +56,12 @@ auto PublisherImpl::loan() -> iox::expected<void*, LoanError> {
     using iox::err;
     using iox::ok;
 
-    auto sample = m_publisher->loan();
+    auto sample = m_publisher->loan_slice_uninit(m_size);
     if (sample.has_error()) {
         return err(LoanError::IOX2_ERROR);
     }
 
-    auto payload_ptr = sample.value().payload_mut().begin();
+    auto payload_ptr = sample.value().payload_slice_mut().data();
 
     // Store the sample for later use when publishing
     m_registry.store(std::move(sample.value()));
