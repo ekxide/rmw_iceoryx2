@@ -11,15 +11,17 @@
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/waitset_impl.hpp"
 
 extern "C" {
 rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_conditions) {
-    using rmw::iox2::allocate;
-    using rmw::iox2::construct;
-    using rmw::iox2::deallocate;
-    using rmw::iox2::WaitSetImpl;
+    using ::rmw::iox2::allocate;
+    using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
+    using ::rmw::iox2::WaitSetImpl;
 
     (void)max_conditions; // not needed
 
@@ -42,7 +44,8 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_condition
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for WaitSetImpl");
         return nullptr;
     } else {
-        if (construct<WaitSetImpl>(ptr.value(), *context->impl).has_error()) {
+        if (create_in_place<WaitSetImpl>(ptr.value(), *context->impl).has_error()) {
+            destruct<WaitSetImpl>(ptr.value());
             deallocate<WaitSetImpl>(ptr.value());
             rmw_wait_set_free(wait_set);
             RMW_IOX2_CHAIN_ERROR_MSG("failed to construct WaitSetImpl");
@@ -56,9 +59,9 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_condition
 }
 
 rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* wait_set) {
-    using rmw::iox2::deallocate;
-    using rmw::iox2::destruct;
-    using rmw::iox2::WaitSetImpl;
+    using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
+    using ::rmw::iox2::WaitSetImpl;
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_wait_set: context",
@@ -81,10 +84,10 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
                    rmw_events_t* /* NOT SUPPORTED */,
                    rmw_wait_set_t* wait_set,
                    const rmw_time_t* wait_timeout) {
-    using rmw::iox2::GuardConditionImpl;
-    using rmw::iox2::SubscriberImpl;
-    using rmw::iox2::unsafe_cast;
-    using rmw::iox2::WaitSetImpl;
+    using ::rmw::iox2::GuardConditionImpl;
+    using ::rmw::iox2::SubscriberImpl;
+    using ::rmw::iox2::unsafe_cast;
+    using ::rmw::iox2::WaitSetImpl;
 
     // TODO: Null checks for waitables?
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
@@ -142,7 +145,10 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     auto timeout = secs + nsecs;
 
     // TODO: indicate timeout
-    waitset_impl->wait(timeout);
+    if (auto result = waitset_impl->wait(timeout); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("wait failure");
+        return RMW_RET_ERROR;
+    }
 
     return RMW_RET_OK;
 }

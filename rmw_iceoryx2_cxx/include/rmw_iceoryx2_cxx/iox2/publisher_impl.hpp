@@ -25,6 +25,14 @@
 namespace rmw::iox2
 {
 
+class PublisherImpl;
+
+template <>
+struct Error<PublisherImpl>
+{
+    using Type = PublisherError;
+};
+
 /**
  * @brief Implementation of an RMW publisher using iceoryx2.
  *
@@ -40,8 +48,15 @@ class RMW_PUBLIC PublisherImpl
     // TODO: IntraPublisher
 
 public:
-    explicit PublisherImpl(
-        NodeImpl& node, const uint32_t context_id, const char* topic, const char* type, const uint64_t size);
+    using ErrorType = Error<PublisherImpl>::Type;
+
+public:
+    PublisherImpl(iox::optional<ErrorType>& error,
+                  NodeImpl& node,
+                  const uint32_t context_id,
+                  const char* topic,
+                  const char* type,
+                  const uint64_t size);
 
     /**
      * @brief Get the topic name.
@@ -65,7 +80,7 @@ public:
      *
      * @return Pointer to the beginning of the loaned memory which resides in shared memory.
      */
-    auto loan() -> iox::expected<void*, LoanError>;
+    auto loan() -> iox::expected<void*, ErrorType>;
 
     /**
      * @brief Returns previously loaned, unpublished memory to iceoryx2.
@@ -76,7 +91,7 @@ public:
      *
      * @return Error if the provided loaned_memory was not previously loaned.
      */
-    auto return_loan(void* loaned_memory) -> iox::expected<void, LoanError>;
+    auto return_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
 
     /**
      * @brief Publish memory previously loaned by this publisher.
@@ -86,7 +101,7 @@ public:
      *
      * @return Error if unable to publish the provided loaned_memory.
      */
-    auto publish(void* loaned_memory) -> iox::expected<void, PublishError>;
+    auto publish(void* loaned_memory) -> iox::expected<void, ErrorType>;
 
 private:
     const std::string m_topic;

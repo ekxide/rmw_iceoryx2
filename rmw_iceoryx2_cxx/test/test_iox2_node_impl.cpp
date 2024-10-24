@@ -9,6 +9,8 @@
 
 #include <gtest/gtest.h>
 
+#include "iox/optional.hpp"
+#include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "testing/base.hpp"
 
@@ -28,8 +30,12 @@ protected:
 };
 
 TEST_F(RmwNodeImplTest, construction) {
-    rmw::iox2::NodeImpl node{"/Sensors/Camera"};
-    ASSERT_TRUE(true);
+    using ::iox::optional;
+    using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::NodeImpl;
+
+    iox::optional<NodeImpl> node;
+    ASSERT_FALSE(create_in_place(node, "MyNode").has_error());
 }
 
 } // namespace

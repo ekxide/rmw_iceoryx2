@@ -9,6 +9,8 @@
 
 #include <gtest/gtest.h>
 
+#include "iox/optional.hpp"
+#include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
 #include "testing/assertions.hpp"
@@ -30,18 +32,16 @@ protected:
 };
 
 TEST_F(RmwPublisherImplTest, construction) {
-    rmw::iox2::ContextImpl context{test_id()};
-    rmw::iox2::PublisherImpl publsher{context.node(), context.id(), "Topic", "Type", 8};
-    ASSERT_TRUE(true);
-}
+    using ::rmw::iox2::ContextImpl;
+    using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::PublisherImpl;
 
-// TEST_F(RmwPublisherImplTest, loan_and_return) {
-//     rmw::iox2::ContextImpl context{test_id()};
-//     rmw::iox2::PublisherImpl publisher{context.node(), "Topic", "Type"};
-//
-//     auto loaned_memory = publisher.loan();
-//     EXPECT_FALSE(loaned_memory.has_error());
-//     EXPECT_FALSE(publisher.return_loan(loaned_memory.value()).has_error());
-// }
+    iox::optional<ContextImpl> context_storage;
+    create_in_place(context_storage, test_id()).expect("failed to create context for publisher creation");
+    auto& context = context_storage.value();
+
+    iox::optional<PublisherImpl> publisher;
+    ASSERT_FALSE(create_in_place(publisher, context.node(), context.id(), "Topic", "Type", 8).has_error());
+}
 
 } // namespace

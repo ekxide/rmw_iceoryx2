@@ -79,9 +79,8 @@ protected:
     }
 
     void print_rmw_errors() {
-        auto error_msg = RMW_IOX2_GET_ERROR_MSG();
-        if (error_msg != "") {
-            std::cerr << error_msg;
+        if (rcutils_error_is_set()) {
+            std::cerr << rcutils_get_error_string().str;
         }
     }
 

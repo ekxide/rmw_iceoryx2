@@ -11,6 +11,7 @@
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
@@ -24,12 +25,13 @@ namespace
 void inline destroy_node_impl(rmw_node_t* node) noexcept {
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
+    using rmw::iox2::NodeImpl;
 
     if (node) {
         deallocate(node->name);
         deallocate(node->namespace_);
         if (node->data) {
-            destruct<rmw::iox2::NodeImpl>(node->data);
+            destruct<NodeImpl>(node->data);
             deallocate(node->data);
         }
         rmw_node_free(node);
@@ -41,7 +43,9 @@ void inline destroy_node_impl(rmw_node_t* node) noexcept {
 rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char* namespace_) {
     using rmw::iox2::allocate;
     using rmw::iox2::allocate_copy;
-    using rmw::iox2::construct;
+    using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
     using rmw::iox2::NodeImpl;
     namespace names = rmw::iox2::names;
 
@@ -84,9 +88,11 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
         return nullptr;
     }
 
-    if (auto construction =
-            construct<NodeImpl>(ptr.value(), names::node(context->instance_id, node->name, node->namespace_).c_str());
+    if (auto construction = create_in_place<NodeImpl>(
+            ptr.value(), names::node(context->instance_id, node->name, node->namespace_).c_str());
         construction.has_error()) {
+        destruct<NodeImpl>(ptr.value());
+        deallocate<NodeImpl>(ptr.value());
         destroy_node_impl(node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct NodeImpl");
         return nullptr;

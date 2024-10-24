@@ -28,7 +28,7 @@ RMW_PUBLIC
 std::string topic(const uint32_t context_id, const char* topic);
 
 RMW_PUBLIC
-std::string guard_condition(const uint32_t context_id, const uint32_t guard_condition_id);
+std::string guard_condition(const uint32_t context_id);
 
 } // namespace rmw::iox2::names
 

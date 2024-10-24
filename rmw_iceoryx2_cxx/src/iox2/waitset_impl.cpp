@@ -8,18 +8,25 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/iox2/waitset_impl.hpp"
+
 #include "iox2/waitset.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 
 namespace rmw::iox2
 {
 
-WaitSetImpl::WaitSetImpl(ContextImpl& context)
+WaitSetImpl::WaitSetImpl(iox::optional<WaitSetError>& error, ContextImpl& context)
     : m_context{context} {
     using ::iox2::ServiceType;
     using ::iox2::WaitSetBuilder;
 
-    auto waitset = WaitSetBuilder().template create<ServiceType::Ipc>().expect("TODO: propagate");
-    m_waitset.emplace(std::move(waitset));
+    auto waitset = WaitSetBuilder().template create<ServiceType::Ipc>();
+    if (waitset.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(waitset.error()));
+        error.emplace(ErrorType::WAITSET_CREATION_FAILURE);
+        return;
+    }
+    m_waitset.emplace(std::move(waitset.value()));
 }
 
 auto WaitSetImpl::attach(GuardConditionImpl& guard_condition) -> iox::expected<void, WaitSetError> {
@@ -30,7 +37,9 @@ auto WaitSetImpl::attach(SubscriberImpl& subscriber) -> iox::expected<void, Wait
     return attach_listener(subscriber.service_name());
 }
 
-auto WaitSetImpl::wait(const Duration& timeout) -> void {
+auto WaitSetImpl::wait(const Duration& timeout) -> iox::expected<void, ErrorType> {
+    using ::iox::err;
+    using ::iox::ok;
     using ::iox2::ServiceType;
     using ::iox2::WaitSetAttachmentId;
 
@@ -43,7 +52,12 @@ auto WaitSetImpl::wait(const Duration& timeout) -> void {
         }
     };
     if (timeout != Duration::zero()) {
-        timeout_guard.emplace(m_waitset->attach_interval(timeout).expect("TODO: propagate"));
+        auto attachment = m_waitset->attach_interval(timeout);
+        if (attachment.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(attachment.error()));
+            return err(ErrorType::ATTACHMENT_FAILURE);
+        }
+        timeout_guard.emplace(std::move(attachment.value()));
         timeout_id.emplace(AttachmentId::from_guard(timeout_guard.value()));
     }
 
@@ -51,27 +65,46 @@ auto WaitSetImpl::wait(const Duration& timeout) -> void {
         on_timeout(id);
         on_trigger(id);
     });
+
+    return ok();
 }
 
-auto WaitSetImpl::attach_listener(const std::string& service_name) -> iox::expected<void, WaitSetError> {
+auto WaitSetImpl::attach_listener(const std::string& name) -> iox::expected<void, WaitSetError> {
+    using ::iox::err;
     using ::iox::ok;
 
     if (std::find_if(m_attached_listeners.begin(),
                      m_attached_listeners.end(),
-                     [&service_name](const auto& attached) { return attached.service_name == service_name; })
+                     [&name](const auto& attached) { return attached.service_name == name; })
         == m_attached_listeners.end()) {
-        auto service = m_context.node()
-                           .as_iox2()
-                           .service_builder(ServiceName::create(service_name.c_str()).expect("TODO: propagate"))
-                           .event()
-                           .open_or_create()
-                           .expect("TODO: propagate");
-        auto listener = service.listener_builder().create().expect("TODO: propagate");
-        auto guard = m_waitset->attach_notification(listener).expect("TODO: propagate");
-        auto attachment_id = AttachmentId::from_guard(guard);
+        auto service_name = ServiceName::create(name.c_str());
+        if (service_name.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
+            return err(ErrorType::SERVICE_NAME_CREATION_FAILURE);
+        }
+
+        auto service = m_context.node().as_iox2().service_builder(service_name.value()).event().open_or_create();
+        if (service.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
+            return err(ErrorType::SERVICE_CREATION_FAILURE);
+        }
+
+        auto listener = service.value().listener_builder().create();
+        if (listener.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(listener.error()));
+            return err(ErrorType::LISTENER_CREATION_FAILURE);
+        }
+
+        auto guard = m_waitset->attach_notification(listener.value());
+        if (guard.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(guard.error()));
+            return err(ErrorType::ATTACHMENT_FAILURE);
+        }
+
+        auto attachment_id = AttachmentId::from_guard(guard.value());
 
         m_attached_listeners.push_back(
-            AttachedListener{service_name, std::move(attachment_id), std::move(guard), std::move(listener)});
+            AttachedListener{name, std::move(attachment_id), std::move(guard.value()), std::move(listener.value())});
     }
 
     return ok();

@@ -18,6 +18,16 @@
 
 namespace rmw::iox2
 {
+
+template <typename T>
+class SampleRegistry;
+
+template <typename T>
+struct Error<SampleRegistry<T>>
+{
+    using Type = SampleRegistryError;
+};
+
 /**
  * @brief Storage for loaned samples.
  *
@@ -29,6 +39,9 @@ namespace rmw::iox2
 template <typename SampleType>
 class SampleRegistry
 {
+public:
+    using ErrorType = typename Error<SampleRegistry<SampleType>>::Type;
+
 public:
     auto store(SampleType&& sample) -> uint8_t* {
         // const_cast required to work with Sample and SamplMut
@@ -44,14 +57,14 @@ public:
         }
         return nullopt;
     }
-    auto release(uint8_t* loaned_memory) -> iox::expected<SampleType, LoanError> {
+    auto release(uint8_t* loaned_memory) -> iox::expected<SampleType, ErrorType> {
         using iox::err;
         using iox::ok;
         using iox::optional;
 
         auto it = m_samples.find(loaned_memory);
         if (it == m_samples.end()) {
-            return err(LoanError::INVALID_PAYLOAD);
+            return err(ErrorType::INVALID_PAYLOAD);
         }
         auto sample = std::move(it->second);
         m_samples.erase(it);

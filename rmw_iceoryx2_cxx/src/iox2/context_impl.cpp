@@ -9,13 +9,19 @@
 
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 
+#include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
-// TODO: fallable constructors
-//       make underlying type an optional, set RMW error on failure
-rmw_context_impl_s::rmw_context_impl_s(const uint32_t id)
-    : m_id{id}
-    , m_node{NodeImpl(rmw::iox2::names::context(id).c_str())} {
+rmw_context_impl_s::rmw_context_impl_s(iox::optional<ErrorType>& error, const uint32_t id)
+    : m_id{id} {
+    using ::rmw::iox2::create_in_place;
+
+    auto result = create_in_place<NodeImpl>(m_node, rmw::iox2::names::context(id).c_str());
+    if (result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to create NodeImpl for context");
+        error.emplace(ErrorType::NODE_CREATION_FAILURE);
+        return;
+    }
 }
 
 auto rmw_context_impl_s::id() -> uint32_t {
@@ -27,5 +33,5 @@ auto rmw_context_impl_s::next_guard_condition_id() -> uint32_t {
 }
 
 auto rmw_context_impl_s::node() -> NodeImpl& {
-    return m_node;
+    return m_node.value();
 }

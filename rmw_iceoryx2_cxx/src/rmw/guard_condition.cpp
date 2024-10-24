@@ -10,17 +10,20 @@
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 
 extern "C" {
 rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
-    using rmw::iox2::allocate;
-    using rmw::iox2::construct;
-    using rmw::iox2::deallocate;
-    using rmw::iox2::GuardConditionImpl;
-    using rmw::iox2::unsafe_cast;
+    using ::rmw::iox2::allocate;
+    using ::rmw::iox2::construct;
+    using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
+    using ::rmw::iox2::GuardConditionImpl;
+    using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context->impl, nullptr);
@@ -45,9 +48,10 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
         return nullptr;
     }
 
-    if (construct<GuardConditionImpl>(
+    if (create_in_place<GuardConditionImpl>(
             ptr.value(), context->impl->node(), context->impl->id(), context->impl->next_guard_condition_id())
             .has_error()) {
+        destruct<GuardConditionImpl>(ptr.value());
         deallocate<GuardConditionImpl>(ptr.value());
         rmw_guard_condition_free(guard_condition);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct GuardConditionImpl");
@@ -88,10 +92,11 @@ rmw_ret_t rmw_trigger_guard_condition(const rmw_guard_condition_t* guard_conditi
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INVALID_ARGUMENT);
 
-    rmw_ret_t result = RMW_RET_ERROR;
+    auto result = RMW_RET_OK;
     unsafe_cast<GuardConditionImpl*>(guard_condition->data).and_then([&result](auto impl) {
-        impl->trigger();
-        result = RMW_RET_OK;
+        if (impl->trigger().has_error()) {
+            result = RMW_RET_ERROR;
+        }
     });
 
     return result;

@@ -10,10 +10,25 @@
 #ifndef RMW_IOX2_CONTEXT_IMPL_HPP_
 #define RMW_IOX2_CONTEXT_IMPL_HPP_
 
+#include "iox/optional.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 #include <atomic>
+
+class rmw_context_impl_s;
+
+namespace rmw::iox2
+{
+
+template <>
+struct Error<rmw_context_impl_s>
+{
+    using Type = ContextError;
+};
+
+} // namespace rmw::iox2
 
 extern "C" {
 
@@ -23,7 +38,10 @@ class RMW_PUBLIC rmw_context_impl_s
     using NodeImpl = ::rmw::iox2::NodeImpl;
 
 public:
-    explicit rmw_context_impl_s(const uint32_t id);
+    using ErrorType = ::rmw::iox2::Error<rmw_context_impl_s>::Type;
+
+public:
+    explicit rmw_context_impl_s(iox::optional<ErrorType>& error, const uint32_t id);
 
     auto id() -> uint32_t;
     auto next_guard_condition_id() -> uint32_t;
@@ -31,7 +49,7 @@ public:
 
 private:
     const uint32_t m_id;
-    NodeImpl m_node;
+    iox::optional<NodeImpl> m_node;
     std::atomic<uint32_t> m_guard_condition_counter{0};
 };
 }

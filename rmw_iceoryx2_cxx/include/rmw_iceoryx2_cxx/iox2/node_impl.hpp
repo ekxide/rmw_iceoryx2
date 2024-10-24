@@ -10,19 +10,33 @@
 #ifndef RMW_IOX2_NODE_IMPL_HPP_
 #define RMW_IOX2_NODE_IMPL_HPP_
 
+#include "iox/optional.hpp"
 #include "iox2/node.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/error.hpp"
+#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 
 namespace rmw::iox2
 {
+
+class NodeImpl;
+
+template <>
+struct Error<NodeImpl>
+{
+    using Type = NodeError;
+};
 
 class RMW_PUBLIC NodeImpl
 {
     using IceoryxNode = ::iox2::Node<::iox2::ServiceType::Ipc>;
 
 public:
-    explicit NodeImpl(const std::string& name);
+    using ErrorType = Error<NodeImpl>::Type;
+
+public:
+    explicit NodeImpl(iox::optional<ErrorType>& error, const std::string& name);
 
     auto node_name() const -> const std::string&;
 
@@ -30,7 +44,8 @@ public:
 
 private:
     const std::string m_node_name;
-    IceoryxNode m_node;
+    iox::optional<IceoryxNode> m_node;
+    iox::optional<GuardConditionImpl> m_graph_guard_condition;
 };
 
 } // namespace rmw::iox2

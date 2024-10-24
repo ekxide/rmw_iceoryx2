@@ -9,6 +9,8 @@
 
 #include <gtest/gtest.h>
 
+#include "iox/optional.hpp"
+#include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "testing/base.hpp"
 
@@ -28,8 +30,11 @@ protected:
 };
 
 TEST_F(RmwContextImplTest, construction) {
-    rmw::iox2::ContextImpl context{test_id()};
-    ASSERT_TRUE(true);
+    using ::rmw::iox2::ContextImpl;
+    using ::rmw::iox2::create_in_place;
+
+    iox::optional<ContextImpl> context;
+    ASSERT_FALSE(create_in_place(context, test_id()).has_error());
 }
 
 } // namespace

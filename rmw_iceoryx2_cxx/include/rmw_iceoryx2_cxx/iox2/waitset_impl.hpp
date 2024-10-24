@@ -28,6 +28,14 @@
 namespace rmw::iox2
 {
 
+class WaitSetImpl;
+
+template <>
+struct Error<WaitSetImpl>
+{
+    using Type = WaitSetError;
+};
+
 class RMW_PUBLIC WaitSetImpl
 {
     using Duration = ::iox::units::Duration;
@@ -40,20 +48,23 @@ class RMW_PUBLIC WaitSetImpl
     using Callback = std::function<void(void)>;
 
 public:
+    using ErrorType = Error<WaitSetImpl>::Type;
+
+public:
     /**
      * @brief The iceoryx2 implementation of a WaitSet.
      *
      * @param context The context to which this waitset is bound to. Must outlive the WaitSetImpl instance.
      */
-    WaitSetImpl(ContextImpl& context);
+    WaitSetImpl(iox::optional<ErrorType>& error, ContextImpl& context);
 
     // TODO: Don't pass callback by value
-    auto attach(GuardConditionImpl& guard_condition) -> iox::expected<void, WaitSetError>;
-    auto attach(SubscriberImpl& subscriber) -> iox::expected<void, WaitSetError>;
-    auto wait(const Duration& timeout = iox::units::Duration::fromSeconds(0)) -> void;
+    auto attach(GuardConditionImpl& guard_condition) -> iox::expected<void, ErrorType>;
+    auto attach(SubscriberImpl& subscriber) -> iox::expected<void, ErrorType>;
+    auto wait(const Duration& timeout = iox::units::Duration::fromSeconds(0)) -> iox::expected<void, ErrorType>;
 
 private:
-    auto attach_listener(const std::string& service_name) -> iox::expected<void, WaitSetError>;
+    auto attach_listener(const std::string& service_name) -> iox::expected<void, ErrorType>;
     auto on_trigger(AttachmentId& id) -> void;
 
 private:

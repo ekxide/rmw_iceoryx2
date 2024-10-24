@@ -8,17 +8,28 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 
 namespace rmw::iox2
 {
 
 // TODO: fallable constructors
 //       make underlying type an optional, set RMW error on failure
-NodeImpl::NodeImpl(const std::string& name)
-    : m_node{::iox2::NodeBuilder()
-                 .name(::iox2::NodeName::create(name.c_str()).expect("failed to create node name"))
-                 .create<::iox2::ServiceType::Ipc>()
-                 .expect("failed to create iceoryx2 node")} {
+NodeImpl::NodeImpl(iox::optional<ErrorType>& error, const std::string& name) {
+    auto node_name = ::iox2::NodeName::create(name.c_str());
+    if (node_name.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(node_name.error()));
+        error.emplace(ErrorType::NODE_NAME_CREATION_FAILURE);
+        return;
+    }
+
+    auto node = ::iox2::NodeBuilder().name(node_name.value()).create<::iox2::ServiceType::Ipc>();
+    if (node.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(node.error()));
+        error.emplace(ErrorType::NODE_CREATION_FAILURE);
+        return;
+    }
+    m_node.emplace(std::move(node.value()));
 }
 
 auto NodeImpl::node_name() const -> const std::string& {
@@ -26,7 +37,7 @@ auto NodeImpl::node_name() const -> const std::string& {
 }
 
 auto NodeImpl::as_iox2() -> IceoryxNode& {
-    return m_node;
+    return m_node.value();
 }
 
 } // namespace rmw::iox2

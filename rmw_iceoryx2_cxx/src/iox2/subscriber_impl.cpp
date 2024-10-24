@@ -8,26 +8,45 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
+
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
 namespace rmw::iox2
 {
 
-SubscriberImpl::SubscriberImpl(NodeImpl& node, const uint32_t context_id, const char* topic, const char* type)
+SubscriberImpl::SubscriberImpl(
+    iox::optional<ErrorType>& error, NodeImpl& node, const uint32_t context_id, const char* topic, const char* type)
     : m_topic{topic}
     , m_type{type}
     , m_service_name{::rmw::iox2::names::topic(context_id, topic)} {
     using ::iox2::ServiceName;
 
-    auto service_name = ServiceName::create(m_service_name.c_str()).expect("TODO: propagate");
+    auto service_name = ServiceName::create(m_service_name.c_str());
+    if (service_name.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
+        error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
+        return;
+    }
+
     auto service = node.as_iox2()
-                       .service_builder(service_name)
+                       .service_builder(service_name.value())
                        .publish_subscribe<Payload>()
                        .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
-                       .open_or_create()
-                       .expect("TODO: propagate");
-    auto subscriber = service.subscriber_builder().create().expect("TODO: propagate");
-    m_subscriber.emplace(std::move(subscriber));
+                       .open_or_create();
+    if (service.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service.error()));
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
+    auto subscriber = service.value().subscriber_builder().create();
+    if (subscriber.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(subscriber.error()));
+        error.emplace(ErrorType::SUBSCRIBER_CREATION_FAILURE);
+        return;
+    }
+    m_subscriber.emplace(std::move(subscriber.value()));
 }
 
 auto SubscriberImpl::topic() const -> const std::string& {
@@ -42,7 +61,7 @@ auto SubscriberImpl::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto SubscriberImpl::take() -> iox::expected<iox::optional<const void*>, LoanError> {
+auto SubscriberImpl::take() -> iox::expected<iox::optional<const void*>, ErrorType> {
     using iox::err;
     using iox::nullopt;
     using iox::ok;
@@ -50,7 +69,7 @@ auto SubscriberImpl::take() -> iox::expected<iox::optional<const void*>, LoanErr
 
     auto result = m_subscriber->receive();
     if (result.has_error()) {
-        return err(LoanError::FAILED_TO_LOAN);
+        return err(ErrorType::RECV_FAILURE);
     }
     auto sample = std::move(result.value());
 
@@ -63,8 +82,17 @@ auto SubscriberImpl::take() -> iox::expected<iox::optional<const void*>, LoanErr
     }
 }
 
-auto SubscriberImpl::return_loan(void* loaned_memory) -> iox::expected<void, LoanError> {
-    return m_registry.release(static_cast<uint8_t*>(loaned_memory));
+auto SubscriberImpl::return_loan(void* loaned_memory) -> iox::expected<void, ErrorType> {
+    using ::iox::err;
+    using ::iox::ok;
+
+    if (auto result = m_registry.release(static_cast<uint8_t*>(loaned_memory)); result.has_error()) {
+        switch (result.error()) {
+        case SampleRegistryError::INVALID_PAYLOAD:
+            return err(ErrorType::INVALID_PAYLOAD);
+        }
+    }
+    return ok();
 }
 
 } // namespace rmw::iox2

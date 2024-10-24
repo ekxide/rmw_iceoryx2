@@ -9,22 +9,44 @@
 
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 
+#include "iox/optional.hpp"
 #include "iox2/event_id.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
+#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 namespace rmw::iox2
 {
 
-GuardConditionImpl::GuardConditionImpl(NodeImpl& node, const uint32_t context_id, const uint32_t guard_condition_id)
+GuardConditionImpl::GuardConditionImpl(iox::optional<ErrorType>& error,
+                                       NodeImpl& node,
+                                       const uint32_t context_id,
+                                       const uint32_t guard_condition_id)
     : m_id{guard_condition_id}
-    , m_service_name{names::guard_condition(context_id, guard_condition_id)} {
+    , m_service_name{names::guard_condition(context_id)} {
     using ::iox2::ServiceName;
 
-    auto service_name = ServiceName::create(m_service_name.c_str()).expect("TODO: propagate");
-    auto service = node.as_iox2().service_builder(service_name).event().open_or_create().expect("TODO: propagate");
-    auto notifier = service.notifier_builder().create().expect("TODO: propagate");
-    m_notifier.emplace(std::move(notifier));
+    auto service_name = ServiceName::create(m_service_name.c_str());
+    if (service_name.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
+        error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
+        return;
+    }
+
+    auto service = node.as_iox2().service_builder(service_name.value()).event().open_or_create();
+    if (service.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service.error()));
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
+    auto notifier = service.value().notifier_builder().create();
+    if (notifier.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(notifier.error()));
+        error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
+        return;
+    }
+    m_notifier.emplace(std::move(notifier.value()));
 };
 
 auto GuardConditionImpl::id() const -> uint32_t {
@@ -35,23 +57,24 @@ auto GuardConditionImpl::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto GuardConditionImpl::trigger(const iox::optional<size_t>& id) -> bool {
+auto GuardConditionImpl::trigger(const iox::optional<size_t>& id) -> iox::expected<void, ErrorType> {
+    using ::iox::err;
+    using ::iox::ok;
     using ::iox2::EventId;
 
-    bool result = true;
     if (id.has_value()) {
-        if (m_notifier->notify_with_custom_event_id(EventId(id.value())).has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to send notification");
-            result = false;
+        if (auto result = m_notifier->notify_with_custom_event_id(EventId(id.value())); result.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+            return err(ErrorType::NOTIFICATION_FAILURE);
         };
     } else {
-        if (m_notifier->notify().has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to send notification");
-            result = false;
+        if (auto result = m_notifier->notify(); result.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+            return err(ErrorType::NOTIFICATION_FAILURE);
         }
     }
 
-    return result;
+    return ok();
 }
 
 } // namespace rmw::iox2

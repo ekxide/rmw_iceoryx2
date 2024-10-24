@@ -65,11 +65,15 @@
         return result;                                                                                                 \
     }()
 
-#define RMW_ASSERT_PRED_FORMAT2(pred_format, v1, v2)                                                                   \
-    ASSERT_PRED_FORMAT2(pred_format, v1, v2) << RMW_IOX2_GET_ERROR_MSG()
 
 #define RMW_ASSERT_EQ(val1, val2) RMW_ASSERT_PRED_FORMAT2(::testing::internal::EqHelper::Compare, val1, val2)
 #define RMW_ASSERT_NE(val1, val2) RMW_ASSERT_PRED_FORMAT2(::testing::internal::CmpHelperNE, val1, val2)
 
-#define RMW_ASSERT_TRUE(condition) ASSERT_TRUE(condition) << RMW_IOX2_GET_ERROR_MSG()
-#define RMW_ASSERT_FALSE(condition) ASSERT_FALSE(condition) << RMW_IOX2_GET_ERROR_MSG()
+#define RMW_ASSERT_PRED_FORMAT2(pred_format, v1, v2)                                                                   \
+    ASSERT_PRED_FORMAT2(pred_format, v1, v2) << (rcutils_error_is_set() ? rcutils_get_error_string().str : "")
+
+#define RMW_ASSERT_TRUE(condition)                                                                                     \
+    ASSERT_TRUE(condition) << (rcutils_error_is_set() ? rcutils_get_error_string().str : "")
+
+#define RMW_ASSERT_FALSE(condition)                                                                                    \
+    ASSERT_FALSE(condition) << (rcutils_error_is_set() ? rcutils_get_error_string().str : "")

@@ -22,6 +22,14 @@
 namespace rmw::iox2
 {
 
+class SubscriberImpl;
+
+template <>
+struct Error<SubscriberImpl>
+{
+    using Type = SubscriberError;
+};
+
 class RMW_PUBLIC SubscriberImpl
 {
     using Payload = ::iox::Slice<uint8_t>;
@@ -31,7 +39,14 @@ class RMW_PUBLIC SubscriberImpl
     // TODO: IntraSubscriber
 
 public:
-    explicit SubscriberImpl(NodeImpl& node, const uint32_t context_id, const char* topic, const char* type);
+    using ErrorType = Error<SubscriberImpl>::Type;
+
+public:
+    SubscriberImpl(iox::optional<ErrorType>& error,
+                   NodeImpl& node,
+                   const uint32_t context_id,
+                   const char* topic,
+                   const char* type);
 
     /**
      * @brief Get the topic name.
@@ -55,9 +70,9 @@ public:
      *
      * @return Empty optional if no samples available
      */
-    auto take() -> iox::expected<iox::optional<const void*>, LoanError>;
+    auto take() -> iox::expected<iox::optional<const void*>, ErrorType>;
 
-    auto return_loan(void* loaned_memory) -> iox::expected<void, LoanError>;
+    auto return_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
 
 private:
     const std::string m_topic;

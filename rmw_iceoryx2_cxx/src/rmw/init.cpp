@@ -13,6 +13,7 @@
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"
 #include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
@@ -64,7 +65,9 @@ rmw_ret_t rmw_init_options_fini(rmw_init_options_t* init_options) {
 rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
     using rmw::iox2::allocate;
     using rmw::iox2::construct;
+    using rmw::iox2::create_in_place;
     using rmw::iox2::deallocate;
+    using rmw::iox2::destruct;
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(options, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, RMW_RET_INVALID_ARGUMENT);
@@ -81,7 +84,8 @@ rmw_ret_t rmw_init(const rmw_init_options_t* options, rmw_context_t* context) {
         return RMW_RET_ERROR;
     }
 
-    if (construct<rmw_context_impl_s>(ptr.value(), context->instance_id).has_error()) {
+    if (create_in_place<rmw_context_impl_s>(ptr.value(), context->instance_id).has_error()) {
+        destruct<rmw_context_impl_s>(ptr.value());
         deallocate(ptr.value());
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct rmw_context_impl_s");
         return RMW_RET_ERROR;
