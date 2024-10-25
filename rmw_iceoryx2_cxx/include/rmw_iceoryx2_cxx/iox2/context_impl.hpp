@@ -36,6 +36,7 @@ extern "C" {
 class RMW_PUBLIC rmw_context_impl_s
 {
     using NodeImpl = ::rmw::iox2::NodeImpl;
+    using GuardConditionImpl = ::rmw::iox2::GuardConditionImpl;
 
 public:
     using ErrorType = ::rmw::iox2::Error<rmw_context_impl_s>::Type;
@@ -46,10 +47,12 @@ public:
     auto id() -> uint32_t;
     auto next_guard_condition_id() -> uint32_t;
     auto node() -> NodeImpl&;
+    auto graph_guard_condition() -> GuardConditionImpl&;
 
 private:
     const uint32_t m_id;
     iox::optional<NodeImpl> m_node;
+    iox::optional<GuardConditionImpl> m_graph_guard_condition;
     std::atomic<uint32_t> m_guard_condition_counter{0};
 };
 }

@@ -17,7 +17,7 @@ namespace rmw::iox2
 
 enum class MemoryError : uint8_t { ALLOCATION, CONSTRUCTION, CAST };
 enum class ConstructionError : uint8_t { INVALID_DESTINATION, FAILED_TO_CONSTRUCT };
-enum class ContextError : uint8_t { NODE_CREATION_FAILURE };
+enum class ContextError : uint8_t { NODE_CREATION_FAILURE, GRAPH_GUARD_CONDITION_CREATION_FAILURE };
 enum class NodeError : uint8_t { NODE_NAME_CREATION_FAILURE, NODE_CREATION_FAILURE };
 enum class GuardConditionError : uint8_t {
     SERVICE_NAME_CREATION_FAILURE,

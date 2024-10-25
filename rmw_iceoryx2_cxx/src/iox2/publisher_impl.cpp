@@ -13,8 +13,6 @@
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
-#include <cstddef>
-
 namespace rmw::iox2
 {
 

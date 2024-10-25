@@ -45,7 +45,6 @@ public:
 private:
     const std::string m_node_name;
     iox::optional<IceoryxNode> m_node;
-    iox::optional<GuardConditionImpl> m_graph_guard_condition;
 };
 
 } // namespace rmw::iox2
