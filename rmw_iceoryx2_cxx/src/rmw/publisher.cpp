@@ -119,7 +119,14 @@ rmw_ret_t rmw_publisher_count_matched_subscriptions(const rmw_publisher_t* publi
 }
 
 rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t* publisher, rmw_qos_profile_t* qos) {
-    IOX_TODO();
+    (void)publisher;
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_ERROR);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_ERROR);
+
+    *qos = rmw_qos_profile_default;
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* publisher,
