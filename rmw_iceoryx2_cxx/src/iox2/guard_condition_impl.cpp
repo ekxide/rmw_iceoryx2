@@ -24,7 +24,7 @@ GuardConditionImpl::GuardConditionImpl(CreationLock,
                                        const uint32_t context_id,
                                        const uint32_t guard_condition_id)
     : m_id{guard_condition_id}
-    , m_service_name{names::guard_condition(context_id)} {
+    , m_service_name{names::guard_condition(context_id, m_id)} {
     using ::iox2::ServiceName;
 
     auto service_name = ServiceName::create(m_service_name.c_str());

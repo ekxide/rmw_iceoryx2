@@ -86,7 +86,7 @@ TEST_F(RmwGuardConditionTest, trigger) {
 
     // TODO: An easier way to access the guard condition ID?
     auto impl = unsafe_cast<GuardConditionImpl*>(guard_condition->data).expect("failed to get guard condition impl");
-    auto listener = test_listener(names::guard_condition(guard_condition->context->instance_id));
+    auto listener = test_listener(names::guard_condition(guard_condition->context->instance_id, impl->id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
     auto event =

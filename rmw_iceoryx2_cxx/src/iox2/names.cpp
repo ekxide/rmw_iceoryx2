@@ -28,8 +28,8 @@ std::string topic(const uint32_t context_id, const char* topic) {
     return s;
 }
 
-std::string guard_condition(const uint32_t context_id) {
-    return "::ros2::" + std::to_string(context_id) + "::guard_conditions";
+std::string guard_condition(const uint32_t context_id, const uint32_t guard_condition_id) {
+    return "::ros2::" + std::to_string(context_id) + "::guard_conditions::" + std::to_string(guard_condition_id);
 }
 
 } // namespace rmw::iox2::names
