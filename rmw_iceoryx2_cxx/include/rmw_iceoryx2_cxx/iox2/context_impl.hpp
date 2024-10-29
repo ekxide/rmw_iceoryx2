@@ -12,6 +12,7 @@
 
 #include "iox/optional.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
@@ -35,6 +36,7 @@ extern "C" {
 /// RMW expects exactly this type to be defined for context implementations
 class RMW_PUBLIC rmw_context_impl_s
 {
+    using CreationLock = ::rmw::iox2::CreationLock;
     using NodeImpl = ::rmw::iox2::NodeImpl;
     using GuardConditionImpl = ::rmw::iox2::GuardConditionImpl;
 
@@ -42,7 +44,7 @@ public:
     using ErrorType = ::rmw::iox2::Error<rmw_context_impl_s>::Type;
 
 public:
-    explicit rmw_context_impl_s(iox::optional<ErrorType>& error, const uint32_t id);
+    rmw_context_impl_s(CreationLock, iox::optional<ErrorType>& error, const uint32_t id);
 
     auto id() -> uint32_t;
     auto next_guard_condition_id() -> uint32_t;

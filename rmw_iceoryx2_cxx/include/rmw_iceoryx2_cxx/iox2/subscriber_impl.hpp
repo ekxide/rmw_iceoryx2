@@ -16,6 +16,7 @@
 #include "iox2/service_type.hpp"
 #include "iox2/subscriber.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/sample_registry.hpp"
 
@@ -42,7 +43,8 @@ public:
     using ErrorType = Error<SubscriberImpl>::Type;
 
 public:
-    SubscriberImpl(iox::optional<ErrorType>& error,
+    SubscriberImpl(CreationLock,
+                   iox::optional<ErrorType>& error,
                    NodeImpl& node,
                    const uint32_t context_id,
                    const char* topic,

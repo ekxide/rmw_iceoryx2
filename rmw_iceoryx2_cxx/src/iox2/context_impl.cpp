@@ -12,7 +12,7 @@
 #include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
-rmw_context_impl_s::rmw_context_impl_s(iox::optional<ErrorType>& error, const uint32_t id)
+rmw_context_impl_s::rmw_context_impl_s(CreationLock, iox::optional<ErrorType>& error, const uint32_t id)
     : m_id{id} {
     using ::rmw::iox2::create_in_place;
 

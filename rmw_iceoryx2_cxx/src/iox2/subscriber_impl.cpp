@@ -15,8 +15,12 @@
 namespace rmw::iox2
 {
 
-SubscriberImpl::SubscriberImpl(
-    iox::optional<ErrorType>& error, NodeImpl& node, const uint32_t context_id, const char* topic, const char* type)
+SubscriberImpl::SubscriberImpl(CreationLock,
+                               iox::optional<ErrorType>& error,
+                               NodeImpl& node,
+                               const uint32_t context_id,
+                               const char* topic,
+                               const char* type)
     : m_topic{topic}
     , m_type{type}
     , m_service_name{::rmw::iox2::names::topic(context_id, topic)} {

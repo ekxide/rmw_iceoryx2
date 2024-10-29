@@ -16,7 +16,8 @@
 namespace rmw::iox2
 {
 
-PublisherImpl::PublisherImpl(iox::optional<ErrorType>& error,
+PublisherImpl::PublisherImpl(CreationLock,
+                             iox::optional<ErrorType>& error,
                              NodeImpl& node,
                              const uint32_t context_id,
                              const char* topic,

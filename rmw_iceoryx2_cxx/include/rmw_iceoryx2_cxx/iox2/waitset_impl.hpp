@@ -15,6 +15,7 @@
 #include "iox2/listener.hpp"
 #include "iox2/waitset.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
@@ -56,9 +57,8 @@ public:
      *
      * @param context The context to which this waitset is bound to. Must outlive the WaitSetImpl instance.
      */
-    WaitSetImpl(iox::optional<ErrorType>& error, ContextImpl& context);
+    WaitSetImpl(CreationLock, iox::optional<ErrorType>& error, ContextImpl& context);
 
-    // TODO: Don't pass callback by value
     auto attach(GuardConditionImpl& guard_condition) -> iox::expected<void, ErrorType>;
     auto attach(SubscriberImpl& subscriber) -> iox::expected<void, ErrorType>;
     auto wait(const Duration& timeout = iox::units::Duration::fromSeconds(0)) -> iox::expected<void, ErrorType>;

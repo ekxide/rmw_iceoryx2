@@ -34,19 +34,19 @@ protected:
 
 TEST_F(RmwLoggingTest, set_log_severity) {
     ASSERT_RMW_OK(rmw_set_log_severity(RMW_LOG_SEVERITY_DEBUG));
-    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::DEBUG);
+    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::Debug);
 
     ASSERT_RMW_OK(rmw_set_log_severity(RMW_LOG_SEVERITY_INFO));
-    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::INFO);
+    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::Info);
 
     ASSERT_RMW_OK(rmw_set_log_severity(RMW_LOG_SEVERITY_WARN));
-    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::WARN);
+    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::Warn);
 
     ASSERT_RMW_OK(rmw_set_log_severity(RMW_LOG_SEVERITY_ERROR));
-    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::ERROR);
+    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::Error);
 
     ASSERT_RMW_OK(rmw_set_log_severity(RMW_LOG_SEVERITY_FATAL));
-    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::FATAL);
+    ASSERT_EQ(iox2::get_log_level(), iox2::LogLevel::Fatal);
 }
 
 } // namespace

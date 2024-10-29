@@ -17,6 +17,7 @@
 #include "iox2/sample_mut_uninit.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/sample_registry.hpp"
@@ -51,7 +52,8 @@ public:
     using ErrorType = Error<PublisherImpl>::Type;
 
 public:
-    PublisherImpl(iox::optional<ErrorType>& error,
+    PublisherImpl(CreationLock,
+                  iox::optional<ErrorType>& error,
                   NodeImpl& node,
                   const uint32_t context_id,
                   const char* topic,

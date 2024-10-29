@@ -13,9 +13,7 @@
 namespace rmw::iox2
 {
 
-// TODO: fallable constructors
-//       make underlying type an optional, set RMW error on failure
-NodeImpl::NodeImpl(iox::optional<ErrorType>& error, const std::string& name) {
+NodeImpl::NodeImpl(CreationLock, iox::optional<ErrorType>& error, const std::string& name) {
     auto node_name = ::iox2::NodeName::create(name.c_str());
     if (node_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(node_name.error()));

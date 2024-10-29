@@ -27,7 +27,7 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context->impl, nullptr);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_node: context",
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_guard_condition: context",
                                           context->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return nullptr);

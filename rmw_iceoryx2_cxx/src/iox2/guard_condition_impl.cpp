@@ -18,7 +18,8 @@
 namespace rmw::iox2
 {
 
-GuardConditionImpl::GuardConditionImpl(iox::optional<ErrorType>& error,
+GuardConditionImpl::GuardConditionImpl(CreationLock,
+                                       iox::optional<ErrorType>& error,
                                        NodeImpl& node,
                                        const uint32_t context_id,
                                        const uint32_t guard_condition_id)
@@ -57,22 +58,15 @@ auto GuardConditionImpl::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto GuardConditionImpl::trigger(const iox::optional<size_t>& id) -> iox::expected<void, ErrorType> {
+auto GuardConditionImpl::trigger() -> iox::expected<void, ErrorType> {
     using ::iox::err;
     using ::iox::ok;
     using ::iox2::EventId;
 
-    if (id.has_value()) {
-        if (auto result = m_notifier->notify_with_custom_event_id(EventId(id.value())); result.has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
-            return err(ErrorType::NOTIFICATION_FAILURE);
-        };
-    } else {
-        if (auto result = m_notifier->notify(); result.has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
-            return err(ErrorType::NOTIFICATION_FAILURE);
-        }
-    }
+    if (auto result = m_notifier->notify_with_custom_event_id(EventId(id())); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        return err(ErrorType::NOTIFICATION_FAILURE);
+    };
 
     return ok();
 }

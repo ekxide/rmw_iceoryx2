@@ -16,10 +16,14 @@ namespace rmw::iox2
 {
 
 enum class MemoryError : uint8_t { ALLOCATION, CONSTRUCTION, CAST };
-enum class ConstructionError : uint8_t { INVALID_DESTINATION, FAILED_TO_CONSTRUCT };
-enum class ContextError : uint8_t { NODE_CREATION_FAILURE, GRAPH_GUARD_CONDITION_CREATION_FAILURE };
-enum class NodeError : uint8_t { NODE_NAME_CREATION_FAILURE, NODE_CREATION_FAILURE };
+enum class ContextError : uint8_t {
+    INVARIANT_VIOLATION,
+    NODE_CREATION_FAILURE,
+    GRAPH_GUARD_CONDITION_CREATION_FAILURE
+};
+enum class NodeError : uint8_t { INVARIANT_VIOLATION, NODE_NAME_CREATION_FAILURE, NODE_CREATION_FAILURE };
 enum class GuardConditionError : uint8_t {
+    INVARIANT_VIOLATION,
     SERVICE_NAME_CREATION_FAILURE,
     SERVICE_CREATION_FAILURE,
     NOTIFIER_CREATION_FAILURE,
@@ -27,6 +31,7 @@ enum class GuardConditionError : uint8_t {
 };
 enum class SampleRegistryError : uint8_t { INVALID_PAYLOAD };
 enum class PublisherError : uint8_t {
+    INVARIANT_VIOLATION,
     SERVICE_NAME_CREATION_FAILURE,
     SERVICE_CREATION_FAILURE,
     PUBLISHER_CREATION_FAILURE,
@@ -37,6 +42,7 @@ enum class PublisherError : uint8_t {
     INVALID_PAYLOAD,
 };
 enum class SubscriberError : uint8_t {
+    INVARIANT_VIOLATION,
     SERVICE_NAME_CREATION_FAILURE,
     SERVICE_CREATION_FAILURE,
     SUBSCRIBER_CREATION_FAILURE,
@@ -44,6 +50,7 @@ enum class SubscriberError : uint8_t {
     INVALID_PAYLOAD,
 };
 enum class WaitSetError : uint8_t {
+    INVARIANT_VIOLATION,
     WAITSET_CREATION_FAILURE,
     SERVICE_NAME_CREATION_FAILURE,
     SERVICE_CREATION_FAILURE,

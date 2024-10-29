@@ -14,6 +14,7 @@
 #include "iox2/node.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 
@@ -36,7 +37,7 @@ public:
     using ErrorType = Error<NodeImpl>::Type;
 
 public:
-    explicit NodeImpl(iox::optional<ErrorType>& error, const std::string& name);
+    NodeImpl(CreationLock, iox::optional<ErrorType>& error, const std::string& name);
 
     auto node_name() const -> const std::string&;
 

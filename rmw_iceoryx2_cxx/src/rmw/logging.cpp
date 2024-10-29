@@ -19,19 +19,19 @@ rmw_ret_t rmw_set_log_severity(rmw_log_severity_t severity) {
 
     switch (severity) {
     case RMW_LOG_SEVERITY_DEBUG:
-        set_log_level(LogLevel::DEBUG);
+        set_log_level(LogLevel::Debug);
         break;
     case RMW_LOG_SEVERITY_INFO:
-        set_log_level(LogLevel::INFO);
+        set_log_level(LogLevel::Info);
         break;
     case RMW_LOG_SEVERITY_WARN:
-        set_log_level(LogLevel::WARN);
+        set_log_level(LogLevel::Warn);
         break;
     case RMW_LOG_SEVERITY_ERROR:
-        set_log_level(LogLevel::ERROR);
+        set_log_level(LogLevel::Error);
         break;
     case RMW_LOG_SEVERITY_FATAL:
-        set_log_level(LogLevel::FATAL);
+        set_log_level(LogLevel::Fatal);
         break;
     default:
         return RMW_RET_ERROR;

@@ -14,6 +14,7 @@
 #include "iox2/notifier.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
 
 namespace rmw::iox2
@@ -36,14 +37,15 @@ public:
     using ErrorType = Error<GuardConditionImpl>::Type;
 
 public:
-    GuardConditionImpl(iox::optional<ErrorType>& error,
+    GuardConditionImpl(CreationLock,
+                       iox::optional<ErrorType>& error,
                        NodeImpl& node,
                        const uint32_t context_id,
                        const uint32_t guard_condition_id);
 
     auto id() const -> uint32_t;
     auto service_name() const -> const std::string&;
-    auto trigger(const iox::optional<size_t>& id = iox::nullopt) -> iox::expected<void, ErrorType>;
+    auto trigger() -> iox::expected<void, ErrorType>;
 
 private:
     const uint32_t m_id;

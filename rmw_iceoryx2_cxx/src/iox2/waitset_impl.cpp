@@ -15,7 +15,7 @@
 namespace rmw::iox2
 {
 
-WaitSetImpl::WaitSetImpl(iox::optional<WaitSetError>& error, ContextImpl& context)
+WaitSetImpl::WaitSetImpl(CreationLock, iox::optional<WaitSetError>& error, ContextImpl& context)
     : m_context{context} {
     using ::iox2::ServiceType;
     using ::iox2::WaitSetBuilder;
