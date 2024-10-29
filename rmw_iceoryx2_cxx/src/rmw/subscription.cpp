@@ -47,7 +47,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
                                           rmw_get_implementation_identifier(),
                                           return nullptr);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "creating subscription: %s", topic_name);
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Creating subscription to '%s'", topic_name);
 
     auto* subscription = rmw_subscription_allocate();
     if (subscription == nullptr) {
@@ -108,7 +108,7 @@ rmw_ret_t rmw_destroy_subscription(rmw_node_t* node, rmw_subscription_t* subscri
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "destroying subscription: %s", subscription->topic_name);
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Destroying subscription to '%s'", subscription->topic_name);
 
     if (subscription->data) {
         destruct<SubscriberImpl>(subscription->data);
@@ -154,7 +154,7 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "taking loan: %s", subscription->topic_name);
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Retrieving loan from from '%s'", subscription->topic_name);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
     if (subscriber_impl.has_error()) {
@@ -207,7 +207,7 @@ rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* 
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "returning loan: %s", subscription->topic_name);
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Releasing loan to '%s'", subscription->topic_name);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
     if (subscriber_impl.has_error()) {
@@ -241,7 +241,7 @@ rmw_ret_t rmw_take(const rmw_subscription_t* subscription,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "taking copy: %s", subscription->topic_name);
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Retrieving copy from '%s'", subscription->topic_name);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
     if (subscriber_impl.has_error()) {

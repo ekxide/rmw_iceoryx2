@@ -7,6 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "rcutils/logging_macros.h"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -58,6 +59,8 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
                                           rmw_get_implementation_identifier(),
                                           return nullptr);
 
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Creating node '%s' in namespace '%s'", name, namespace_);
+
     rmw_node_t* node = rmw_node_allocate();
     if (!node) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node handle");
@@ -66,21 +69,21 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
     node->context = context;
     node->implementation_identifier = rmw_get_implementation_identifier();
 
-    auto name_copy = allocate_copy(name);
-    if (name_copy.has_error()) {
+    auto name_ptr = allocate_copy(name);
+    if (name_ptr.has_error()) {
         destroy_node_impl(node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node name");
         return nullptr;
     }
-    node->name = name_copy.value();
+    node->name = name_ptr.value();
 
-    auto namespace_copy = allocate_copy(namespace_);
-    if (namespace_copy.has_error()) {
+    auto namespace_ptr = allocate_copy(namespace_);
+    if (namespace_ptr.has_error()) {
         destroy_node_impl(node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node namespace");
         return nullptr;
     }
-    node->namespace_ = namespace_copy.value();
+    node->namespace_ = namespace_ptr.value();
 
     auto ptr = allocate<NodeImpl>();
     if (ptr.has_error()) {
@@ -109,6 +112,9 @@ rmw_ret_t rmw_destroy_node(rmw_node_t* node) {
                                           node->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Destroying node '%s' in namespace '%s'", node->name, node->namespace_);
+
     destroy_node_impl(node);
 
     return RMW_RET_OK;
