@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "iox/assertions_addendum.hpp"
+#include "rmw/allocators.h"
 #include "rmw/dynamic_message_type_support.h"
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
