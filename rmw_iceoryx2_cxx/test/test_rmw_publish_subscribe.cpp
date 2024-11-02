@@ -33,7 +33,7 @@ protected:
     }
 };
 
-TEST_F(RmwPublishSubscribeTest, publish_subscribe_defaults) {
+TEST_F(RmwPublishSubscribeTest, publish_subscribe_loaned_defaults) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto publisher = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
@@ -44,6 +44,29 @@ TEST_F(RmwPublishSubscribeTest, publish_subscribe_defaults) {
     EXPECT_RMW_OK(rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &publisher_loan));
     new (publisher_loan) Defaults{};
     EXPECT_RMW_OK(rmw_publish_loaned_message(publisher, publisher_loan, nullptr));
+
+    void* subscriber_loan = nullptr;
+    bool taken{false};
+    EXPECT_RMW_OK(rmw_take_loaned_message(subscription, &subscriber_loan, &taken, nullptr));
+    ASSERT_NE(subscriber_loan, nullptr);
+    ASSERT_TRUE(taken);
+
+    ASSERT_EQ(*reinterpret_cast<Defaults*>(subscriber_loan), Defaults{});
+
+    ASSERT_RMW_OK(rmw_return_loaned_message_from_subscription(subscription, subscriber_loan));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
+}
+
+TEST_F(RmwPublishSubscribeTest, publish_subscribe_copied_defaults) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto publisher = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+    auto subscription =
+        rmw_create_subscription(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+
+    auto ros_message = Defaults{};
+    EXPECT_RMW_OK(rmw_publish(publisher, &ros_message, nullptr));
 
     void* subscriber_loan = nullptr;
     bool taken{false};

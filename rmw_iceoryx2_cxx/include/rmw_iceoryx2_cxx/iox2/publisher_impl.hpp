@@ -86,6 +86,8 @@ public:
      */
     auto service_name() const -> const std::string&;
 
+    auto payload_size() const -> uint64_t;
+
     /**
      * @brief Loan memory from iceoryx2 to be populated with data to publish.
      *
@@ -112,7 +114,9 @@ public:
      *
      * @return Error if unable to publish the provided loaned_memory.
      */
-    auto publish(void* loaned_memory) -> iox::expected<void, ErrorType>;
+    auto publish_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
+
+    auto publish_copy(const void* msg, uint64_t size) -> iox::expected<void, ErrorType>;
 
 private:
     const std::string m_topic;

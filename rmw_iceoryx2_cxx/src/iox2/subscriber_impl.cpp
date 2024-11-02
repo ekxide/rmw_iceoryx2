@@ -26,8 +26,6 @@ SubscriberImpl::SubscriberImpl(CreationLock,
     , m_service_name{::rmw::iox2::names::topic(context_id, topic)} {
     using ::iox2::ServiceName;
 
-    std::cout << "Creating SubscriberImpl" << std::endl;
-
     auto service_name = ServiceName::create(m_service_name.c_str());
     if (service_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
@@ -73,7 +71,7 @@ auto SubscriberImpl::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto SubscriberImpl::take() -> iox::expected<iox::optional<const void*>, ErrorType> {
+auto SubscriberImpl::take_copy(void* dest) -> iox::expected<bool, ErrorType> {
     using iox::err;
     using iox::nullopt;
     using iox::ok;
@@ -81,6 +79,29 @@ auto SubscriberImpl::take() -> iox::expected<iox::optional<const void*>, ErrorTy
 
     auto result = m_subscriber->receive();
     if (result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        return err(ErrorType::RECV_FAILURE);
+    }
+    auto sample = std::move(result.value());
+
+    if (sample.has_value()) {
+        auto payload = sample.value().payload_slice();
+        std::memcpy(dest, payload.data(), payload.size());
+        return ok(true);
+    } else {
+        return ok(false);
+    }
+}
+
+auto SubscriberImpl::take_loan() -> iox::expected<iox::optional<const void*>, ErrorType> {
+    using iox::err;
+    using iox::nullopt;
+    using iox::ok;
+    using iox::optional;
+
+    auto result = m_subscriber->receive();
+    if (result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
         return err(ErrorType::RECV_FAILURE);
     }
     auto sample = std::move(result.value());

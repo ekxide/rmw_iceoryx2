@@ -154,7 +154,7 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
         return RMW_RET_ERROR;
     }
 
-    auto loan = subscriber_impl.value()->take();
+    auto loan = subscriber_impl.value()->take_loan();
     if (loan.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
         return RMW_RET_ERROR;
@@ -219,7 +219,33 @@ rmw_ret_t rmw_take(const rmw_subscription_t* subscription,
                    void* ros_message,
                    bool* taken,
                    rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    using ::rmw::iox2::SubscriberImpl;
+    using ::rmw::iox2::unsafe_cast;
+
+    (void)allocation; // not used
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_loaned_message: subscription",
+                                          subscription->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
+    if (subscriber_impl.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
+        return RMW_RET_ERROR;
+    }
+
+    auto result = subscriber_impl.value()->take_copy(ros_message);
+    if (result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
+        return RMW_RET_ERROR;
+    }
+
+    *taken = result.value();
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_take_with_info(const rmw_subscription_t* subscription,

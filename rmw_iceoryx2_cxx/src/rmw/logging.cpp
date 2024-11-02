@@ -19,7 +19,7 @@ rmw_ret_t rmw_set_log_severity(rmw_log_severity_t severity) {
 
     switch (severity) {
     case RMW_LOG_SEVERITY_DEBUG:
-        set_log_level(LogLevel::Trace);
+        set_log_level(LogLevel::Debug);
         break;
     case RMW_LOG_SEVERITY_INFO:
         set_log_level(LogLevel::Info);

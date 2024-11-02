@@ -29,8 +29,6 @@ PublisherImpl::PublisherImpl(CreationLock,
     , m_payload_size{payload_size} {
     using ::iox2::ServiceName;
 
-    std::cout << "Creating PublisherImpl" << std::endl;
-
     auto service_name = ServiceName::create(m_service_name.c_str());
     if (service_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
@@ -92,6 +90,10 @@ auto PublisherImpl::service_name() const -> const std::string& {
     return m_service_name;
 }
 
+auto PublisherImpl::payload_size() const -> uint64_t {
+    return m_payload_size;
+}
+
 auto PublisherImpl::loan() -> iox::expected<void*, ErrorType> {
     using iox::err;
     using iox::ok;
@@ -120,7 +122,7 @@ auto PublisherImpl::return_loan(void* loaned_memory) -> iox::expected<void, Erro
     return ok();
 }
 
-auto PublisherImpl::publish(void* loaned_memory) -> iox::expected<void, ErrorType> {
+auto PublisherImpl::publish_loan(void* loaned_memory) -> iox::expected<void, ErrorType> {
     using ::iox::err;
     using ::iox::ok;
     using ::iox2::assume_init;
@@ -133,6 +135,27 @@ auto PublisherImpl::publish(void* loaned_memory) -> iox::expected<void, ErrorTyp
         return err(ErrorType::INVALID_PAYLOAD);
     }
     if (auto result = send(assume_init(std::move(sample.value()))); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        return err(ErrorType::SEND_FAILURE);
+    }
+
+    // Notify
+    if (auto result = m_notifier->notify(); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        return err(ErrorType::NOTIFICATION_FAILURE);
+    }
+
+    return ok();
+}
+
+auto PublisherImpl::publish_copy(const void* msg, uint64_t size) -> iox::expected<void, ErrorType> {
+    using ::iox::err;
+    using ::iox::ok;
+
+    // Send
+    auto payload = Payload{static_cast<const uint8_t*>(msg), size};
+
+    if (auto result = m_publisher->send_slice_copy(payload); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
         return err(ErrorType::SEND_FAILURE);
     }

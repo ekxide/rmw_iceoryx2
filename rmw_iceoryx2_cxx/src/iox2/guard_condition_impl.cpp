@@ -25,8 +25,6 @@ GuardConditionImpl::GuardConditionImpl(
     , m_service_name{names::guard_condition(context_id, m_trigger_id)} {
     using ::iox2::ServiceName;
 
-    std::cout << "Creating GuardConditionImpl" << std::endl;
-
     auto service_name = ServiceName::create(m_service_name.c_str());
     if (service_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));

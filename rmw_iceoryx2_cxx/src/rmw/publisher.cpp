@@ -104,7 +104,7 @@ rmw_ret_t rmw_destroy_publisher(rmw_node_t* node, rmw_publisher_t* publisher) {
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_publisher: publisher",
                                           publisher->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_INVALID_ARGUMENT);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     if (publisher->data) {
         destruct<PublisherImpl>(publisher->data);
@@ -124,6 +124,10 @@ rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t* publisher, rmw_qos
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_ERROR);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_ERROR);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_publisher_get_actual_qos: publisher",
+                                          publisher->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     *qos = rmw_qos_profile_default;
 
@@ -143,7 +147,7 @@ rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* publisher,
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_borrow_loaned_message: publisher",
                                           publisher->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_ERROR);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {
@@ -188,7 +192,30 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* publis
 
 rmw_ret_t
 rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publisher_allocation_t* allocation) {
-    IOX_TODO();
+    using ::rmw::iox2::PublisherImpl;
+    using ::rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_publish: publisher",
+                                          publisher->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+
+    auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
+    if (publisher_impl.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
+        return RMW_RET_ERROR;
+    }
+
+    if (auto result = publisher_impl.value()->publish_copy(ros_message, publisher_impl.value()->payload_size());
+        result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to publish copy");
+        return RMW_RET_ERROR;
+    }
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
@@ -210,8 +237,8 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
         return RMW_RET_ERROR;
     }
 
-    if (auto result = publisher_impl.value()->publish(ros_message); result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to publish");
+    if (auto result = publisher_impl.value()->publish_loan(ros_message); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to publish loaned message");
         return RMW_RET_ERROR;
     }
 

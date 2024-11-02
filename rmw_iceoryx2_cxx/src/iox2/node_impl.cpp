@@ -15,8 +15,6 @@ namespace rmw::iox2
 
 NodeImpl::NodeImpl(CreationLock, iox::optional<ErrorType>& error, const std::string& name)
     : m_node_name{name} {
-    std::cout << "Creating NodeImpl" << std::endl;
-
     auto node_name = ::iox2::NodeName::create(name.c_str());
     if (node_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(node_name.error()));
