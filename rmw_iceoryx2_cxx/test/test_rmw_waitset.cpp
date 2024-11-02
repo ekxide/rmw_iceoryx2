@@ -10,6 +10,8 @@
 #include <gtest/gtest.h>
 
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
@@ -57,14 +59,16 @@ TEST_F(RmwWaitSetTest, wait_with_timeout) {
 }
 
 TEST_F(RmwWaitSetTest, wakes_up_on_guard_condition_trigger) {
+    using rmw::iox2::GuardConditionImpl;
+
     // create a guard condition
     auto guard_condition = rmw_create_guard_condition(&context);
-    auto guard_condition_array = static_cast<rmw_guard_condition_t**>(rmw_allocate(sizeof(rmw_guard_condition_t)));
-    guard_condition_array[0] = guard_condition;
+    auto guard_condition_array = static_cast<GuardConditionImpl**>(rmw_allocate(sizeof(GuardConditionImpl)));
+    guard_condition_array[0] = static_cast<GuardConditionImpl*>(guard_condition->data);
 
     // create the guard condition collection struct
     auto guard_conditions = static_cast<rmw_guard_conditions_t*>(rmw_allocate(sizeof(rmw_guard_conditions_t)));
-    *guard_conditions = rmw_guard_conditions_t{};
+    new (guard_conditions) rmw_guard_conditions_t{};
     guard_conditions->guard_conditions = reinterpret_cast<void**>(guard_condition_array);
     guard_conditions->guard_condition_count = 1;
 
@@ -90,6 +94,7 @@ TEST_F(RmwWaitSetTest, wakes_up_on_guard_condition_trigger) {
 }
 
 TEST_F(RmwWaitSetTest, wakes_up_on_message_sent_to_subscriber) {
+    using rmw::iox2::SubscriberImpl;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     // create publisher
@@ -98,12 +103,12 @@ TEST_F(RmwWaitSetTest, wakes_up_on_message_sent_to_subscriber) {
     // create_subscription
     auto subscription =
         rmw_create_subscription(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
-    auto subscription_array = static_cast<rmw_subscription_t**>(rmw_allocate(sizeof(rmw_subscription_t)));
-    subscription_array[0] = subscription;
+    auto subscription_array = static_cast<SubscriberImpl**>(rmw_allocate(sizeof(SubscriberImpl)));
+    subscription_array[0] = static_cast<SubscriberImpl*>(subscription->data);
 
     // create the subscription collection struct
     auto subscriptions = static_cast<rmw_subscriptions_t*>(rmw_allocate(sizeof(rmw_subscriptions_t)));
-    *subscriptions = rmw_subscriptions_t{};
+    new (subscriptions) rmw_subscriptions_t{};
     subscriptions->subscribers = reinterpret_cast<void**>(subscription_array);
     subscriptions->subscriber_count = 1;
 

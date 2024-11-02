@@ -85,6 +85,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
                    rmw_events_t* /* NOT SUPPORTED */,
                    rmw_wait_set_t* wait_set,
                    const rmw_time_t* wait_timeout) {
+    using ::iox::units::Duration;
     using ::rmw::iox2::GuardConditionImpl;
     using ::rmw::iox2::SubscriberImpl;
     using ::rmw::iox2::unsafe_cast;
@@ -107,14 +108,13 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     // Attach all guard_conditions to waitset
     if (guard_conditions) {
         for (size_t i = 0; i < guard_conditions->guard_condition_count; i++) {
-            auto guard_condition = static_cast<const rmw_guard_condition_t*>(guard_conditions->guard_conditions[i]);
-            auto guard_condition_impl = unsafe_cast<GuardConditionImpl*>(guard_condition->data);
-            if (guard_condition_impl.has_error()) {
+            auto guard_condition = unsafe_cast<GuardConditionImpl*>(guard_conditions->guard_conditions[i]);
+            if (guard_condition.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardConditionImpl");
                 return RMW_RET_ERROR;
             }
-            if (auto result = waitset_impl->attach(*guard_condition_impl.value()); result.has_error()) {
+            if (auto result = waitset_impl->attach(*guard_condition.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardConditionImpl to WaitSetImpl");
                 return RMW_RET_ERROR;
@@ -125,14 +125,13 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     // Attach all subscriptions to waitset
     if (subscriptions) {
         for (size_t i = 0; i < subscriptions->subscriber_count; i++) {
-            auto subscriber = static_cast<const rmw_guard_condition_t*>(subscriptions->subscribers[i]);
-            auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscriber->data);
-            if (subscriber_impl.has_error()) {
+            auto subscriber = unsafe_cast<SubscriberImpl*>(subscriptions->subscribers[i]);
+            if (subscriber.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
                 return RMW_RET_ERROR;
             }
-            if (auto result = waitset_impl->attach(*subscriber_impl.value()); result.has_error()) {
+            if (auto result = waitset_impl->attach(*subscriber.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to attach SubscriberImpl to WaitSetImpl");
                 return RMW_RET_ERROR;
@@ -141,8 +140,8 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     }
 
     // Wait and process
-    auto secs = iox::units::Duration::fromSeconds(wait_timeout->sec);
-    auto nsecs = iox::units::Duration::fromNanoseconds(wait_timeout->nsec);
+    auto secs = wait_timeout ? Duration::fromSeconds(wait_timeout->sec) : Duration::fromSeconds(0);
+    auto nsecs = wait_timeout ? Duration::fromNanoseconds(wait_timeout->nsec) : Duration::fromNanoseconds(0);
     auto timeout = secs + nsecs;
 
     // TODO: indicate timeout
