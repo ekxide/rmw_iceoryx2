@@ -12,7 +12,7 @@
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/allocator_helpers.hpp"
+#include "rmw_iceoryx2_cxx/allocator.hpp"
 #include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/introspection/message.hpp"
@@ -202,7 +202,7 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_publish_loaned_message: publisher",
                                           publisher->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_ERROR);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {

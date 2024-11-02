@@ -135,7 +135,7 @@ if(BUILD_TESTING)
     test/test_iox2_sample_registry.cpp
     test/test_iox2_subscriber_impl.cpp
     test/test_iox2_waitset_impl.cpp
-    test/test_rmw_allocator_helpers.cpp
+    test/test_rmw_allocator.cpp
     test/test_rmw_gid.cpp
     test/test_rmw_graph.cpp
     test/test_rmw_guard_condition.cpp
