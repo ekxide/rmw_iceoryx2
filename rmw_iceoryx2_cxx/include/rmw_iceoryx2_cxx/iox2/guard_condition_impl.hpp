@@ -14,6 +14,7 @@
 #include "iox2/notifier.hpp"
 #include "iox2/port_factory_event.hpp"
 #include "iox2/service_type.hpp"
+#include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
@@ -32,6 +33,8 @@ struct Error<GuardConditionImpl>
 
 class RMW_PUBLIC GuardConditionImpl
 {
+    using RawIdType = ::iox2::RawIdType;
+    using IdType = ::iox2::UniquePublisherId;
     using IceoryxNotifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
 
 public:
@@ -42,16 +45,18 @@ public:
                        iox::optional<ErrorType>& error,
                        NodeImpl& node,
                        const uint32_t context_id,
-                       const uint32_t guard_condition_id);
+                       const uint32_t trigger_id);
 
-    auto id() const -> uint32_t;
+    auto unique_id() -> iox::optional<RawIdType>&;
+    auto trigger_id() const -> uint32_t;
     auto service_name() const -> const std::string&;
     auto trigger() -> iox::expected<void, ErrorType>;
 
 private:
-    const uint32_t m_id;
+    const uint32_t m_trigger_id;
     const std::string m_service_name;
 
+    iox::optional<IdType> m_unique_id;
     iox::optional<IceoryxNotifier> m_notifier;
 };
 

@@ -145,18 +145,6 @@ rmw_ret_t rmw_count_services(const rmw_node_t* node, const char* service_name, s
     IOX_TODO();
 }
 
-rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t* publisher, rmw_gid_t* gid) {
-    IOX_TODO();
-}
-
-rmw_ret_t rmw_get_gid_for_client(const rmw_client_t* client, rmw_gid_t* gid) {
-    IOX_TODO();
-}
-
-rmw_ret_t rmw_compare_gids_equal(const rmw_gid_t* gid1, const rmw_gid_t* gid2, bool* result) {
-    IOX_TODO();
-}
-
 rmw_ret_t rmw_service_server_is_available(const rmw_node_t* node, const rmw_client_t* client, bool* is_available) {
     IOX_TODO();
 }

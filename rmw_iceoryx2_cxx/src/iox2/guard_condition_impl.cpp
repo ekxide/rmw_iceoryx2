@@ -19,13 +19,10 @@
 namespace rmw::iox2
 {
 
-GuardConditionImpl::GuardConditionImpl(CreationLock,
-                                       iox::optional<ErrorType>& error,
-                                       NodeImpl& node,
-                                       const uint32_t context_id,
-                                       const uint32_t guard_condition_id)
-    : m_id{guard_condition_id}
-    , m_service_name{names::guard_condition(context_id, m_id)} {
+GuardConditionImpl::GuardConditionImpl(
+    CreationLock, iox::optional<ErrorType>& error, NodeImpl& node, const uint32_t context_id, const uint32_t trigger_id)
+    : m_trigger_id{trigger_id}
+    , m_service_name{names::guard_condition(context_id, m_trigger_id)} {
     using ::iox2::ServiceName;
 
     std::cout << "Creating GuardConditionImpl" << std::endl;
@@ -54,9 +51,15 @@ GuardConditionImpl::GuardConditionImpl(CreationLock,
     m_notifier.emplace(std::move(notifier.value()));
 };
 
-auto GuardConditionImpl::id() const -> uint32_t {
-    return m_id;
+auto GuardConditionImpl::trigger_id() const -> uint32_t {
+    return m_trigger_id;
 }
+
+auto GuardConditionImpl::unique_id() -> iox::optional<RawIdType>& {
+    auto& bytes = m_unique_id->bytes();
+    return bytes;
+}
+
 
 auto GuardConditionImpl::service_name() const -> const std::string& {
     return m_service_name;
@@ -67,7 +70,7 @@ auto GuardConditionImpl::trigger() -> iox::expected<void, ErrorType> {
     using ::iox::ok;
     using ::iox2::EventId;
 
-    if (auto result = m_notifier->notify_with_custom_event_id(EventId(id())); result.has_error()) {
+    if (auto result = m_notifier->notify_with_custom_event_id(EventId(trigger_id())); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
         return err(ErrorType::NOTIFICATION_FAILURE);
     };

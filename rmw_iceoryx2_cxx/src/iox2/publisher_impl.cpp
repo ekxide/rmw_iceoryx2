@@ -55,6 +55,7 @@ PublisherImpl::PublisherImpl(CreationLock,
         error.emplace(ErrorType::PUBLISHER_CREATION_FAILURE);
         return;
     }
+    m_unique_id.emplace(publisher->id());
     m_publisher.emplace(std::move(publisher.value()));
 
     auto event_service = node.as_iox2().service_builder(service_name.value()).event().open_or_create();
@@ -71,6 +72,12 @@ PublisherImpl::PublisherImpl(CreationLock,
         return;
     }
     m_notifier.emplace(std::move(notifier.value()));
+}
+
+
+auto PublisherImpl::unique_id() -> iox::optional<RawIdType>& {
+    auto& bytes = m_unique_id->bytes();
+    return bytes;
 }
 
 auto PublisherImpl::topic() const -> const std::string& {

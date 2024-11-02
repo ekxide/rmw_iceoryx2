@@ -52,7 +52,13 @@ SubscriberImpl::SubscriberImpl(CreationLock,
         error.emplace(ErrorType::SUBSCRIBER_CREATION_FAILURE);
         return;
     }
+    m_unique_id.emplace(subscriber->id());
     m_subscriber.emplace(std::move(subscriber.value()));
+}
+
+auto SubscriberImpl::unique_id() -> iox::optional<RawIdType>& {
+    auto& bytes = m_unique_id->bytes();
+    return bytes;
 }
 
 auto SubscriberImpl::topic() const -> const std::string& {

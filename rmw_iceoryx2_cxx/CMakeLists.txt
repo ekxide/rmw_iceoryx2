@@ -56,6 +56,7 @@ add_library(${PROJECT_NAME} SHARED
   src/rmw/client.cpp
   src/rmw/event.cpp
   src/rmw/feature.cpp
+  src/rmw/gid.cpp
   src/rmw/graph.cpp
   src/rmw/guard_condition.cpp
   src/rmw/identifier.cpp
@@ -135,6 +136,7 @@ if(BUILD_TESTING)
     test/test_iox2_subscriber_impl.cpp
     test/test_iox2_waitset_impl.cpp
     test/test_rmw_allocator_helpers.cpp
+    test/test_rmw_gid.cpp
     test/test_rmw_graph.cpp
     test/test_rmw_guard_condition.cpp
     test/test_rmw_init.cpp

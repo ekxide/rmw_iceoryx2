@@ -16,6 +16,7 @@
 #include "iox2/publisher.hpp"
 #include "iox2/sample_mut_uninit.hpp"
 #include "iox2/service_type.hpp"
+#include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
@@ -40,6 +41,8 @@ struct Error<PublisherImpl>
  */
 class RMW_PUBLIC PublisherImpl
 {
+    using RawIdType = ::iox2::RawIdType;
+    using IdType = ::iox2::UniquePublisherId;
     using Payload = ::iox::Slice<uint8_t>;
     using Sample = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, void>;
     using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
@@ -58,6 +61,13 @@ public:
                   const char* topic,
                   const char* type,
                   const uint64_t size);
+
+    /**
+     * @brief Get the unique identifier of the publisher.
+     *
+     * @return A reference to the Id of the publisher.
+     */
+    auto unique_id() -> iox::optional<RawIdType>&;
 
     /**
      * @brief Get the topic name.
@@ -110,6 +120,7 @@ private:
     const std::string m_service_name;
     const uint64_t m_payload_size;
 
+    iox::optional<IdType> m_unique_id;
     iox::optional<IceoryxNotifier> m_notifier;
     iox::optional<IceoryxPublisher> m_publisher;
     SampleRegistry m_registry;

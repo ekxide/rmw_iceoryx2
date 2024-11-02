@@ -15,6 +15,7 @@
 #include "iox2/sample.hpp"
 #include "iox2/service_type.hpp"
 #include "iox2/subscriber.hpp"
+#include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
@@ -33,6 +34,8 @@ struct Error<SubscriberImpl>
 
 class RMW_PUBLIC SubscriberImpl
 {
+    using RawIdType = ::iox2::RawIdType;
+    using IdType = ::iox2::UniqueSubscriberId;
     using Payload = ::iox::Slice<uint8_t>;
     using Sample = ::iox2::Sample<::iox2::ServiceType::Ipc, Payload, void>;
     using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
@@ -49,6 +52,13 @@ public:
                    const uint32_t context_id,
                    const char* topic,
                    const char* type);
+
+    /**
+     * @brief Get the unique identifier of the subscriber.
+     *
+     * @return A reference to the Id of the subscriber.
+     */
+    auto unique_id() -> iox::optional<RawIdType>&;
 
     /**
      * @brief Get the topic name.
@@ -81,6 +91,7 @@ private:
     const std::string m_type;
     const std::string m_service_name;
 
+    iox::optional<IdType> m_unique_id;
     iox::optional<IceoryxSubscriber> m_subscriber;
     SampleRegistry m_registry;
 };
