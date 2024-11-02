@@ -170,7 +170,7 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* publis
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_return_loaned_message_from_publisher: publisher",
                                           publisher->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_ERROR);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {

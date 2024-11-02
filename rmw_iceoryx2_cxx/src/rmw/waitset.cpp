@@ -68,7 +68,7 @@ rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* wait_set) {
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_wait_set: context",
                                           wait_set->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_INVALID_ARGUMENT);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     if (wait_set->data) {
         destruct<WaitSetImpl>(wait_set->data);
@@ -93,10 +93,10 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
 
     // TODO: Null checks for waitables?
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_wait: context",
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_wait: wait_set",
                                           wait_set->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_INVALID_ARGUMENT);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     auto ptr = unsafe_cast<WaitSetImpl*>(wait_set->data);
     if (ptr.has_error()) {

@@ -49,6 +49,14 @@ rmw_service_t* rmw_create_service(const rmw_node_t* node,
 rmw_ret_t rmw_destroy_service(rmw_node_t* node, rmw_service_t* service) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(service, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_service: node",
+                                          node->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_service: service",
+                                          service->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     rmw_service_free(service);
 
@@ -67,6 +75,10 @@ rmw_ret_t rmw_send_response(const rmw_service_t* service, rmw_request_id_t* requ
 rmw_ret_t rmw_service_request_subscription_get_actual_qos(const rmw_service_t* service, rmw_qos_profile_t* qos) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(service, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_service_request_subscription_get_actual_qos: service",
+                                          service->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     *qos = rmw_qos_profile_default;
 
@@ -76,6 +88,10 @@ rmw_ret_t rmw_service_request_subscription_get_actual_qos(const rmw_service_t* s
 rmw_ret_t rmw_service_response_publisher_get_actual_qos(const rmw_service_t* service, rmw_qos_profile_t* qos) {
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(service, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_service_response_publisher_get_actual_qos: service",
+                                          service->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     *qos = rmw_qos_profile_default;
 

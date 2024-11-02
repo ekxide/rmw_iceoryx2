@@ -102,7 +102,7 @@ rmw_ret_t rmw_destroy_subscription(rmw_node_t* node, rmw_subscription_t* subscri
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_subscription: subscription",
                                           subscription->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_INVALID_ARGUMENT);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     if (subscription->data) {
         destruct<SubscriberImpl>(subscription->data);
@@ -122,6 +122,10 @@ rmw_ret_t rmw_subscription_get_actual_qos(const rmw_subscription_t* subscription
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_ERROR);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_ERROR);
+    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_subscription_get_actual_qos: subscription",
+                                          subscription->implementation_identifier,
+                                          rmw_get_implementation_identifier(),
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     *qos = rmw_qos_profile_default;
 
@@ -142,7 +146,7 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_loaned_message: subscription",
                                           subscription->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_INVALID_ARGUMENT);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
     if (subscriber_impl.has_error()) {
@@ -179,7 +183,7 @@ rmw_ret_t rmw_take_loaned_message_with_info(const rmw_subscription_t* subscripti
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_loaned_message_with_info: subscription",
                                           subscription->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_INVALID_ARGUMENT);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     return rmw_take_loaned_message(subscription, loaned_message, taken, allocation);
 }
@@ -193,7 +197,7 @@ rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* 
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_return_loaned_message_from_subscription: subscription",
                                           subscription->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_ERROR);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
     if (subscriber_impl.has_error()) {
@@ -230,7 +234,7 @@ rmw_ret_t rmw_take_with_info(const rmw_subscription_t* subscription,
     RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_with_info: subscription",
                                           subscription->implementation_identifier,
                                           rmw_get_implementation_identifier(),
-                                          return RMW_RET_INVALID_ARGUMENT);
+                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     return rmw_take(subscription, ros_message, taken, allocation);
 }
