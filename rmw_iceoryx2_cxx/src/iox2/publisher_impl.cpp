@@ -150,10 +150,11 @@ auto PublisherImpl::publish_loan(void* loaned_memory) -> iox::expected<void, Err
 
 auto PublisherImpl::publish_copy(const void* msg, uint64_t size) -> iox::expected<void, ErrorType> {
     using ::iox::err;
+    using ::iox::ImmutableSlice;
     using ::iox::ok;
 
     // Send
-    auto payload = Payload{static_cast<const uint8_t*>(msg), size};
+    auto payload = ImmutableSlice<uint8_t>{static_cast<const uint8_t*>(msg), size};
 
     if (auto result = m_publisher->send_slice_copy(payload); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));

@@ -26,6 +26,14 @@
 namespace rmw::iox2
 {
 
+enum class AttachmentType { SUBSCRIPTION, GUARD_CONDITION };
+
+/*
+ * An index used by the RMW to track entities attached to the waitset.
+ */
+using RmwIndex = size_t;
+enum class WaitableType { SUBSCRIPTION, GUARD_CONDITION };
+
 class WaitSetImpl;
 
 template <>
@@ -43,6 +51,53 @@ class RMW_PUBLIC WaitSetImpl
     using IceoryxWaitSet = ::iox2::WaitSet<::iox2::ServiceType::Ipc>;
     using IceoryxListener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
 
+    struct ListenerStorage
+    {
+        std::string service_name;
+        IceoryxListener listener;
+    };
+    using StorageIndex = std::vector<ListenerStorage>::size_type;
+
+    struct StagedWaitable
+    {
+        StorageIndex storage_index;
+        WaitableType waitable_type;
+        RmwIndex rmw_index;
+    };
+    struct TriggeredWaitable
+    {
+        WaitableType waitable_type;
+        RmwIndex rmw_index;
+    };
+
+    class WaitSetAttachmentStorage
+    {
+    public:
+        WaitSetAttachmentStorage(Guard&& guard)
+            : m_guard{std::move(guard)}
+            , m_id{AttachmentId::from_guard(m_guard)} {
+        }
+
+        WaitSetAttachmentStorage(Guard&& guard, const StagedWaitable& staged_waitable)
+            : m_guard{std::move(guard)}
+            , m_id{AttachmentId::from_guard(m_guard)}
+            , m_waitable{staged_waitable} {
+        }
+
+        auto id() -> AttachmentId& {
+            return m_id;
+        }
+
+        auto waitable() -> iox::optional<StagedWaitable>& {
+            return m_waitable;
+        }
+
+    private:
+        Guard m_guard;
+        AttachmentId m_id;
+        iox::optional<StagedWaitable> m_waitable;
+    };
+
 public:
     using ErrorType = Error<WaitSetImpl>::Type;
 
@@ -54,28 +109,44 @@ public:
      */
     WaitSetImpl(CreationLock, iox::optional<ErrorType>& error, ContextImpl& context);
 
-    auto attach(GuardConditionImpl& guard_condition) -> iox::expected<void, ErrorType>;
-    auto attach(SubscriberImpl& subscriber) -> iox::expected<void, ErrorType>;
-    auto wait(const Duration& timeout = iox::units::Duration::fromSeconds(0)) -> iox::expected<void, ErrorType>;
+    auto attach(RmwIndex rmw_index, GuardConditionImpl& guard_condition) -> iox::expected<void, ErrorType>;
+    auto attach(RmwIndex rmw_index, SubscriberImpl& subscriber) -> iox::expected<void, ErrorType>;
+    auto detach_all() -> void;
+
+    auto wait(const iox::optional<Duration>& timeout = iox::nullopt)
+        -> iox::expected<iox::optional<TriggeredWaitable>, ErrorType>;
 
 private:
-    auto attach_listener(const std::string& service_name) -> iox::expected<void, ErrorType>;
-    auto on_trigger(AttachmentId& id) -> void;
+    /*
+     * @brief Creates a listener for the given service, if not already created.
+     *
+     * If the listener was previously already created, skips creation and reuses the existing listener.
+     */
+    auto create_listener(const std::string& service_name) -> iox::expected<StorageIndex, ErrorType>;
+
+    /*
+     * @brief Stages a listener to be waited on.
+     */
+    auto stage_listener(WaitableType entity_type, StorageIndex storage_index, RmwIndex rmw_index) -> void;
+
+    /*
+     * Get the listener at the given storage index.
+     */
+    auto get_listener(StorageIndex storage_index) -> iox::optional<ListenerStorage*>;
 
 private:
     ContextImpl& m_context;
     iox::optional<IceoryxWaitSet> m_waitset;
 
-    // TODO: Remove use of std. Current solution is only for prototyping.
-    // TODO: String comparison of service name is expensive. Change it.
-    struct AttachedListener
-    {
-        std::string service_name;
-        AttachmentId id;
-        Guard guard;
-        IceoryxListener listener;
-    };
-    std::vector<AttachedListener> m_attached_listeners;
+    // Storage for all attached listeners.
+    // Listeners for entities are created on first attachment, and re-used in subsequent calls.
+    // WARNING: Listeners must not be removed once added to the storage as this invalidates held storage indicies.
+    // TODO: A less error-prone solution. This is the quickest "dumb" implementation to get things working.
+    std::vector<ListenerStorage> m_listener_storage;
+
+    // Listeners staged to be waited on in the next wait call.
+    // Maps the attachment to the index used in the RMW for tracking.
+    std::vector<StagedWaitable> m_staged_waitables;
 };
 
 } // namespace rmw::iox2

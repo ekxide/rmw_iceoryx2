@@ -94,6 +94,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     using ::rmw::iox2::GuardConditionImpl;
     using ::rmw::iox2::SubscriberImpl;
     using ::rmw::iox2::unsafe_cast;
+    using ::rmw::iox2::WaitableType;
     using ::rmw::iox2::WaitSetImpl;
 
     // TODO: Null checks for waitables?
@@ -102,8 +103,6 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
                                           wait_set->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "waiting on waitset");
 
     auto ptr = unsafe_cast<WaitSetImpl*>(wait_set->data);
     if (ptr.has_error()) {
@@ -114,14 +113,13 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
 
     // Attach all guard_conditions to waitset
     if (guard_conditions) {
-        for (size_t i = 0; i < guard_conditions->guard_condition_count; i++) {
-            auto guard_condition = unsafe_cast<GuardConditionImpl*>(guard_conditions->guard_conditions[i]);
+        for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
+            auto guard_condition = unsafe_cast<GuardConditionImpl*>(guard_conditions->guard_conditions[index]);
             if (guard_condition.has_error()) {
-                // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardConditionImpl");
                 return RMW_RET_ERROR;
             }
-            if (auto result = waitset_impl->attach(*guard_condition.value()); result.has_error()) {
+            if (auto result = waitset_impl->attach(index, *guard_condition.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardConditionImpl to WaitSetImpl");
                 return RMW_RET_ERROR;
@@ -131,14 +129,13 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
 
     // Attach all subscriptions to waitset
     if (subscriptions) {
-        for (size_t i = 0; i < subscriptions->subscriber_count; i++) {
-            auto subscriber = unsafe_cast<SubscriberImpl*>(subscriptions->subscribers[i]);
+        for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
+            auto subscriber = unsafe_cast<SubscriberImpl*>(subscriptions->subscribers[index]);
             if (subscriber.has_error()) {
-                // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
                 return RMW_RET_ERROR;
             }
-            if (auto result = waitset_impl->attach(*subscriber.value()); result.has_error()) {
+            if (auto result = waitset_impl->attach(index, *subscriber.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to attach SubscriberImpl to WaitSetImpl");
                 return RMW_RET_ERROR;
@@ -151,11 +148,39 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     auto nsecs = wait_timeout ? Duration::fromNanoseconds(wait_timeout->nsec) : Duration::fromNanoseconds(0);
     auto timeout = secs + nsecs;
 
-    // TODO: indicate timeout
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "waiting with timeout %lu", timeout.toNanoseconds());
+
     if (auto result = waitset_impl->wait(timeout); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("wait failure");
         return RMW_RET_ERROR;
+    } else {
+        auto trigger = std::move(result.value());
+        if (trigger.has_value()) {
+            auto triggered_waitable = trigger.value();
+            // TODO: In need of optimization. Quick and dirty just for functionality.
+            switch (triggered_waitable.waitable_type) {
+            case WaitableType::SUBSCRIPTION:
+                for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
+                    if (index != triggered_waitable.rmw_index) {
+                        subscriptions->subscribers[index] = nullptr;
+                    }
+                }
+                break;
+            case WaitableType::GUARD_CONDITION:
+                for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
+                    if (index != triggered_waitable.rmw_index) {
+                        guard_conditions->guard_conditions[index] = nullptr;
+                    }
+                }
+                break;
+            }
+        } else {
+            // Timed out
+            return RMW_RET_TIMEOUT;
+        }
     }
+
+    waitset_impl->detach_all();
 
     return RMW_RET_OK;
 }

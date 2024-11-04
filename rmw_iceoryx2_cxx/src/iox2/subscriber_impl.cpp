@@ -85,8 +85,8 @@ auto SubscriberImpl::take_copy(void* dest) -> iox::expected<bool, ErrorType> {
     auto sample = std::move(result.value());
 
     if (sample.has_value()) {
-        auto payload = sample.value().payload_slice();
-        std::memcpy(dest, payload.data(), payload.size());
+        auto payload = sample.value().payload();
+        std::memcpy(dest, payload.data(), payload.number_of_bytes());
         return ok(true);
     } else {
         return ok(false);
@@ -107,7 +107,7 @@ auto SubscriberImpl::take_loan() -> iox::expected<iox::optional<const void*>, Er
     auto sample = std::move(result.value());
 
     if (sample.has_value()) {
-        auto ptr = sample.value().payload_slice().data();
+        auto ptr = sample.value().payload().data();
         m_registry.store(std::move(sample.value()));
         return ok(optional<const void*>(ptr));
     } else {

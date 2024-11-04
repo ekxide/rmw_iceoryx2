@@ -7,8 +7,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/rmw/init.hpp"
-
 #include "rmw/init.h"
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"

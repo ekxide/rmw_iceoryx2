@@ -59,7 +59,7 @@ TEST_F(RmwSampleRegistryTest, store_and_retrieve_loaned_publisher_sample) {
     auto publisher =
         service.publisher_builder().max_slice_len(payload_size).create().expect("failed to create publisher");
     auto sample = publisher.loan_slice_uninit(payload_size).expect("failed to loan");
-    auto sample_ptr = sample.payload_slice().data();
+    auto sample_ptr = sample.payload().data();
     ASSERT_NE(sample_ptr, nullptr);
 
     auto stored_ptr = sut.store(std::move(sample));
@@ -69,7 +69,7 @@ TEST_F(RmwSampleRegistryTest, store_and_retrieve_loaned_publisher_sample) {
 
     auto released_sample = sut.release(stored_ptr);
     ASSERT_TRUE(released_sample.has_value());
-    auto released_ptr = released_sample->payload_slice().data();
+    auto released_ptr = released_sample->payload().data();
     ASSERT_EQ(released_ptr, sample_ptr);
 }
 
