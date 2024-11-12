@@ -21,9 +21,6 @@
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
 
-#include <functional>
-#include <map>
-#include <unordered_map>
 #include <vector>
 
 namespace rmw::iox2
@@ -45,8 +42,6 @@ class RMW_PUBLIC WaitSetImpl
     using Guard = ::iox2::WaitSetGuard<::iox2::ServiceType::Ipc>;
     using IceoryxWaitSet = ::iox2::WaitSet<::iox2::ServiceType::Ipc>;
     using IceoryxListener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
-    // TODO: Remove use of std. Current solution is only for prototyping.
-    using Callback = std::function<void(void)>;
 
 public:
     using ErrorType = Error<WaitSetImpl>::Type;

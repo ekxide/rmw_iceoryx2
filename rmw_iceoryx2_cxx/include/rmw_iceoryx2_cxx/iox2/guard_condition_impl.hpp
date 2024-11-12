@@ -12,6 +12,7 @@
 
 #include "iox/optional.hpp"
 #include "iox2/notifier.hpp"
+#include "iox2/port_factory_event.hpp"
 #include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"

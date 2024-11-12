@@ -15,7 +15,7 @@
 namespace rmw::iox2
 {
 /// Chosen arbitrariliy. Enforces single initialization per process.
-const uint64_t INITIALIZED_INSTANCE_ID = 42;
+// const uint64_t INITIALIZED_INSTANCE_ID = 42;
 } // namespace rmw::iox2
 
 #endif

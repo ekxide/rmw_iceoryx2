@@ -26,6 +26,8 @@ SubscriberImpl::SubscriberImpl(CreationLock,
     , m_service_name{::rmw::iox2::names::topic(context_id, topic)} {
     using ::iox2::ServiceName;
 
+    std::cout << "Creating SubscriberImpl" << std::endl;
+
     auto service_name = ServiceName::create(m_service_name.c_str());
     if (service_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));

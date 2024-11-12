@@ -26,7 +26,7 @@ rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_alloca
 
     init_options->implementation_identifier = rmw_get_implementation_identifier();
     init_options->allocator = allocator;
-    init_options->instance_id = rmw::iox2::INITIALIZED_INSTANCE_ID;
+    init_options->instance_id = 0;
     init_options->impl = nullptr; // no implementation-specific data
 
     return RMW_RET_OK;

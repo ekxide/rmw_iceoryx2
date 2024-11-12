@@ -14,6 +14,7 @@
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+#include <iostream>
 
 namespace rmw::iox2
 {
@@ -26,6 +27,8 @@ GuardConditionImpl::GuardConditionImpl(CreationLock,
     : m_id{guard_condition_id}
     , m_service_name{names::guard_condition(context_id, m_id)} {
     using ::iox2::ServiceName;
+
+    std::cout << "Creating GuardConditionImpl" << std::endl;
 
     auto service_name = ServiceName::create(m_service_name.c_str());
     if (service_name.has_error()) {
@@ -47,6 +50,7 @@ GuardConditionImpl::GuardConditionImpl(CreationLock,
         error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
         return;
     }
+
     m_notifier.emplace(std::move(notifier.value()));
 };
 

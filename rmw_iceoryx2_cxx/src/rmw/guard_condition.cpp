@@ -18,7 +18,6 @@
 extern "C" {
 rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
     using ::rmw::iox2::allocate;
-    using ::rmw::iox2::construct;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;

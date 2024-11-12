@@ -29,6 +29,8 @@ PublisherImpl::PublisherImpl(CreationLock,
     , m_payload_size{payload_size} {
     using ::iox2::ServiceName;
 
+    std::cout << "Creating PublisherImpl" << std::endl;
+
     auto service_name = ServiceName::create(m_service_name.c_str());
     if (service_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));

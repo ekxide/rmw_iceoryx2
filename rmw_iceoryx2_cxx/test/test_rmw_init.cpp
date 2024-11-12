@@ -43,7 +43,6 @@ TEST_F(RmwInitTest, initialization_and_shutdown) {
     EXPECT_RMW_OK(rmw_init(&init_options, &context));
 
     EXPECT_EQ(context.implementation_identifier, rmw_get_implementation_identifier());
-    EXPECT_EQ(context.instance_id, rmw::iox2::INITIALIZED_INSTANCE_ID);
     EXPECT_NE(context.impl, nullptr);
 
     EXPECT_RMW_OK(rmw_shutdown(&context));

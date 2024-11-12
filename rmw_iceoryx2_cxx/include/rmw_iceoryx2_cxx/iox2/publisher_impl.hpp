@@ -22,7 +22,6 @@
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/sample_registry.hpp"
 
-
 namespace rmw::iox2
 {
 

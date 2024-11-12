@@ -20,6 +20,8 @@ WaitSetImpl::WaitSetImpl(CreationLock, iox::optional<WaitSetError>& error, Conte
     using ::iox2::ServiceType;
     using ::iox2::WaitSetBuilder;
 
+    std::cout << "Creating WaitSetImpl" << std::endl;
+
     auto waitset = WaitSetBuilder().template create<ServiceType::Ipc>();
     if (waitset.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(waitset.error()));
