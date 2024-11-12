@@ -78,11 +78,8 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for SubscriberImpl");
         return nullptr;
     } else {
-        if (create_in_place<SubscriberImpl>(ptr.value(),
-                                            *node_impl.value(),
-                                            node->context->impl->id(),
-                                            topic_name,
-                                            type_support->typesupport_identifier)
+        if (create_in_place<SubscriberImpl>(
+                ptr.value(), *node_impl.value(), topic_name, type_support->typesupport_identifier)
                 .has_error()) {
             destruct<SubscriberImpl>(ptr.value());
             deallocate<SubscriberImpl>(ptr.value());

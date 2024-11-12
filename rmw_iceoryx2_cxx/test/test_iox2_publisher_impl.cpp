@@ -41,7 +41,7 @@ TEST_F(RmwPublisherImplTest, construction) {
     auto& context = context_storage.value();
 
     iox::optional<PublisherImpl> publisher;
-    ASSERT_FALSE(create_in_place(publisher, context.node(), context.id(), "Topic", "Type", 8).has_error());
+    ASSERT_FALSE(create_in_place(publisher, context.node(), "Topic", "Type", 8).has_error());
 }
 
 } // namespace

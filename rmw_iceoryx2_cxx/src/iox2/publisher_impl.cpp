@@ -19,13 +19,12 @@ namespace rmw::iox2
 PublisherImpl::PublisherImpl(CreationLock,
                              iox::optional<ErrorType>& error,
                              NodeImpl& node,
-                             const uint32_t context_id,
                              const char* topic,
                              const char* type,
                              const uint64_t payload_size)
     : m_topic{topic}
     , m_type{type}
-    , m_service_name{::rmw::iox2::names::topic(context_id, topic)}
+    , m_service_name{::rmw::iox2::names::topic(topic)}
     , m_payload_size{payload_size} {
     using ::iox2::ServiceName;
 

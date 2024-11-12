@@ -41,7 +41,7 @@ TEST_F(RmwSubscriberImplTest, construction) {
     auto& context = context_storage.value();
 
     iox::optional<SubscriberImpl> subscriber;
-    ASSERT_FALSE(create_in_place(subscriber, context.node(), context.id(), "Topic", "Type").has_error());
+    ASSERT_FALSE(create_in_place(subscriber, context.node(), "Topic", "Type").has_error());
 }
 
 } // namespace

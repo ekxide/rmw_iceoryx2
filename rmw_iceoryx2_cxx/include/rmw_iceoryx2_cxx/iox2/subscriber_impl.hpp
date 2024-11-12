@@ -46,12 +46,7 @@ public:
     using ErrorType = Error<SubscriberImpl>::Type;
 
 public:
-    SubscriberImpl(CreationLock,
-                   iox::optional<ErrorType>& error,
-                   NodeImpl& node,
-                   const uint32_t context_id,
-                   const char* topic,
-                   const char* type);
+    SubscriberImpl(CreationLock, iox::optional<ErrorType>& error, NodeImpl& node, const char* topic, const char* type);
 
     /**
      * @brief Get the unique identifier of the subscriber.

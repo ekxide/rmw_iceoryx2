@@ -15,8 +15,9 @@
 rmw_context_impl_s::rmw_context_impl_s(CreationLock, iox::optional<ErrorType>& error, const uint32_t id)
     : m_id{id} {
     using ::rmw::iox2::create_in_place;
+    namespace names = rmw::iox2::names;
 
-    if (auto result = create_in_place<NodeImpl>(m_node, rmw::iox2::names::context(id).c_str()); result.has_error()) {
+    if (auto result = create_in_place<NodeImpl>(m_node, names::node(id).c_str()); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create NodeImpl for ContextImpl");
         error.emplace(ErrorType::NODE_CREATION_FAILURE);
         return;

@@ -57,7 +57,6 @@ public:
     PublisherImpl(CreationLock,
                   iox::optional<ErrorType>& error,
                   NodeImpl& node,
-                  const uint32_t context_id,
                   const char* topic,
                   const char* type,
                   const uint64_t size);

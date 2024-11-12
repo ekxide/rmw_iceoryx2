@@ -39,23 +39,20 @@ struct NodeName
 const NodeName parse_node_name(const char* full_name) {
     NodeName result{};
 
-    const char* node_part = strstr(full_name, "::node::");
+    std::cout << full_name << std::endl;
 
-    if (node_part == nullptr) {
-        return result;
-    }
+    std::string str(full_name);
+    size_t nodes_pos = str.find("/nodes/");
 
-    const char* namespace_start = node_part + 8;
-    const char* last_colon = strrchr(namespace_start, ':');
+    if (nodes_pos != std::string::npos) {
+        std::string node_part = str.substr(nodes_pos + 7); // +7 to skip "/nodes/"
 
-    if (last_colon == nullptr) {
-        result.name = namespace_start;
-    } else {
-        result.namespace_ = std::string(namespace_start, last_colon - namespace_start);
-        result.name = std::string(last_colon + 1);
-
-        while (!result.namespace_.empty() && result.namespace_.back() == ':') {
-            result.namespace_.pop_back();
+        size_t last_slash = node_part.find_last_of('/');
+        if (last_slash != std::string::npos) {
+            result.namespace_ = node_part.substr(0, last_slash);
+            result.name = node_part.substr(last_slash + 1);
+        } else {
+            result.name = node_part;
         }
     }
 

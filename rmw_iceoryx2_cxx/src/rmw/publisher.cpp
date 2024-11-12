@@ -80,7 +80,6 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
     } else {
         if (create_in_place<PublisherImpl>(ptr.value(),
                                            *node_impl.value(),
-                                           node->context->impl->id(),
                                            topic_name,
                                            type_support->typesupport_identifier,
                                            message_size(type_support))
