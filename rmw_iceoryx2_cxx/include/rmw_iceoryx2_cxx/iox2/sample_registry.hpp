@@ -45,8 +45,10 @@ public:
 public:
     auto store(SampleType&& sample) -> uint8_t* {
         // const_cast required to work with Sample and SamplMut
-        auto it = m_samples.emplace(const_cast<uint8_t*>(sample.payload().data()), std::move(sample));
-        return it.first->first;
+        // Should be adapted to handle both cases without casting (when functional)
+        auto payload_ptr = const_cast<uint8_t*>(sample.payload().data());
+        m_samples.emplace(payload_ptr, std::move(sample));
+        return payload_ptr;
     }
     auto retrieve(uint8_t* loaned_memory) -> iox::optional<SampleType*> {
         using iox::nullopt;
