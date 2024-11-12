@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "iox/assertions_addendum.hpp"
+#include "rcutils/logging_macros.h"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -32,6 +33,8 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_condition
                                           context->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return nullptr);
+
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "creating waitset");
 
     rmw_wait_set_t* wait_set = rmw_wait_set_allocate();
     if (!wait_set) {
@@ -70,6 +73,8 @@ rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* wait_set) {
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "destroying waitset");
+
     if (wait_set->data) {
         destruct<WaitSetImpl>(wait_set->data);
         deallocate(wait_set->data);
@@ -97,6 +102,8 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
                                           wait_set->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "waiting on waitset");
 
     auto ptr = unsafe_cast<WaitSetImpl*>(wait_set->data);
     if (ptr.has_error()) {

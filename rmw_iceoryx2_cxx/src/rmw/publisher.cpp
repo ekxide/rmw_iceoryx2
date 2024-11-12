@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "iox/assertions_addendum.hpp"
+#include "rcutils/logging_macros.h"
 #include "rmw/allocators.h"
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
@@ -45,6 +46,8 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
                                           node->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return nullptr);
+
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "creating publisher: %s", topic_name);
 
     auto* publisher = rmw_publisher_allocate();
     if (publisher == nullptr) {
@@ -106,6 +109,8 @@ rmw_ret_t rmw_destroy_publisher(rmw_node_t* node, rmw_publisher_t* publisher) {
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "destroying publisher: %s", publisher->topic_name);
+
     if (publisher->data) {
         destruct<PublisherImpl>(publisher->data);
         deallocate(publisher->data);
@@ -149,6 +154,8 @@ rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* publisher,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "borrowing loan from: %s", publisher->topic_name);
+
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
@@ -176,6 +183,8 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* publis
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "returning loan: %s", publisher->topic_name);
+
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
@@ -202,6 +211,7 @@ rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publi
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "publishing copy: %s", publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {
@@ -230,6 +240,8 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
                                           publisher->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "publishing loan: %s", publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {

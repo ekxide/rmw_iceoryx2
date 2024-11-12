@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "iox/assertions_addendum.hpp"
+#include "rcutils/logging_macros.h"
 #include "rmw/allocators.h"
 #include "rmw/dynamic_message_type_support.h"
 #include "rmw/get_network_flow_endpoints.h"
@@ -18,6 +19,7 @@
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
+
 
 extern "C" {
 
@@ -44,6 +46,8 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
                                           node->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return nullptr);
+
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "creating subscription: %s", topic_name);
 
     auto* subscription = rmw_subscription_allocate();
     if (subscription == nullptr) {
@@ -104,6 +108,8 @@ rmw_ret_t rmw_destroy_subscription(rmw_node_t* node, rmw_subscription_t* subscri
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "destroying subscription: %s", subscription->topic_name);
+
     if (subscription->data) {
         destruct<SubscriberImpl>(subscription->data);
         deallocate(subscription->data);
@@ -147,6 +153,8 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
                                           subscription->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "taking loan: %s", subscription->topic_name);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
     if (subscriber_impl.has_error()) {
@@ -199,6 +207,8 @@ rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* 
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "returning loan: %s", subscription->topic_name);
+
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
     if (subscriber_impl.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
@@ -230,6 +240,8 @@ rmw_ret_t rmw_take(const rmw_subscription_t* subscription,
                                           subscription->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "taking copy: %s", subscription->topic_name);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(subscription->data);
     if (subscriber_impl.has_error()) {
