@@ -66,7 +66,7 @@ public:
      *
      * @return A reference to the Id of the publisher.
      */
-    auto unique_id() -> iox::optional<RawIdType>&;
+    auto unique_id() -> const iox::optional<RawIdType>&;
 
     /**
      * @brief Get the topic name.

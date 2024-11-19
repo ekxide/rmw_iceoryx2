@@ -47,7 +47,7 @@ public:
                        const uint32_t context_id,
                        const uint32_t trigger_id);
 
-    auto unique_id() -> iox::optional<RawIdType>&;
+    auto unique_id() -> const iox::optional<RawIdType>&;
     auto trigger_id() const -> uint32_t;
     auto service_name() const -> const std::string&;
     auto trigger() -> iox::expected<void, ErrorType>;

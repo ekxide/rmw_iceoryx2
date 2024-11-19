@@ -23,7 +23,7 @@ WaitSetImpl::WaitSetImpl(CreationLock, iox::optional<WaitSetError>& error, Conte
 
     auto waitset = WaitSetBuilder().template create<ServiceType::Ipc>();
     if (waitset.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(waitset.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(waitset.error()));
         error.emplace(ErrorType::WAITSET_CREATION_FAILURE);
         return;
     }
@@ -71,19 +71,19 @@ auto WaitSetImpl::create_listener(const std::string& name) -> iox::expected<Stor
         // An iceoryx2 listener does not exist. Create it.
         auto service_name = ServiceName::create(name.c_str());
         if (service_name.has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service_name.error()));
             return err(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         }
 
         auto service = m_context.node().as_iox2().service_builder(service_name.value()).event().open_or_create();
         if (service.has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service_name.error()));
             return err(ErrorType::SERVICE_CREATION_FAILURE);
         }
 
         auto listener = service.value().listener_builder().create();
         if (listener.has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(listener.error()));
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(listener.error()));
             return err(ErrorType::LISTENER_CREATION_FAILURE);
         }
 
@@ -133,7 +133,7 @@ auto WaitSetImpl::wait(const iox::optional<Duration>& timeout)
         if (timeout.value() != Duration::zero()) {
             auto guard = m_waitset->attach_interval(timeout.value());
             if (guard.has_error()) {
-                RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(guard.error()));
+                RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(guard.error()));
                 return err(ErrorType::ATTACHMENT_FAILURE);
             }
             attached_timeout.emplace(WaitSetAttachmentStorage{std::move(guard.value())});
@@ -146,7 +146,7 @@ auto WaitSetImpl::wait(const iox::optional<Duration>& timeout)
             auto& storage = result.value();
             auto guard = m_waitset->attach_notification(storage->listener);
             if (guard.has_error()) {
-                RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(guard.error()));
+                RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(guard.error()));
                 return err(ErrorType::ATTACHMENT_FAILURE);
             }
             attached_listeners.emplace_back(WaitSetAttachmentStorage{std::move(guard.value()), staged});
@@ -198,7 +198,7 @@ auto WaitSetImpl::wait(const iox::optional<Duration>& timeout)
                       ? m_waitset->wait_and_process(on_event)
                       : m_waitset->wait_and_process_once(on_event);
     if (result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::WAIT_FAILURE);
     }
 

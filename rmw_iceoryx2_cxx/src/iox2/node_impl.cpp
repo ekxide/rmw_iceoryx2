@@ -17,14 +17,14 @@ NodeImpl::NodeImpl(CreationLock, iox::optional<ErrorType>& error, const std::str
     : m_node_name{name} {
     auto node_name = ::iox2::NodeName::create(name.c_str());
     if (node_name.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(node_name.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(node_name.error()));
         error.emplace(ErrorType::NODE_NAME_CREATION_FAILURE);
         return;
     }
 
     auto node = ::iox2::NodeBuilder().name(node_name.value()).create<::iox2::ServiceType::Ipc>();
     if (node.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(node.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(node.error()));
         error.emplace(ErrorType::NODE_CREATION_FAILURE);
         return;
     }

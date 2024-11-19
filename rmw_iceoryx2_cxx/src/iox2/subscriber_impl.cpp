@@ -24,7 +24,7 @@ SubscriberImpl::SubscriberImpl(
 
     auto service_name = ServiceName::create(m_service_name.c_str());
     if (service_name.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service_name.error()));
         error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         return;
     }
@@ -35,14 +35,14 @@ SubscriberImpl::SubscriberImpl(
                        .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                        .open_or_create();
     if (service.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 
     auto subscriber = service.value().subscriber_builder().create();
     if (subscriber.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(subscriber.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(subscriber.error()));
         error.emplace(ErrorType::SUBSCRIBER_CREATION_FAILURE);
         return;
     }
@@ -50,7 +50,7 @@ SubscriberImpl::SubscriberImpl(
     m_subscriber.emplace(std::move(subscriber.value()));
 }
 
-auto SubscriberImpl::unique_id() -> iox::optional<RawIdType>& {
+auto SubscriberImpl::unique_id() -> const iox::optional<RawIdType>& {
     auto& bytes = m_unique_id->bytes();
     return bytes;
 }
@@ -75,7 +75,7 @@ auto SubscriberImpl::take_copy(void* dest) -> iox::expected<bool, ErrorType> {
 
     auto result = m_subscriber->receive();
     if (result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);
     }
     auto sample = std::move(result.value());
@@ -97,7 +97,7 @@ auto SubscriberImpl::take_loan() -> iox::expected<iox::optional<const void*>, Er
 
     auto result = m_subscriber->receive();
     if (result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);
     }
     auto sample = std::move(result.value());

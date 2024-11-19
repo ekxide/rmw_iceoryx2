@@ -30,7 +30,7 @@ PublisherImpl::PublisherImpl(CreationLock,
 
     auto service_name = ServiceName::create(m_service_name.c_str());
     if (service_name.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(service_name.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service_name.error()));
         error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         return;
     }
@@ -41,14 +41,14 @@ PublisherImpl::PublisherImpl(CreationLock,
                                .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                .open_or_create();
     if (payload_service.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(payload_service.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(payload_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 
     auto publisher = payload_service.value().publisher_builder().max_slice_len(m_payload_size).create();
     if (publisher.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(publisher.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(publisher.error()));
         error.emplace(ErrorType::PUBLISHER_CREATION_FAILURE);
         return;
     }
@@ -57,14 +57,14 @@ PublisherImpl::PublisherImpl(CreationLock,
 
     auto event_service = node.as_iox2().service_builder(service_name.value()).event().open_or_create();
     if (event_service.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(event_service.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(event_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 
     auto notifier = event_service.value().notifier_builder().create();
     if (notifier.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(notifier.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(notifier.error()));
         error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
         return;
     }
@@ -72,7 +72,7 @@ PublisherImpl::PublisherImpl(CreationLock,
 }
 
 
-auto PublisherImpl::unique_id() -> iox::optional<RawIdType>& {
+auto PublisherImpl::unique_id() -> const iox::optional<RawIdType>& {
     auto& bytes = m_unique_id->bytes();
     return bytes;
 }
@@ -134,13 +134,13 @@ auto PublisherImpl::publish_loan(void* loaned_memory) -> iox::expected<void, Err
         return err(ErrorType::INVALID_PAYLOAD);
     }
     if (auto result = send(assume_init(std::move(sample.value()))); result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::SEND_FAILURE);
     }
 
     // Notify
     if (auto result = m_notifier->notify(); result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::NOTIFICATION_FAILURE);
     }
 
@@ -156,13 +156,13 @@ auto PublisherImpl::publish_copy(const void* msg, uint64_t size) -> iox::expecte
     auto payload = ImmutableSlice<uint8_t>{static_cast<const uint8_t*>(msg), size};
 
     if (auto result = m_publisher->send_slice_copy(payload); result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::SEND_FAILURE);
     }
 
     // Notify
     if (auto result = m_notifier->notify(); result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::error_string(result.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::NOTIFICATION_FAILURE);
     }
 
