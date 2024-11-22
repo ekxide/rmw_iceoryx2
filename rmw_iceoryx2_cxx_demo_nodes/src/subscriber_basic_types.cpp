@@ -1,27 +1,21 @@
-// Copyright 2016 Open Source Robotics Foundation, Inc.
+// Copyright (c) 2024 by Ekxide IO GmbH All rights reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// This program and the accompanying materials are made available under the
+// terms of the Apache Software License 2.0 which is available at
+// https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+// which is available at https://opensource.org/licenses/MIT.
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rclcpp/rclcpp.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/basic_types.hpp"
 
-class ListenerNode : public rclcpp::Node {
+class StringsListenerNode : public rclcpp::Node {
 public:
-  ListenerNode(const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
-      : Node("listener", options) {
+  StringsListenerNode(
+      const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
+      : Node("listener_basic_types", options) {
 
-    // NOTE: It seems that the RCLCPP subscriber API does not provide a
-    //       mechanism to receive loaned messages
     auto on_msg =
         [this](rmw_iceoryx2_cxx_test_msgs::msg::BasicTypes::UniquePtr msg)
         -> void {
@@ -67,7 +61,7 @@ int main(int argc, char *argv[]) {
   options.enable_rosout(false);
 
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<ListenerNode>(options));
+  rclcpp::spin(std::make_shared<StringsListenerNode>(options));
   rclcpp::shutdown();
   return 0;
 }

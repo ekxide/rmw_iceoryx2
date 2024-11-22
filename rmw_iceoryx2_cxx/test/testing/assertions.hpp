@@ -15,7 +15,7 @@
 
 #define ASSERT_RMW_OK(expr)                                                                                            \
     do {                                                                                                               \
-        rmw_ret_t result = (expr);                                                                                     \
+        rmw_ret_t result = expr;                                                                                       \
         if (result != RMW_RET_OK) {                                                                                    \
             auto msg = std::string(rcutils_get_error_state()->message);                                                \
             rcutils_reset_error();                                                                                     \
@@ -25,7 +25,7 @@
 
 #define ASSERT_RMW_ERR(err, expr)                                                                                      \
     do {                                                                                                               \
-        rmw_ret_t result = (expr);                                                                                     \
+        rmw_ret_t result = expr;                                                                                       \
         if (result != err) {                                                                                           \
             FAIL() << "Expected return code: " << err << "; Got: " << result;                                          \
         }                                                                                                              \

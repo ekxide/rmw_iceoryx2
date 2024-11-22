@@ -19,7 +19,7 @@
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
-
+#include "rmw_iceoryx2_cxx/message/introspect.hpp"
 
 extern "C" {
 
@@ -33,6 +33,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
+    using ::rmw::iox2::is_pod;
     using ::rmw::iox2::NodeImpl;
     using ::rmw::iox2::SubscriberImpl;
     using ::rmw::iox2::unsafe_cast;
@@ -54,9 +55,16 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocator memoery for rmw_subscription_t");
         return nullptr;
     }
-
     subscription->implementation_identifier = rmw_get_implementation_identifier();
-    subscription->can_loan_messages = true;
+
+    if (is_pod(type_support)) {
+        subscription->can_loan_messages = true;
+    } else {
+        subscription->can_loan_messages = false;
+        RCUTILS_LOG_WARN_NAMED("rmw_iceoryx2",
+                               "Message type '%s' is not self-contained. Loaning disabled.",
+                               type_support->get_type_description_func(type_support)->type_description.type_name.data);
+    }
 
     if (auto ptr = allocate_copy(topic_name); ptr.has_error()) {
         rmw_subscription_free(subscription);
@@ -150,6 +158,11 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
                                           subscription->implementation_identifier,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    if (!subscription->can_loan_messages) {
+        RMW_IOX2_CHAIN_ERROR_MSG("attempted to take loan from subscription that does not support loaning");
+        return RMW_RET_ERROR;
+    }
 
     RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Retrieving loan from from '%s'", subscription->topic_name);
 
@@ -246,13 +259,22 @@ rmw_ret_t rmw_take(const rmw_subscription_t* subscription,
         return RMW_RET_ERROR;
     }
 
-    auto result = subscriber_impl.value()->take_copy(ros_message);
-    if (result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
-        return RMW_RET_ERROR;
-    }
+    if (subscription->can_loan_messages) {
+        // Subscriptions with loanable messages can be used as-is
+        auto result = subscriber_impl.value()->take_copy(ros_message);
+        if (result.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
+            return RMW_RET_ERROR;
+        }
 
-    *taken = result.value();
+        *taken = result.value();
+    } else {
+        // Subscriptions with non-loanable messages need to be deserialized beforehand
+        // Where to store this though, so that it can be automatically cleaned up ..?
+        // - use rmw_serialize directly with source=loan target=ros_message
+        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained message types are not yet supported");
+        return RMW_RET_UNSUPPORTED;
+    }
 
     return RMW_RET_OK;
 }

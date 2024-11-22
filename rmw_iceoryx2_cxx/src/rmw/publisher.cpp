@@ -16,9 +16,9 @@
 #include "rmw_iceoryx2_cxx/allocator.hpp"
 #include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
-#include "rmw_iceoryx2_cxx/introspection/message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
+#include "rmw_iceoryx2_cxx/message/introspect.hpp"
 
 extern "C" {
 
@@ -32,6 +32,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
+    using ::rmw::iox2::is_pod;
     using ::rmw::iox2::message_size;
     using ::rmw::iox2::NodeImpl;
     using ::rmw::iox2::PublisherImpl;
@@ -54,9 +55,16 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_publisher_t");
         return nullptr;
     }
-
     publisher->implementation_identifier = rmw_get_implementation_identifier();
-    publisher->can_loan_messages = true;
+
+    if (is_pod(type_support)) {
+        publisher->can_loan_messages = true;
+    } else {
+        publisher->can_loan_messages = false;
+        RCUTILS_LOG_WARN_NAMED("rmw_iceoryx2",
+                               "Message type '%s' is not self-contained. Loaning disabled.",
+                               type_support->get_type_description_func(type_support)->type_description.type_name.data);
+    }
 
     if (auto ptr = allocate_copy(topic_name); ptr.has_error()) {
         rmw_publisher_free(publisher);
@@ -218,10 +226,17 @@ rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publi
         return RMW_RET_ERROR;
     }
 
-    if (auto result = publisher_impl.value()->publish_copy(ros_message, publisher_impl.value()->payload_size());
-        result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to publish copy");
-        return RMW_RET_ERROR;
+    if (publisher->can_loan_messages) {
+        // Publishers with loanable message types can be simply copied into shared-memory.
+        if (auto result = publisher_impl.value()->publish_copy(ros_message, publisher_impl.value()->payload_size());
+            result.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to publish copy");
+            return RMW_RET_ERROR;
+        }
+    } else {
+        // Non-loanable message types must be serialized
+        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained message types are not yet supported");
+        return RMW_RET_UNSUPPORTED;
     }
 
     return RMW_RET_OK;

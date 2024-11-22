@@ -39,8 +39,6 @@ struct NodeName
 const NodeName parse_node_name(const char* full_name) {
     NodeName result{};
 
-    std::cout << full_name << std::endl;
-
     std::string str(full_name);
     size_t nodes_pos = str.find("/nodes/");
 

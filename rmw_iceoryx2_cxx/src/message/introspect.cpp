@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/introspection/message.hpp"
+#include "rmw_iceoryx2_cxx/message/introspect.hpp"
 
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rosidl_typesupport_introspection_c/field_types.h"
@@ -18,65 +18,96 @@
 namespace rmw::iox2
 {
 
-bool is_message_type(const rosidl_typesupport_introspection_c__MessageMember* member) {
+// C Typesupport
+
+bool is_message(const rosidl_typesupport_introspection_c__MessageMember* member) {
     return member->type_id_ == ::rosidl_typesupport_introspection_c__ROS_TYPE_MESSAGE;
 }
 
-bool is_array_type(const rosidl_typesupport_introspection_c__MessageMember* member) {
-    return (member->is_array_ && !(member->array_size_ > 0 && !member->is_upper_bound_));
+bool is_array(const rosidl_typesupport_introspection_c__MessageMember* member) {
+    return member->is_array_ && (member->array_size_ == 0 || member->is_upper_bound_);
 }
 
-bool is_string_type(const rosidl_typesupport_introspection_c__MessageMember* member) {
+bool is_dynamic_string(const rosidl_typesupport_introspection_c__MessageMember* member) {
     return member->type_id_ == ::rosidl_typesupport_introspection_c__ROS_TYPE_STRING;
 }
 
-bool is_trivially_copyable(const rosidl_typesupport_introspection_c__MessageMembers* members) {
+bool is_pod(const rosidl_typesupport_introspection_c__MessageMembers* members) {
+    if (members == nullptr) {
+        return false;
+    }
+
     for (uint32_t i = 0; i < members->member_count_; ++i) {
         const auto* member = members->members_ + i;
-        if (is_message_type(member)) {
-            return is_trivially_copyable(
-                static_cast<const rosidl_typesupport_introspection_c__MessageMembers*>(member->members_->data));
-        } else if (is_array_type(member) || is_string_type(member)) {
+
+        if (member->array_size_ == 0 || is_dynamic_string(member)) {
             return false;
+        }
+
+        if (is_message(member)) {
+            if (!member->members_ || !member->members_->data) {
+                return false;
+            }
+            if (!is_pod(
+                    static_cast<const rosidl_typesupport_introspection_c__MessageMembers*>(member->members_->data))) {
+                return false;
+            }
         }
     }
     return true;
 }
 
-bool is_message_type(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
+// C++ Typesupport
+
+bool is_message(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
     return member->type_id_ == ::rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE;
 }
 
-bool is_array_type(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
-    return (member->is_array_ && !(member->array_size_ > 0 && !member->is_upper_bound_));
+bool is_fixed_array(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
+    return member->is_array_ && member->array_size_ > 0 && !member->is_upper_bound_;
 }
 
-bool is_string_type(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
+bool is_dynamic_array(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
+    return member->is_array_ && (member->array_size_ == 0 || member->is_upper_bound_);
+}
+
+bool is_dynamic_string(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
     return member->type_id_ == ::rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING;
 }
 
-bool is_trivially_copyable(const rosidl_typesupport_introspection_cpp::MessageMembers* members) {
+bool is_pod(const rosidl_typesupport_introspection_cpp::MessageMembers* members) {
+    if (members == nullptr)
+        return false;
+
     for (uint32_t i = 0; i < members->member_count_; ++i) {
         const auto* member = members->members_ + i;
-        if (is_message_type(member)) {
-            return is_trivially_copyable(
-                static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(member->members_->data));
-        } else if (is_array_type(member) || is_string_type(member)) {
+
+        if (is_dynamic_array(member) || is_dynamic_string(member)) {
             return false;
+        }
+        if (is_message(member)) {
+            if (!member->members_ || !member->members_->data)
+                return false;
+            if (!is_pod(
+                    static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(member->members_->data))) {
+                return false;
+            };
         }
     }
     return true;
 }
 
-bool is_trivially_copyable(const rosidl_message_type_support_t* type_support) {
+// General Typesupport
+
+bool is_pod(const rosidl_message_type_support_t* type_support) {
     if (auto handle = get_message_typesupport_handle(type_support,
                                                      rosidl_typesupport_introspection_cpp::typesupport_identifier)) {
         auto members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(handle->data);
-        return is_trivially_copyable(members);
+        return is_pod(members);
     }
     if (auto handle = get_message_typesupport_handle(type_support, rosidl_typesupport_introspection_c__identifier)) {
         auto members = static_cast<const rosidl_typesupport_introspection_c__MessageMembers*>(handle->data);
-        return is_trivially_copyable(members);
+        return is_pod(members);
     }
     return false;
 }

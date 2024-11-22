@@ -45,7 +45,6 @@ endforeach()
 # ----------------------------------------------------------------------------
 
 add_library(${PROJECT_NAME} SHARED
-  src/introspection/message.cpp
   src/iox2/context_impl.cpp
   src/iox2/guard_condition_impl.cpp
   src/iox2/names.cpp
@@ -53,6 +52,7 @@ add_library(${PROJECT_NAME} SHARED
   src/iox2/publisher_impl.cpp
   src/iox2/subscriber_impl.cpp
   src/iox2/waitset_impl.cpp
+  src/message/introspect.cpp
   src/rmw/client.cpp
   src/rmw/event.cpp
   src/rmw/feature.cpp
@@ -143,6 +143,7 @@ if(BUILD_TESTING)
     test/test_rmw_logging.cpp
     test/test_rmw_node.cpp
     test/test_rmw_publisher.cpp
+    test/test_rmw_serialize.cpp
     test/test_rmw_subscription.cpp
     test/test_rmw_publish_subscribe.cpp
     test/test_rmw_waitset.cpp
