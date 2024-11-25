@@ -16,9 +16,9 @@ namespace rmw::iox2::names
 
 std::string node(const uint32_t context_id) {
 #ifdef _WIN32
-    return "ros2://pid/" + std::to_string(_getpid()) + "/context/" + std::to_string(context_id) + "/nodes/Context";
+    return "ros2://pid/" + std::to_string(_getpid()) + "/context/" + std::to_string(context_id);
 #else
-    return "ros2://pid/" + std::to_string(getpid()) + "/context/" + std::to_string(context_id) + "/nodes/Context";
+    return "ros2://pid/" + std::to_string(getpid()) + "/context/" + std::to_string(context_id);
 #endif
 }
 

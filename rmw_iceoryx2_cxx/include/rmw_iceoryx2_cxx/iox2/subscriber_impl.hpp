@@ -32,6 +32,12 @@ struct Error<SubscriberImpl>
     using Type = SubscriberError;
 };
 
+/// @brief Implementation of the RMW subscriber for iceoryx2
+/// @details The implementation supports both copy and loan-based data access patterns,
+///          allowing for efficient zero-copy communication when possible.
+///
+/// It manages the lifecycle of loaned memory and handles the interaction with the
+/// iceoryx2 middleware layer.
 class RMW_PUBLIC SubscriberImpl
 {
     using RawIdType = ::iox2::RawIdType;
@@ -40,72 +46,47 @@ class RMW_PUBLIC SubscriberImpl
     using Sample = ::iox2::Sample<::iox2::ServiceType::Ipc, Payload, void>;
     using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
     using IceoryxSubscriber = ::iox2::Subscriber<::iox2::ServiceType::Ipc, Payload, void>;
-    // TODO: IntraSubscriber
 
 public:
     using ErrorType = Error<SubscriberImpl>::Type;
 
 public:
+    /// @brief Constructor for SubscriberImpl
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] node The node that owns this subscriber
+    /// @param[in] topic The topic name to subscribe to
+    /// @param[in] type The message type name
     SubscriberImpl(CreationLock, iox::optional<ErrorType>& error, NodeImpl& node, const char* topic, const char* type);
 
-    /**
-     * @brief Get the unique identifier of the subscriber.
-     *
-     * @return A reference to the Id of the subscriber.
-     */
+    /// @brief Get the unique identifier of the subscriber
+    /// @return Optional containing the raw ID of the subscriber
     auto unique_id() -> const iox::optional<RawIdType>&;
 
-    /**
-     * @brief Get the topic name.
-     */
+    /// @brief Get the topic name
+    /// @return The topic name as string reference
     auto topic() const -> const std::string&;
 
-    /**
-     * @brief Get the type name.
-     */
+    /// @brief Get the message type name
+    /// @return The type name as string reference
     auto type() const -> const std::string&;
 
-    /**
-     * @brief Get the iceoryx2 service name.
-     *
-     * @return Name of the service representing this subscriber.
-     */
+    /// @brief Get the service name used internally, required for matching via iceoryx2
+    /// @return The service name as string
     auto service_name() const -> const std::string&;
 
-    /**
-     * @brief Take a copy of the next available sample.
-     *
-     * This function attempts to take a copy of the next available sample from the subscriber
-     * and store it in the provided destination buffer.
-     *
-     * @param dest Pointer to the destination buffer where the sample will be copied.
-     * @return An expected object containing void if successful, or an ErrorType if an error occurred.
-     */
+    /// @brief Take a message by copying it to the destination buffer
+    /// @param[out] dest Pointer to the destination buffer
+    /// @return Expected containing true if a message was taken, false if no message available
     auto take_copy(void* dest) -> iox::expected<bool, ErrorType>;
 
-    /**
-     * @brief Take a loan to the next sample in shared memory.
-     *
-     * This function attempts to take a loan to the next available sample in shared memory.
-     * If a sample is available, it returns a pointer to the sample data. If no sample
-     * is available, it returns an empty optional.
-     *
-     * @return An expected object containing an optional pointer to const void.
-     *         If successful and a sample is available, the optional contains a pointer to the sample data.
-     *         If successful but no sample is available, the optional is empty.
-     *         If an error occurred, the expected contains an ErrorType.
-     */
+    /// @brief Take a loaned message without copying
+    /// @return Expected containing optional pointer to the loaned message memory
     auto take_loan() -> iox::expected<iox::optional<const void*>, ErrorType>;
 
-    /**
-     * @brief Return a previously taken loan of a sample.
-     *
-     * This function is used to return a loan that was previously taken using the take_loan() method.
-     * It informs the subscriber that the loaned memory is no longer being used by the application.
-     *
-     * @param loaned_memory A pointer to the loaned memory that is being returned.
-     * @return An expected object containing void if successful, or an ErrorType if an error occurred.
-     */
+    /// @brief Return previously loaned message memory
+    /// @param[in] loaned_memory Pointer to the loaned memory to return
+    /// @return Expected containing void if successful
     auto return_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
 
 private:

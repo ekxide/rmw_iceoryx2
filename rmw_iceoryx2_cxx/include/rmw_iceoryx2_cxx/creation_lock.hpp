@@ -17,13 +17,12 @@ namespace rmw::iox2
 
 /**
  * @brief A utility class for controlling object creation.
- *
- * CreationLock is used to restrict and manage the creation of certain objects.
+ * @details CreationLock is used to restrict and manage the creation of certain objects.
  * It provides a mechanism for controlled instantiation through friend functions.
  * This class cannot be directly instantiated by users, ensuring that object
  * creation follows the intended patterns defined by the system.
  *
- * @details Structs whose construction should be restricted to the creation pattern should have a definition in the
+ * Structs whose construction should be restricted to the creation pattern should have a definition in the
  * form:
  *
  * @code{.cpp}

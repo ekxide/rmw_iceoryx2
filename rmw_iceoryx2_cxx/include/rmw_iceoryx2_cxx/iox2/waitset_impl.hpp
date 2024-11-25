@@ -28,9 +28,8 @@ namespace rmw::iox2
 
 enum class AttachmentType { SUBSCRIPTION, GUARD_CONDITION };
 
-/*
- * An index used by the RMW to track entities attached to the waitset.
- */
+
+/// An index used by the RMW to track entities attached to the waitset.
 using RmwIndex = size_t;
 enum class WaitableType { SUBSCRIPTION, GUARD_CONDITION };
 
@@ -42,6 +41,10 @@ struct Error<WaitSetImpl>
     using Type = WaitSetError;
 };
 
+/// @brief Implementation of the RMW wait set for iceoryx2
+/// @details Waitable entities are tracked in upper layers (i.e. RCL) using indices.
+///          This implementation maps these indices to iceoryx2 listeners for events signifying
+///          work is available related to the associated the entities.
 class RMW_PUBLIC WaitSetImpl
 {
     using Duration = ::iox::units::Duration;
@@ -51,6 +54,7 @@ class RMW_PUBLIC WaitSetImpl
     using IceoryxWaitSet = ::iox2::WaitSet<::iox2::ServiceType::Ipc>;
     using IceoryxListener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
 
+    /// @brief Associates an iceoryx2 listener with its service name
     struct ListenerStorage
     {
         std::string service_name;
@@ -58,18 +62,23 @@ class RMW_PUBLIC WaitSetImpl
     };
     using StorageIndex = std::vector<ListenerStorage>::size_type;
 
+    /// @brief Description of a waitable that has been staged
     struct StagedWaitable
     {
         StorageIndex storage_index;
         WaitableType waitable_type;
         RmwIndex rmw_index;
     };
+
+    /// @brief Description of a waitable that has been triggered
     struct TriggeredWaitable
     {
         WaitableType waitable_type;
         RmwIndex rmw_index;
     };
 
+    /// @brief Storage for waitset attachments containing the guard and attachment ID
+    /// @details Manages the lifetime of a waitset attachment and provides access to its ID and associated waitable
     class WaitSetAttachmentStorage
     {
     public:
@@ -102,36 +111,50 @@ public:
     using ErrorType = Error<WaitSetImpl>::Type;
 
 public:
-    /**
-     * @brief The iceoryx2 implementation of a WaitSet.
-     *
-     * @param context The context to which this waitset is bound to. Must outlive the WaitSetImpl instance.
-     */
+    /// @brief Constructor for the WaitSetImpl
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] context The context to which this waitset is bound to. Must outlive the WaitSetImpl instance.
     WaitSetImpl(CreationLock, iox::optional<ErrorType>& error, ContextImpl& context);
 
+    /// @brief Attach a guard condition to the waitset
+    /// @param[in] rmw_index The index used to track the guard condition in the upper layers
+    /// @param[in] guard_condition The guard condition to attach to the waitset
     auto attach(RmwIndex rmw_index, GuardConditionImpl& guard_condition) -> iox::expected<void, ErrorType>;
+
+    /// @brief Attach a subscriber to the waitset
+    /// @param[in] rmw_index The index used to track the subscriber in the upper layers
+    /// @param[in] guard_condition The subscriber to attach to the waitset
     auto attach(RmwIndex rmw_index, SubscriberImpl& subscriber) -> iox::expected<void, ErrorType>;
+
+    /// @brief Detach all entities from the waitset
+    /// @note Detached entities will not be waited on when calling wait()
     auto detach_all() -> void;
 
+    // TODO: Return multiple triggered waitables
+    /// @brief Block the thread until at least one attached entity is triggered or the timeout is reached
+    /// @param timeout Optional timeout after which waiting is stopped. If null waits indefinitely. If 0 does not wait
+    ///                at all.
+    /// @returns The triggered waitable
     auto wait(const iox::optional<Duration>& timeout = iox::nullopt)
         -> iox::expected<iox::optional<TriggeredWaitable>, ErrorType>;
 
 private:
-    /*
-     * @brief Creates a listener for the given service, if not already created.
-     *
-     * If the listener was previously already created, skips creation and reuses the existing listener.
-     */
+    /// @brief Creates a listener for the given service, if not already created.
+    /// @note If the listener was previously already created, skips creation and reuses the existing listener.
+    /// @param[in] The service name to use for the iceoryx2 listener
     auto create_listener(const std::string& service_name) -> iox::expected<StorageIndex, ErrorType>;
 
-    /*
-     * @brief Stages a listener to be waited on.
-     */
+    /// @brief Stages a listener to be waited on.
+    /// @param[in] entity_type The entity type that the listener is being notified for
+    /// @param[in] storage_index The index that the associated listner is stored in the ListenerStorage
+    /// @param[in] rmw_index The index for the associated entity tracked by the upper layers
     auto stage_listener(WaitableType entity_type, StorageIndex storage_index, RmwIndex rmw_index) -> void;
 
-    /*
-     * Get the listener at the given storage index.
-     */
+
+    /// @brief Get the listener at the given storage index.
+    /// @param[in] storage_index The index to retrieve the listener from
+    /// @return The stored listener found at the given index, or nullopt if index is invalid
     auto get_listener(StorageIndex storage_index) -> iox::optional<ListenerStorage*>;
 
 private:

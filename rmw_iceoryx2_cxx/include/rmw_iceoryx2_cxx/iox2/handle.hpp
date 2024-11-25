@@ -40,7 +40,7 @@ struct Error<IceoryxHandle>
 /// handle's lifetime via destruction.
 ///
 /// @note The entity for creating iceoryx2 entities is called a 'Node', however to avoid confusion with
-///          RMW nodes, it is referred to in this codebase as a "Handle".
+///          RMW nodes, it is referred to in this codebase as an "IceoryxHandle".
 ///
 /// In the RMW the lifetime of entities are tied to either the RMW context or an RMW node.
 ///
@@ -52,6 +52,10 @@ public:
     using ErrorType = Error<IceoryxHandle>::Type;
 
 public:
+    /// @brief Creates a new IceoryxHandle instance
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] instance_name Name of the iceoryx2 instance to create, used for bookkeeping in iceoryx2
     IceoryxHandle(CreationLock, iox::optional<ErrorType>& error, const std::string& instance_name);
 
     /// @brief Dereference operator to access the underlying IceoryxHandle

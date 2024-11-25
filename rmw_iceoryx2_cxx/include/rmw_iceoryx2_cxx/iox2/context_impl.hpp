@@ -33,7 +33,8 @@ struct Error<rmw_context_impl_s>
 
 extern "C" {
 
-/// RMW expects exactly this type to be defined for context implementations
+/// @brief Implementation of the RMW context for iceoryx2
+/// @details The context manages the lifetime of entities used to implement guard conditions
 class RMW_PUBLIC rmw_context_impl_s
 {
     using CreationLock = ::rmw::iox2::CreationLock;
@@ -43,10 +44,22 @@ public:
     using ErrorType = ::rmw::iox2::Error<rmw_context_impl_s>::Type;
 
 public:
-    rmw_context_impl_s(CreationLock, iox::optional<ErrorType>& error, const uint32_t id);
+    /// @brief Constructor for the iceoryx2 implementation of an RMW context
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] id ID to use for this context
+    rmw_context_impl_s(CreationLock lock, iox::optional<ErrorType>& error, const uint32_t id);
 
+    /// @brief Get the ID of this context
+    /// @return The context ID
     auto id() -> uint32_t;
+
+    /// @brief Get the handle to the underlying iceoryx runtime
+    /// @return Reference to the iceoryx handle
     auto iox2() -> IceoryxHandle&;
+
+    /// @brief Generate a new unique identifier for a guard condition
+    /// @return The generated guard condition ID
     auto generate_guard_condition_id() -> uint32_t;
 
 private:

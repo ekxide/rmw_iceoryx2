@@ -28,14 +28,15 @@ struct Error<SampleRegistry<T>>
     using Type = SampleRegistryError;
 };
 
-/**
- * @brief Storage for loaned samples.
- *
- * Samples loaned from iceoryx2 must be retained until being published or manually released (e.g. by subscriptions).
- * This struct stores samples, organized by the address of their payloads.
- * This is because this is the addresses that will be provided to the upper ROS layers to write the payload,
- * and then provided back to the RMW to execute the publish or release the sample.
- */
+
+/// @brief Stores samples loaned from iceoryx2 before they are ready for publishing.
+/// @details Samples loaned from iceoryx2 must be retained until being published or manually released (e.g. by
+///          subscriptions).
+///
+/// This struct stores samples, organized by the address of their payloads.
+/// This is because this is the addresses that will be provided to the upper ROS layers to write the payload,
+/// and then provided back to the RMW to execute the publish or release the sample.
+///
 template <typename SampleType>
 class SampleRegistry
 {
@@ -43,6 +44,9 @@ public:
     using ErrorType = typename Error<SampleRegistry<SampleType>>::Type;
 
 public:
+    /// @brief Store a sample in the registry and return a pointer to its payload
+    /// @param[in] sample The sample to store
+    /// @return Pointer to the payload data that can also be used to retrieve/release the sample later
     auto store(SampleType&& sample) -> uint8_t* {
         // const_cast required to work with Sample and SamplMut
         // Should be adapted to handle both cases without casting (when functional)
@@ -50,6 +54,10 @@ public:
         m_samples.emplace(payload_ptr, std::move(sample));
         return payload_ptr;
     }
+
+    /// @brief Retrieve a stored sample by its payload pointer without removing it
+    /// @param[in] loaned_memory Pointer to the payload data
+    /// @return Pointer to the stored sample if found, nullopt otherwise
     auto retrieve(uint8_t* loaned_memory) -> iox::optional<SampleType*> {
         using iox::nullopt;
 
@@ -59,6 +67,10 @@ public:
         }
         return nullopt;
     }
+
+    /// @brief Remove and return a stored sample
+    /// @param[in] loaned_memory Pointer to the payload data
+    /// @return Expected containing the removed sample if found, error otherwise
     auto release(uint8_t* loaned_memory) -> iox::expected<SampleType, ErrorType> {
         using iox::err;
         using iox::ok;

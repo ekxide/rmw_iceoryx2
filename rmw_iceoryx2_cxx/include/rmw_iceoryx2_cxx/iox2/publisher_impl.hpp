@@ -34,11 +34,14 @@ struct Error<PublisherImpl>
     using Type = PublisherError;
 };
 
-/**
- * @brief Implementation of an RMW publisher using iceoryx2.
- *
- * @tparam PayloadSize The maximum size of a sample.
- */
+/// @brief Implementation of the RMW publisher for iceoryx2
+///
+/// @details The publisher supports both zero-copy loans and copy-based publishing mechanisms.
+/// @details The implementation supports both copy and loan-based publishing mechanisms,
+///          allowing for efficient zero-copy communication when possible.
+///
+/// It manages the lifecycle of loaned memory and handles the interaction with the
+/// iceoryx2 middleware layer.
 class RMW_PUBLIC PublisherImpl
 {
     using RawIdType = ::iox2::RawIdType;
@@ -48,12 +51,18 @@ class RMW_PUBLIC PublisherImpl
     using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
     using IceoryxNotifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
     using IceoryxPublisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, void>;
-    // TODO: IntraPublisher
 
 public:
     using ErrorType = Error<PublisherImpl>::Type;
 
 public:
+    /// @brief Constructor for PublisherImpl
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] node The node that owns this publisher
+    /// @param[in] topic The topic name to publish to
+    /// @param[in] type The message type name
+    /// @param[in] size The maximum message payload size
     PublisherImpl(CreationLock,
                   iox::optional<ErrorType>& error,
                   NodeImpl& node,
@@ -61,60 +70,45 @@ public:
                   const char* type,
                   const uint64_t size);
 
-    /**
-     * @brief Get the unique identifier of the publisher.
-     *
-     * @return A reference to the Id of the publisher.
-     */
+    /// @brief Get the unique identifier of this publisher
+    /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
     auto unique_id() -> const iox::optional<RawIdType>&;
 
-    /**
-     * @brief Get the topic name.
-     */
+    /// @brief Get the topic name
+    /// @return The topic name as string
     auto topic() const -> const std::string&;
 
-    /**
-     * @brief Get the type name.
-     */
+    /// @brief Get the message type name
+    /// @return The message type name as string
     auto type() const -> const std::string&;
 
-    /**
-     * @brief Get the iceoryx2 service name.
-     *
-     * @return Name of the service representing this subscriber.
-     */
+    /// @brief Get the service name used internally, required for matching via iceoryx2
+    /// @return The service name as string
     auto service_name() const -> const std::string&;
 
+    /// @brief Get the maximum payload size
+    /// @return The maximum payload size in bytes
     auto payload_size() const -> uint64_t;
 
-    /**
-     * @brief Loan memory from iceoryx2 to be populated with data to publish.
-     *
-     * @return Pointer to the beginning of the loaned memory which resides in shared memory.
-     */
+    /// @brief Loan memory for zero-copy publishing
+    /// @return Expected containing pointer to loaned memory or error
     auto loan() -> iox::expected<void*, ErrorType>;
 
-    /**
-     * @brief Returns previously loaned, unpublished memory to iceoryx2.
-     * @detail Does nothing if loaned_memory does not point to memory that was previously loaned, or if it was already
-     * dropped.
-     *
-     * @param loaned_memory Pointer to memory loaned from iceoryx.
-     *
-     * @return Error if the provided loaned_memory was not previously loaned.
-     */
+    /// @brief Return previously loaned memory without publishing
+    /// @param[in] loaned_memory Pointer to the loaned memory to return
+    /// @return Expected containing void or error if return failed
     auto return_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
 
-    /**
-     * @brief Publish memory previously loaned by this publisher.
-     * @details The loaned memory is automatically released on successful publish.
-     *
-     * @param ros_message Pointer to the beginning of the loaned memory
-     *
-     * @return Error if unable to publish the provided loaned_memory.
-     */
+    /// @brief Publish previously loaned memory
+    /// @param[in] loaned_memory Pointer to the loaned memory to publish
+    /// @note The memory must be initialized before publishing
+    /// @return Expected containing void or error if publish failed
     auto publish_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
 
+    /// @brief Publish data by copying
+    /// @param[in] msg Pointer to the message data to copy
+    /// @param[in] size Size of the message data in bytes
+    /// @return Expected containing void or error if publish failed
     auto publish_copy(const void* msg, uint64_t size) -> iox::expected<void, ErrorType>;
 
 private:

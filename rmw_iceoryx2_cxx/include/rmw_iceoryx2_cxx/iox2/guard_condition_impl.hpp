@@ -32,6 +32,11 @@ struct Error<GuardConditionImpl>
     using Type = GuardConditionError;
 };
 
+/// @brief Implementation of the RMW guard condition for iceoryx2
+/// @details A guard condition is a synchronization primitive that can be used to
+///          wake up a waiting thread. It is used in ROS 2 to signal events between
+///          different parts of the system. This implementation uses an iceoryx2
+///          notifier to implement the guard condition functionality.
 class RMW_PUBLIC GuardConditionImpl
 {
     using RawIdType = ::iox2::RawIdType;
@@ -42,11 +47,26 @@ public:
     using ErrorType = Error<GuardConditionImpl>::Type;
 
 public:
+    /// @brief Creates a new guard condition
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] context The context to associate the guard condition with
     GuardConditionImpl(CreationLock, iox::optional<ErrorType>& error, ContextImpl& context);
 
+    /// @brief Get the unique id of the guard condition
+    /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
     auto unique_id() -> const iox::optional<RawIdType>&;
+
+    /// @brief Get the trigger id of the guard condition
+    /// @return The trigger id
     auto trigger_id() const -> uint32_t;
+
+    /// @brief Get the iceoryx2 service name of the guard condition
+    /// @return The service name
     auto service_name() const -> const std::string&;
+
+    /// @brief Triggers the guard condition
+    /// @return Error if trigger via iceoryx2 failed
     auto trigger() -> iox::expected<void, ErrorType>;
 
 private:

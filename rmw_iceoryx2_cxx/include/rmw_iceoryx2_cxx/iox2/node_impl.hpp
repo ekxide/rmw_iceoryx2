@@ -29,16 +29,37 @@ struct Error<NodeImpl>
     using Type = NodeError;
 };
 
+/// @brief Implementation of the RMW node for iceoryx2
+/// @details The node manages the lifetime of communication endpoints and implements the functionality to realize the
+///          communication graph.
+///
+/// The graph data structure is managed by iceoryx2 directly, related operations can be achived via the handle to
+/// iceoryx2.
+///
 class RMW_PUBLIC NodeImpl
 {
 public:
     using ErrorType = Error<NodeImpl>::Type;
 
 public:
+    /// @brief Constructor for the iceoryx2 implementation of an RMW node
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] context The context which this node will belong to
+    /// @param[in] name The name of the node
+    /// @param[in] ns The namespace of the node
     NodeImpl(CreationLock, iox::optional<ErrorType>& error, ContextImpl& context, const char* name, const char* ns);
 
+    /// @brief Get the name of the node
+    /// @return The name of the node
     auto name() const -> const std::string&;
+
+    /// @brief Get the handle to the underlying iceoryx runtime
+    /// @return Reference to the iceoryx handle
     auto iox2() -> IceoryxHandle&;
+
+    /// @brief Get the guard condition for notifying of graph events
+    /// @return The guard condition for graph events
     auto graph_guard_condition() -> GuardConditionImpl&;
 
 private:
