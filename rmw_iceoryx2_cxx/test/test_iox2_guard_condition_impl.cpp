@@ -41,9 +41,8 @@ TEST_F(RmwGuardConditionImplTest, construction) {
     create_in_place(context_storage, test_id()).expect("failed to create context for guard condition creation");
     auto& context = context_storage.value();
 
-    iox::optional<GuardConditionImpl> guard_condition;
-    ASSERT_FALSE(
-        create_in_place(guard_condition, context.node(), context.id(), context.generate_node_id()).has_error());
+    iox::optional<GuardConditionImpl> guard_condition_storage;
+    ASSERT_FALSE(create_in_place(guard_condition_storage, context).has_error());
 }
 
 } // namespace

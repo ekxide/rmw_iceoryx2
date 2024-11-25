@@ -29,8 +29,8 @@ SubscriberImpl::SubscriberImpl(
         return;
     }
 
-    auto service = node.as_iox2()
-                       .service_builder(service_name.value())
+    auto service = node.iox2()
+                       ->service_builder(service_name.value())
                        .publish_subscribe<Payload>()
                        .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                        .open_or_create();

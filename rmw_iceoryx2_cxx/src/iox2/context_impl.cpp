@@ -17,10 +17,9 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock, iox::optional<ErrorType>& e
     using ::rmw::iox2::create_in_place;
     namespace names = rmw::iox2::names;
 
-    if (auto result = create_in_place<NodeImpl>(m_node, this->id(), this->generate_node_id(), names::node(id).c_str());
-        result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to create NodeImpl for ContextImpl");
-        error.emplace(ErrorType::NODE_CREATION_FAILURE);
+    if (auto result = create_in_place<IceoryxHandle>(m_handle, names::node(id)); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to create Handle");
+        error.emplace(ErrorType::HANDLE_CREATION_FAILURE);
         return;
     }
 }
@@ -29,10 +28,10 @@ auto rmw_context_impl_s::id() -> uint32_t {
     return m_id;
 }
 
-auto rmw_context_impl_s::generate_node_id() -> uint32_t {
-    return m_node_counter++;
+auto rmw_context_impl_s::iox2() -> IceoryxHandle& {
+    return m_handle.value();
 }
 
-auto rmw_context_impl_s::node() -> NodeImpl& {
-    return m_node.value();
+auto rmw_context_impl_s::generate_guard_condition_id() -> uint32_t {
+    return m_guard_condition_counter++;
 }

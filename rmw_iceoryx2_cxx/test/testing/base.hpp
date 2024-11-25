@@ -98,7 +98,7 @@ private:
 
 namespace names
 {
-std::string test_node(uint32_t test_id);
+std::string test_handle(uint32_t test_id);
 }
 
 } // namespace rmw::iox2::testing

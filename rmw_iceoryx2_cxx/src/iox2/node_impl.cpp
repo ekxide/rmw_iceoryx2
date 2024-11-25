@@ -8,36 +8,29 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+
 #include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
 namespace rmw::iox2
 {
 
 NodeImpl::NodeImpl(
-    CreationLock, iox::optional<ErrorType>& error, uint32_t context_id, uint32_t node_id, const std::string& name)
+    CreationLock, iox::optional<ErrorType>& error, ContextImpl& context, const char* name, const char* ns)
     : m_name{name} {
     using ::rmw::iox2::create_in_place;
+    namespace names = rmw::iox2::names;
 
-    auto iox2_name = ::iox2::NodeName::create(name.c_str());
-    if (iox2_name.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_name.error()));
-        error.emplace(ErrorType::NODE_NAME_CREATION_FAILURE);
-        return;
-    }
-
-    auto iox2_node = ::iox2::NodeBuilder().name(iox2_name.value()).create<::iox2::ServiceType::Ipc>();
-    if (iox2_node.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_node.error()));
-        error.emplace(ErrorType::NODE_CREATION_FAILURE);
-        return;
-    }
-    m_iox2.emplace(std::move(iox2_node.value()));
-
-    if (auto result =
-            create_in_place<GuardConditionImpl>(m_graph_guard_condition, std::ref(*this), context_id, node_id);
+    if (auto result = create_in_place<IceoryxHandle>(m_handle, names::node(context.id(), name, ns));
         result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to create GuardConditionImpl for ContextImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to create Handle");
+        error.emplace(ErrorType::HANDLE_CREATION_FAILURE);
+        return;
+    }
+
+    if (auto result = create_in_place<GuardConditionImpl>(m_graph_guard_condition, context); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to create GuardConditionImpl");
         error.emplace(ErrorType::GRAPH_GUARD_CONDITION_CREATION_FAILURE);
         return;
     }
@@ -47,8 +40,8 @@ auto NodeImpl::name() const -> const std::string& {
     return m_name;
 }
 
-auto NodeImpl::as_iox2() -> IceoryxNode& {
-    return m_iox2.value();
+auto NodeImpl::iox2() -> IceoryxHandle& {
+    return m_handle.value();
 }
 
 auto NodeImpl::graph_guard_condition() -> GuardConditionImpl& {

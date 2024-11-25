@@ -38,8 +38,8 @@ TEST_F(RmwWaitSetImplTest, construction) {
     create_in_place(context_storage, test_id()).expect("failed to create context for waitset creation");
     auto& context = context_storage.value();
 
-    iox::optional<WaitSetImpl> waitset;
-    ASSERT_FALSE(create_in_place(waitset, context).has_error());
+    iox::optional<WaitSetImpl> waitset_storage;
+    ASSERT_FALSE(create_in_place(waitset_storage, context).has_error());
 }
 
 } // namespace

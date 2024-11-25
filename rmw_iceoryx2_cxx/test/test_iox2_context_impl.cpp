@@ -33,8 +33,8 @@ TEST_F(RmwContextImplTest, construction) {
     using ::rmw::iox2::ContextImpl;
     using ::rmw::iox2::create_in_place;
 
-    iox::optional<ContextImpl> context;
-    ASSERT_FALSE(create_in_place(context, test_id()).has_error());
+    iox::optional<ContextImpl> context_storage;
+    ASSERT_FALSE(create_in_place(context_storage, test_id()).has_error());
 }
 
 } // namespace

@@ -18,6 +18,7 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
+#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 
 namespace rmw::iox2
 {
@@ -41,11 +42,7 @@ public:
     using ErrorType = Error<GuardConditionImpl>::Type;
 
 public:
-    GuardConditionImpl(CreationLock,
-                       iox::optional<ErrorType>& error,
-                       NodeImpl& node,
-                       const uint32_t context_id,
-                       const uint32_t trigger_id);
+    GuardConditionImpl(CreationLock, iox::optional<ErrorType>& error, ContextImpl& context);
 
     auto unique_id() -> const iox::optional<RawIdType>&;
     auto trigger_id() const -> uint32_t;

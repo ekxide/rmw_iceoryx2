@@ -92,10 +92,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
         return nullptr;
     }
 
-    if (auto construction = create_in_place<NodeImpl>(ptr.value(),
-                                                      context->impl->id(),
-                                                      context->impl->generate_node_id(),
-                                                      names::node(context->impl->id(), node->name, node->namespace_));
+    if (auto construction = create_in_place<NodeImpl>(ptr.value(), *context->impl, node->name, node->namespace_);
         construction.has_error()) {
         destruct<NodeImpl>(ptr.value());
         deallocate<NodeImpl>(ptr.value());

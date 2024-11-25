@@ -47,6 +47,7 @@ endforeach()
 add_library(${PROJECT_NAME} SHARED
   src/iox2/context_impl.cpp
   src/iox2/guard_condition_impl.cpp
+  src/iox2/handle.cpp
   src/iox2/names.cpp
   src/iox2/node_impl.cpp
   src/iox2/publisher_impl.cpp

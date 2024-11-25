@@ -13,15 +13,13 @@
 #include "iox2/event_id.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
-#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 namespace rmw::iox2
 {
 
-GuardConditionImpl::GuardConditionImpl(
-    CreationLock, iox::optional<ErrorType>& error, NodeImpl& node, const uint32_t context_id, const uint32_t trigger_id)
-    : m_trigger_id{trigger_id}
-    , m_service_name{names::guard_condition(context_id, m_trigger_id)} {
+GuardConditionImpl::GuardConditionImpl(CreationLock, iox::optional<ErrorType>& error, ContextImpl& context)
+    : m_trigger_id{context.generate_guard_condition_id()}
+    , m_service_name{names::guard_condition(context.id(), m_trigger_id)} {
     using ::iox2::ServiceName;
 
     auto service_name = ServiceName::create(m_service_name.c_str());
@@ -31,7 +29,7 @@ GuardConditionImpl::GuardConditionImpl(
         return;
     }
 
-    auto service = node.as_iox2().service_builder(service_name.value()).event().open_or_create();
+    auto service = context.iox2()->service_builder(service_name.value()).event().open_or_create();
     if (service.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);

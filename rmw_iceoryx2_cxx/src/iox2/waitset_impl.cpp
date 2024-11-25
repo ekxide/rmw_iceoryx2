@@ -75,7 +75,7 @@ auto WaitSetImpl::create_listener(const std::string& name) -> iox::expected<Stor
             return err(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         }
 
-        auto service = m_context.node().as_iox2().service_builder(service_name.value()).event().open_or_create();
+        auto service = m_context.iox2()->service_builder(service_name.value()).event().open_or_create();
         if (service.has_error()) {
             RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service_name.error()));
             return err(ErrorType::SERVICE_CREATION_FAILURE);

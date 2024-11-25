@@ -14,7 +14,7 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
-#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/handle.hpp"
 
 #include <atomic>
 
@@ -37,8 +37,7 @@ extern "C" {
 class RMW_PUBLIC rmw_context_impl_s
 {
     using CreationLock = ::rmw::iox2::CreationLock;
-    using NodeImpl = ::rmw::iox2::NodeImpl;
-    using GuardConditionImpl = ::rmw::iox2::GuardConditionImpl;
+    using IceoryxHandle = ::rmw::iox2::IceoryxHandle;
 
 public:
     using ErrorType = ::rmw::iox2::Error<rmw_context_impl_s>::Type;
@@ -47,13 +46,13 @@ public:
     rmw_context_impl_s(CreationLock, iox::optional<ErrorType>& error, const uint32_t id);
 
     auto id() -> uint32_t;
-    auto generate_node_id() -> uint32_t;
-    auto node() -> NodeImpl&;
+    auto iox2() -> IceoryxHandle&;
+    auto generate_guard_condition_id() -> uint32_t;
 
 private:
     const uint32_t m_id;
-    iox::optional<NodeImpl> m_node;
-    std::atomic<uint32_t> m_node_counter{0};
+    iox::optional<IceoryxHandle> m_handle;
+    std::atomic<uint32_t> m_guard_condition_counter{0};
 };
 }
 

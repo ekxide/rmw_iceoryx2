@@ -11,12 +11,12 @@
 #define RMW_IOX2_NODE_IMPL_HPP_
 
 #include "iox/optional.hpp"
-#include "iox2/node.hpp"
-#include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
+#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/handle.hpp"
 
 namespace rmw::iox2
 {
@@ -31,26 +31,19 @@ struct Error<NodeImpl>
 
 class RMW_PUBLIC NodeImpl
 {
-    using IceoryxNode = ::iox2::Node<::iox2::ServiceType::Ipc>;
-
 public:
     using ErrorType = Error<NodeImpl>::Type;
 
 public:
-    NodeImpl(CreationLock,
-             iox::optional<ErrorType>& error,
-             uint32_t context_id,
-             uint32_t node_id,
-             const std::string& node_name);
+    NodeImpl(CreationLock, iox::optional<ErrorType>& error, ContextImpl& context, const char* name, const char* ns);
 
     auto name() const -> const std::string&;
+    auto iox2() -> IceoryxHandle&;
     auto graph_guard_condition() -> GuardConditionImpl&;
-
-    auto as_iox2() -> IceoryxNode&;
 
 private:
     const std::string m_name;
-    iox::optional<IceoryxNode> m_iox2;
+    iox::optional<IceoryxHandle> m_handle;
     iox::optional<GuardConditionImpl> m_graph_guard_condition;
 };
 

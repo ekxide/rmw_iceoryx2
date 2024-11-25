@@ -15,8 +15,8 @@
 #include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/handle.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
-#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -39,22 +39,19 @@ protected:
         print_rmw_errors();
     }
 
-    rmw::iox2::NodeImpl& test_node() {
-        if (!m_node) {
-            create_in_place(
-                m_node, context.impl->id(), context.impl->generate_node_id(), names::test_node(test_id()).c_str())
-                .expect("failed to create test node");
+    rmw::iox2::IceoryxHandle& test_handle() {
+        if (!m_handle) {
+            create_in_place(m_handle, names::test_handle(test_id())).expect("failed to create test node");
         }
-        return m_node.value();
+        return m_handle.value();
     }
 
     template <typename String>
     auto test_listener(String&& name) -> IceoryxListener {
         auto service_name =
             ::iox2::ServiceName::create(name.c_str()).expect("failed to create test listener service name");
-        auto service = test_node()
-                           .as_iox2()
-                           .service_builder(service_name)
+        auto service = test_handle()
+                           ->service_builder(service_name)
                            .event()
                            .open_or_create()
                            .expect("failed to create test listener service");
@@ -64,7 +61,7 @@ protected:
     };
 
 private:
-    iox::optional<::rmw::iox2::NodeImpl> m_node;
+    iox::optional<::rmw::iox2::IceoryxHandle> m_handle;
 };
 
 TEST_F(RmwGuardConditionTest, create_and_destroy) {
