@@ -15,8 +15,6 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
-#include "rosidl_typesupport_fastrtps_cpp/message_type_support_decl.hpp"
-
 
 #include <random>
 
@@ -87,6 +85,7 @@ protected:
     }
 
 protected:
+    // TODO: clean up
     rcutils_allocator_t allocator;
     rmw_init_options_t init_options;
     rmw_context_t context;

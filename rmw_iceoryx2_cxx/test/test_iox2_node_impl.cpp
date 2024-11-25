@@ -35,7 +35,7 @@ TEST_F(RmwNodeImplTest, construction) {
     using ::rmw::iox2::NodeImpl;
 
     iox::optional<NodeImpl> node;
-    ASSERT_FALSE(create_in_place(node, "MyNode").has_error());
+    ASSERT_FALSE(create_in_place(node, 0, 0, "MyNode").has_error());
 }
 
 } // namespace

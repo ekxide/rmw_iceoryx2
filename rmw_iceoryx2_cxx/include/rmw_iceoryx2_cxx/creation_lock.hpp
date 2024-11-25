@@ -11,7 +11,6 @@
 #define RMW_IOX2_CREATION_LOCK_HPP_
 
 #include "iox/expected.hpp"
-#include "rmw/visibility_control.h"
 
 namespace rmw::iox2
 {

@@ -43,7 +43,7 @@ TEST_F(RmwGuardConditionImplTest, construction) {
 
     iox::optional<GuardConditionImpl> guard_condition;
     ASSERT_FALSE(
-        create_in_place(guard_condition, context.node(), context.id(), context.next_guard_condition_id()).has_error());
+        create_in_place(guard_condition, context.node(), context.id(), context.generate_node_id()).has_error());
 }
 
 } // namespace

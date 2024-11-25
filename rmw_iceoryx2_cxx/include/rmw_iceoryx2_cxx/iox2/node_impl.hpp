@@ -37,15 +37,21 @@ public:
     using ErrorType = Error<NodeImpl>::Type;
 
 public:
-    NodeImpl(CreationLock, iox::optional<ErrorType>& error, const std::string& name);
+    NodeImpl(CreationLock,
+             iox::optional<ErrorType>& error,
+             uint32_t context_id,
+             uint32_t node_id,
+             const std::string& node_name);
 
-    auto node_name() const -> const std::string&;
+    auto name() const -> const std::string&;
+    auto graph_guard_condition() -> GuardConditionImpl&;
 
     auto as_iox2() -> IceoryxNode&;
 
 private:
-    const std::string m_node_name;
-    iox::optional<IceoryxNode> m_node;
+    const std::string m_name;
+    iox::optional<IceoryxNode> m_iox2;
+    iox::optional<GuardConditionImpl> m_graph_guard_condition;
 };
 
 } // namespace rmw::iox2

@@ -92,8 +92,10 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
         return nullptr;
     }
 
-    if (auto construction = create_in_place<NodeImpl>(
-            ptr.value(), names::node(context->instance_id, node->name, node->namespace_).c_str());
+    if (auto construction = create_in_place<NodeImpl>(ptr.value(),
+                                                      context->impl->id(),
+                                                      context->impl->generate_node_id(),
+                                                      names::node(context->impl->id(), node->name, node->namespace_));
         construction.has_error()) {
         destruct<NodeImpl>(ptr.value());
         deallocate<NodeImpl>(ptr.value());
@@ -121,6 +123,9 @@ rmw_ret_t rmw_destroy_node(rmw_node_t* node) {
 }
 
 const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t* node) {
+    using rmw::iox2::NodeImpl;
+    using rmw::iox2::unsafe_cast;
+
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context, nullptr);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context->impl, nullptr);
@@ -135,9 +140,16 @@ const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t
         return nullptr;
     }
 
-    guard_condition->context = node->context;
     guard_condition->implementation_identifier = rmw_get_implementation_identifier();
-    guard_condition->data = static_cast<void*>(&node->context->impl->graph_guard_condition());
+    guard_condition->context = node->context;
+
+    auto node_impl = unsafe_cast<NodeImpl*>(node->data);
+    if (node_impl.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve NodeImpl");
+        return nullptr;
+    }
+
+    guard_condition->data = static_cast<void*>(&node_impl.value()->graph_guard_condition());
 
     return guard_condition;
 }

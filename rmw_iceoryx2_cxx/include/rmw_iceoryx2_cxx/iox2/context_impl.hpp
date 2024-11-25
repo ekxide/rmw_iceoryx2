@@ -47,15 +47,13 @@ public:
     rmw_context_impl_s(CreationLock, iox::optional<ErrorType>& error, const uint32_t id);
 
     auto id() -> uint32_t;
-    auto next_guard_condition_id() -> uint32_t;
+    auto generate_node_id() -> uint32_t;
     auto node() -> NodeImpl&;
-    auto graph_guard_condition() -> GuardConditionImpl&;
 
 private:
     const uint32_t m_id;
     iox::optional<NodeImpl> m_node;
-    iox::optional<GuardConditionImpl> m_graph_guard_condition;
-    std::atomic<uint32_t> m_guard_condition_counter{0};
+    std::atomic<uint32_t> m_node_counter{0};
 };
 }
 

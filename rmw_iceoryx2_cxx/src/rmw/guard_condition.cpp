@@ -49,7 +49,7 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
     }
 
     if (create_in_place<GuardConditionImpl>(
-            ptr.value(), context->impl->node(), context->impl->id(), context->impl->next_guard_condition_id())
+            ptr.value(), context->impl->node(), context->impl->id(), context->impl->generate_node_id())
             .has_error()) {
         destruct<GuardConditionImpl>(ptr.value());
         deallocate<GuardConditionImpl>(ptr.value());

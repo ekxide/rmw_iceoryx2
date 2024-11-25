@@ -13,6 +13,7 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator.hpp"
 #include "rmw_iceoryx2_cxx/create.hpp"
+#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
@@ -40,7 +41,9 @@ protected:
 
     rmw::iox2::NodeImpl& test_node() {
         if (!m_node) {
-            create_in_place(m_node, names::test_node(test_id()).c_str()).expect("failed to create test node");
+            create_in_place(
+                m_node, context.impl->id(), context.impl->generate_node_id(), names::test_node(test_id()).c_str())
+                .expect("failed to create test node");
         }
         return m_node.value();
     }
