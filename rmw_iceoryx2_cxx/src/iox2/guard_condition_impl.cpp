@@ -29,7 +29,7 @@ GuardConditionImpl::GuardConditionImpl(CreationLock, iox::optional<ErrorType>& e
         return;
     }
 
-    auto service = context.iox2()->service_builder(service_name.value()).event().open_or_create();
+    auto service = context.iox2().ipc().service_builder(service_name.value()).event().open_or_create();
     if (service.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);

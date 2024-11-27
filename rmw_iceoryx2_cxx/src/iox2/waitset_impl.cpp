@@ -19,9 +19,8 @@ namespace rmw::iox2
 WaitSetImpl::WaitSetImpl(CreationLock, iox::optional<WaitSetError>& error, ContextImpl& context)
     : m_context{context} {
     using ::iox2::ServiceType;
-    using ::iox2::WaitSetBuilder;
 
-    auto waitset = WaitSetBuilder().template create<ServiceType::Ipc>();
+    auto waitset = Iceoryx2::WaitSet::Builder().template create<ServiceType::Ipc>();
     if (waitset.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(waitset.error()));
         error.emplace(ErrorType::WAITSET_CREATION_FAILURE);
@@ -75,7 +74,7 @@ auto WaitSetImpl::create_listener(const std::string& name) -> iox::expected<Stor
             return err(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         }
 
-        auto service = m_context.iox2()->service_builder(service_name.value()).event().open_or_create();
+        auto service = m_context.iox2().ipc().service_builder(service_name.value()).event().open_or_create();
         if (service.has_error()) {
             RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service_name.error()));
             return err(ErrorType::SERVICE_CREATION_FAILURE);

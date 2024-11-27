@@ -15,7 +15,7 @@
 #include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/handle.hpp"
+#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
@@ -39,19 +39,20 @@ protected:
         print_rmw_errors();
     }
 
-    rmw::iox2::IceoryxHandle& test_handle() {
-        if (!m_handle) {
-            create_in_place(m_handle, names::test_handle(test_id())).expect("failed to create test node");
+    rmw::iox2::Iceoryx2& iox2() {
+        if (!m_iox2) {
+            create_in_place(m_iox2, names::test_handle(test_id())).expect("failed to create test node");
         }
-        return m_handle.value();
+        return m_iox2.value();
     }
 
     template <typename String>
-    auto test_listener(String&& name) -> IceoryxListener {
+    auto iox2_listener(String&& name) -> IceoryxListener {
         auto service_name =
             ::iox2::ServiceName::create(name.c_str()).expect("failed to create test listener service name");
-        auto service = test_handle()
-                           ->service_builder(service_name)
+        auto service = iox2()
+                           .ipc()
+                           .service_builder(service_name)
                            .event()
                            .open_or_create()
                            .expect("failed to create test listener service");
@@ -61,7 +62,7 @@ protected:
     };
 
 private:
-    iox::optional<::rmw::iox2::IceoryxHandle> m_handle;
+    iox::optional<::rmw::iox2::Iceoryx2> m_iox2;
 };
 
 TEST_F(RmwGuardConditionTest, create_and_destroy) {
@@ -86,7 +87,7 @@ TEST_F(RmwGuardConditionTest, trigger) {
 
     // TODO: An easier way to access the guard condition ID?
     auto impl = unsafe_cast<GuardConditionImpl*>(guard_condition->data).expect("failed to get guard condition impl");
-    auto listener = test_listener(names::guard_condition(guard_condition->context->instance_id, impl->trigger_id()));
+    auto listener = iox2_listener(names::guard_condition(guard_condition->context->instance_id, impl->trigger_id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
     auto event =

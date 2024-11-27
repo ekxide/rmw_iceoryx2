@@ -12,14 +12,10 @@
 
 #include "iox/optional.hpp"
 #include "iox/slice.hpp"
-#include "iox2/node.hpp"
-#include "iox2/publisher.hpp"
-#include "iox2/sample_mut_uninit.hpp"
-#include "iox2/service_type.hpp"
-#include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
+#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/sample_registry.hpp"
 
@@ -47,10 +43,10 @@ class RMW_PUBLIC PublisherImpl
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniquePublisherId;
     using Payload = ::iox::Slice<uint8_t>;
-    using Sample = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, void>;
+    using Sample = Iceoryx2::InterProcess::SampleMutUninit<Payload>;
     using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
-    using IceoryxNotifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
-    using IceoryxPublisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, void>;
+    using Notifier = Iceoryx2::InterProcess::Notifier;
+    using Publisher = Iceoryx2::InterProcess::Publisher<Payload>;
 
 public:
     using ErrorType = Error<PublisherImpl>::Type;
@@ -118,8 +114,8 @@ private:
     const uint64_t m_payload_size;
 
     iox::optional<IdType> m_unique_id;
-    iox::optional<IceoryxNotifier> m_notifier;
-    iox::optional<IceoryxPublisher> m_publisher;
+    iox::optional<Notifier> m_notifier;
+    iox::optional<Publisher> m_publisher;
     SampleRegistry m_registry;
 };
 

@@ -14,7 +14,7 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
-#include "rmw_iceoryx2_cxx/iox2/handle.hpp"
+#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 
 #include <atomic>
 
@@ -38,7 +38,7 @@ extern "C" {
 class RMW_PUBLIC rmw_context_impl_s
 {
     using CreationLock = ::rmw::iox2::CreationLock;
-    using IceoryxHandle = ::rmw::iox2::IceoryxHandle;
+    using Iceoryx2 = ::rmw::iox2::Iceoryx2;
 
 public:
     using ErrorType = ::rmw::iox2::Error<rmw_context_impl_s>::Type;
@@ -56,7 +56,7 @@ public:
 
     /// @brief Get the handle to the underlying iceoryx runtime
     /// @return Reference to the iceoryx handle
-    auto iox2() -> IceoryxHandle&;
+    auto iox2() -> Iceoryx2&;
 
     /// @brief Generate a new unique identifier for a guard condition
     /// @return The generated guard condition ID
@@ -64,7 +64,7 @@ public:
 
 private:
     const uint32_t m_id;
-    iox::optional<IceoryxHandle> m_handle;
+    iox::optional<Iceoryx2> m_iox2;
     std::atomic<uint32_t> m_guard_condition_counter{0};
 };
 }

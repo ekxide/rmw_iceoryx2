@@ -22,8 +22,7 @@ NodeImpl::NodeImpl(
     using ::rmw::iox2::create_in_place;
     namespace names = rmw::iox2::names;
 
-    if (auto result = create_in_place<IceoryxHandle>(m_handle, names::node(context.id(), name, ns));
-        result.has_error()) {
+    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::node(context.id(), name, ns)); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create Handle");
         error.emplace(ErrorType::HANDLE_CREATION_FAILURE);
         return;
@@ -40,8 +39,8 @@ auto NodeImpl::name() const -> const std::string& {
     return m_name;
 }
 
-auto NodeImpl::iox2() -> IceoryxHandle& {
-    return m_handle.value();
+auto NodeImpl::iox2() -> Iceoryx2& {
+    return m_iox2.value();
 }
 
 auto NodeImpl::graph_guard_condition() -> GuardConditionImpl& {

@@ -16,7 +16,7 @@
 #include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/handle.hpp"
+#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 
 namespace rmw::iox2
 {
@@ -56,7 +56,7 @@ public:
 
     /// @brief Get the handle to the underlying iceoryx runtime
     /// @return Reference to the iceoryx handle
-    auto iox2() -> IceoryxHandle&;
+    auto iox2() -> Iceoryx2&;
 
     /// @brief Get the guard condition for notifying of graph events
     /// @return The guard condition for graph events
@@ -64,7 +64,7 @@ public:
 
 private:
     const std::string m_name;
-    iox::optional<IceoryxHandle> m_handle;
+    iox::optional<Iceoryx2> m_iox2;
     iox::optional<GuardConditionImpl> m_graph_guard_condition;
 };
 

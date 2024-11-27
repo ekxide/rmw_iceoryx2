@@ -12,9 +12,6 @@
 
 #include "iox/optional.hpp"
 #include "iox/slice.hpp"
-#include "iox2/sample.hpp"
-#include "iox2/service_type.hpp"
-#include "iox2/subscriber.hpp"
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
@@ -43,9 +40,9 @@ class RMW_PUBLIC SubscriberImpl
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniqueSubscriberId;
     using Payload = ::iox::Slice<uint8_t>;
-    using Sample = ::iox2::Sample<::iox2::ServiceType::Ipc, Payload, void>;
+    using Sample = Iceoryx2::InterProcess::Sample<Payload>;
     using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
-    using IceoryxSubscriber = ::iox2::Subscriber<::iox2::ServiceType::Ipc, Payload, void>;
+    using Subscriber = Iceoryx2::InterProcess::Subscriber<Payload>;
 
 public:
     using ErrorType = Error<SubscriberImpl>::Type;
@@ -95,7 +92,7 @@ private:
     const std::string m_service_name;
 
     iox::optional<IdType> m_unique_id;
-    iox::optional<IceoryxSubscriber> m_subscriber;
+    iox::optional<Subscriber> m_subscriber;
     SampleRegistry m_registry;
 };
 

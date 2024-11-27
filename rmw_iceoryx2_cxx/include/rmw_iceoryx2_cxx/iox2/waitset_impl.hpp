@@ -13,7 +13,6 @@
 #include "iox/duration.hpp"
 #include "iox/optional.hpp"
 #include "iox2/listener.hpp"
-#include "iox2/waitset.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
@@ -48,17 +47,17 @@ struct Error<WaitSetImpl>
 class RMW_PUBLIC WaitSetImpl
 {
     using Duration = ::iox::units::Duration;
-    using AttachmentId = ::iox2::WaitSetAttachmentId<::iox2::ServiceType::Ipc>;
     using ServiceName = ::iox2::ServiceName;
-    using Guard = ::iox2::WaitSetGuard<::iox2::ServiceType::Ipc>;
-    using IceoryxWaitSet = ::iox2::WaitSet<::iox2::ServiceType::Ipc>;
-    using IceoryxListener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
+    using WaitSet = Iceoryx2::WaitSet::Handle;
+    using AttachmentId = Iceoryx2::WaitSet::AttachmentId;
+    using Guard = Iceoryx2::WaitSet::Guard;
+    using Listener = Iceoryx2::InterProcess::Listener;
 
     /// @brief Associates an iceoryx2 listener with its service name
     struct ListenerStorage
     {
         std::string service_name;
-        IceoryxListener listener;
+        Listener listener;
     };
     using StorageIndex = std::vector<ListenerStorage>::size_type;
 
@@ -159,7 +158,7 @@ private:
 
 private:
     ContextImpl& m_context;
-    iox::optional<IceoryxWaitSet> m_waitset;
+    iox::optional<WaitSet> m_waitset;
 
     // Storage for all attached listeners.
     // Listeners for entities are created on first attachment, and re-used in subsequent calls.

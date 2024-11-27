@@ -11,14 +11,12 @@
 #define RMW_IOX2_GUARD_CONDITION_IMPL_HPP_
 
 #include "iox/optional.hpp"
-#include "iox2/notifier.hpp"
-#include "iox2/port_factory_event.hpp"
-#include "iox2/service_type.hpp"
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
+#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 
 namespace rmw::iox2
 {
@@ -41,7 +39,7 @@ class RMW_PUBLIC GuardConditionImpl
 {
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniquePublisherId;
-    using IceoryxNotifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
+    using Notifier = Iceoryx2::InterProcess::Notifier;
 
 public:
     using ErrorType = Error<GuardConditionImpl>::Type;
@@ -74,7 +72,7 @@ private:
     const std::string m_service_name;
 
     iox::optional<IdType> m_unique_id;
-    iox::optional<IceoryxNotifier> m_notifier;
+    iox::optional<Notifier> m_notifier;
 };
 
 } // namespace rmw::iox2

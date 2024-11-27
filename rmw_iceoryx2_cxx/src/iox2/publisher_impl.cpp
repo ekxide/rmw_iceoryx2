@@ -36,7 +36,8 @@ PublisherImpl::PublisherImpl(CreationLock,
     }
 
     auto payload_service = node.iox2()
-                               ->service_builder(service_name.value())
+                               .ipc()
+                               .service_builder(service_name.value())
                                .publish_subscribe<Payload>()
                                .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                .open_or_create();
@@ -55,7 +56,7 @@ PublisherImpl::PublisherImpl(CreationLock,
     m_unique_id.emplace(publisher->id());
     m_publisher.emplace(std::move(publisher.value()));
 
-    auto event_service = node.iox2()->service_builder(service_name.value()).event().open_or_create();
+    auto event_service = node.iox2().ipc().service_builder(service_name.value()).event().open_or_create();
     if (event_service.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(event_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
