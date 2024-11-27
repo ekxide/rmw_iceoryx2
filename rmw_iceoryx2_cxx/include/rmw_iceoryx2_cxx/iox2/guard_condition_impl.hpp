@@ -39,7 +39,7 @@ class RMW_PUBLIC GuardConditionImpl
 {
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniquePublisherId;
-    using Notifier = Iceoryx2::InterProcess::Notifier;
+    using Notifier = Iceoryx2::Local::Notifier;
 
 public:
     using ErrorType = Error<GuardConditionImpl>::Type;

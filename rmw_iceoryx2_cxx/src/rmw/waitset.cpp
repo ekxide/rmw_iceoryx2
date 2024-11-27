@@ -159,7 +159,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
             auto triggered_waitable = trigger.value();
             // TODO: In need of optimization. Quick and dirty just for functionality.
             switch (triggered_waitable.waitable_type) {
-            case WaitableType::SUBSCRIPTION:
+            case WaitableType::SUBSCRIBER:
                 for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
                     if (index != triggered_waitable.rmw_index) {
                         subscriptions->subscribers[index] = nullptr;

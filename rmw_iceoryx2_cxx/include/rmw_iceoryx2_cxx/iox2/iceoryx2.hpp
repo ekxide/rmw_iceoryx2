@@ -12,6 +12,7 @@
 
 #include "iox/assertions.hpp"
 #include "iox2/node.hpp"
+#include "iox2/service_builder.hpp"
 #include "iox2/service_type.hpp"
 #include "iox2/waitset.hpp"
 #include "rmw/visibility_control.h"
@@ -48,7 +49,13 @@ struct Error<Iceoryx2>
 class RMW_PUBLIC Iceoryx2
 {
 public:
-    using Local = ::iox2::Node<::iox2::ServiceType::Local>;
+    struct Local
+    {
+        using Handle = ::iox2::Node<::iox2::ServiceType::Local>;
+
+        using Notifier = ::iox2::Notifier<::iox2::ServiceType::Local>;
+        using Listener = ::iox2::Listener<::iox2::ServiceType::Local>;
+    };
 
     struct InterProcess
     {
@@ -72,6 +79,7 @@ public:
     struct WaitSet
     {
         using Builder = ::iox2::WaitSetBuilder;
+        // NOTE: Service type is inconsequential. Will be removed from iceoryx2 soon.
         using Handle = ::iox2::WaitSet<::iox2::ServiceType::Ipc>;
         using Guard = ::iox2::WaitSetGuard<::iox2::ServiceType::Ipc>;
         using AttachmentId = ::iox2::WaitSetAttachmentId<::iox2::ServiceType::Ipc>;
@@ -87,13 +95,38 @@ public:
     /// @param[in] instance_name Unique name of the instance, used for book-keeping in iceoryx2
     Iceoryx2(CreationLock, iox::optional<ErrorType>& error, const std::string& instance_name);
 
-    /// @brief Access factory methods for creation of IPC entities
+    /// @brief Access factory methods for creation of entities communicating locally.
+    /// @return Factory to create IPC entities bound to the lifetime of this instance
+    auto local() -> Local::Handle&;
+
+    /// @brief Access factory methods for creation of entities communicating inter-process.
     /// @return Factory to create IPC entities bound to the lifetime of this instance
     auto ipc() -> InterProcess::Handle&;
 
+    template <::iox2::ServiceType ServiceType>
+    auto service_builder(const std::string& service_name) -> ::iox2::ServiceBuilder<ServiceType>;
+
 private:
+    iox::optional<Local::Handle> m_local;
     iox::optional<InterProcess::Handle> m_ipc;
 };
+
+// ===================================================================================================================
+
+template <::iox2::ServiceType ServiceType>
+auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::ServiceBuilder<ServiceType> {
+    auto name = ::iox2::ServiceName::create(service_name.c_str());
+    if (name.has_error()) {
+        // TODO: propagate error
+    }
+    if constexpr (ServiceType == ::iox2::ServiceType::Local) {
+        return local().service_builder(name.value());
+    } else if constexpr (ServiceType == ::iox2::ServiceType::Ipc) {
+        return ipc().service_builder(name.value());
+    } else {
+        // TODO: Panic
+    }
+}
 
 } // namespace rmw::iox2
 

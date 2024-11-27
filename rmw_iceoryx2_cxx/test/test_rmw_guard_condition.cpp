@@ -27,7 +27,7 @@ using namespace rmw::iox2::testing;
 
 class RmwGuardConditionTest : public TestBase
 {
-    using IceoryxListener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
+    using Listener = ::iox2::Listener<::iox2::ServiceType::Local>;
 
 protected:
     void SetUp() override {
@@ -47,11 +47,11 @@ protected:
     }
 
     template <typename String>
-    auto iox2_listener(String&& name) -> IceoryxListener {
+    auto iox2_listener(String&& name) -> Listener {
         auto service_name =
             ::iox2::ServiceName::create(name.c_str()).expect("failed to create test listener service name");
         auto service = iox2()
-                           .ipc()
+                           .local()
                            .service_builder(service_name)
                            .event()
                            .open_or_create()

@@ -12,10 +12,11 @@
 
 #include "iox/duration.hpp"
 #include "iox/optional.hpp"
-#include "iox2/listener.hpp"
+#include "iox2/service_type.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
+#include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
@@ -25,12 +26,15 @@
 namespace rmw::iox2
 {
 
-enum class AttachmentType { SUBSCRIPTION, GUARD_CONDITION };
+// TODO: Move somewhere else
+template <typename T>
+static constexpr bool always_false = false;
 
+enum class AttachmentType { SUBSCRIBER, GUARD_CONDITION };
 
 /// An index used by the RMW to track entities attached to the waitset.
 using RmwIndex = size_t;
-enum class WaitableType { SUBSCRIPTION, GUARD_CONDITION };
+enum class WaitableType { SUBSCRIBER, GUARD_CONDITION };
 
 class WaitSetImpl;
 
@@ -49,17 +53,19 @@ class RMW_PUBLIC WaitSetImpl
     using Duration = ::iox::units::Duration;
     using ServiceName = ::iox2::ServiceName;
     using WaitSet = Iceoryx2::WaitSet::Handle;
-    using AttachmentId = Iceoryx2::WaitSet::AttachmentId;
-    using Guard = Iceoryx2::WaitSet::Guard;
-    using Listener = Iceoryx2::InterProcess::Listener;
+    using WaitSetGuard = Iceoryx2::WaitSet::Guard;
+    using WaitSetAttachmentId = Iceoryx2::WaitSet::AttachmentId;
+    using GuardConditionListener = Iceoryx2::Local::Listener;
+    using SubscriberListener = Iceoryx2::InterProcess::Listener;
 
     /// @brief Associates an iceoryx2 listener with its service name
-    struct ListenerStorage
+    template <typename ListenerType>
+    struct ListenerDetails
     {
         std::string service_name;
-        Listener listener;
+        ListenerType listener;
     };
-    using StorageIndex = std::vector<ListenerStorage>::size_type;
+    using StorageIndex = size_t;
 
     /// @brief Description of a waitable that has been staged
     struct StagedWaitable
@@ -78,21 +84,21 @@ class RMW_PUBLIC WaitSetImpl
 
     /// @brief Storage for waitset attachments containing the guard and attachment ID
     /// @details Manages the lifetime of a waitset attachment and provides access to its ID and associated waitable
-    class WaitSetAttachmentStorage
+    class AttachmentDetails
     {
     public:
-        WaitSetAttachmentStorage(Guard&& guard)
+        AttachmentDetails(WaitSetGuard&& guard)
             : m_guard{std::move(guard)}
-            , m_id{AttachmentId::from_guard(m_guard)} {
+            , m_id{WaitSetAttachmentId::from_guard(m_guard)} {
         }
 
-        WaitSetAttachmentStorage(Guard&& guard, const StagedWaitable& staged_waitable)
+        AttachmentDetails(WaitSetGuard&& guard, const StagedWaitable& staged_waitable)
             : m_guard{std::move(guard)}
-            , m_id{AttachmentId::from_guard(m_guard)}
+            , m_id{WaitSetAttachmentId::from_guard(m_guard)}
             , m_waitable{staged_waitable} {
         }
 
-        auto id() -> AttachmentId& {
+        auto id() -> WaitSetAttachmentId& {
             return m_id;
         }
 
@@ -101,8 +107,8 @@ class RMW_PUBLIC WaitSetImpl
         }
 
     private:
-        Guard m_guard;
-        AttachmentId m_id;
+        WaitSetGuard m_guard;
+        WaitSetAttachmentId m_id;
         iox::optional<StagedWaitable> m_waitable;
     };
 
@@ -142,6 +148,7 @@ private:
     /// @brief Creates a listener for the given service, if not already created.
     /// @note If the listener was previously already created, skips creation and reuses the existing listener.
     /// @param[in] The service name to use for the iceoryx2 listener
+    template <typename ListenerType>
     auto create_listener(const std::string& service_name) -> iox::expected<StorageIndex, ErrorType>;
 
     /// @brief Stages a listener to be waited on.
@@ -150,11 +157,26 @@ private:
     /// @param[in] rmw_index The index for the associated entity tracked by the upper layers
     auto stage_listener(WaitableType entity_type, StorageIndex storage_index, RmwIndex rmw_index) -> void;
 
-
     /// @brief Get the listener at the given storage index.
     /// @param[in] storage_index The index to retrieve the listener from
     /// @return The stored listener found at the given index, or nullopt if index is invalid
-    auto get_listener(StorageIndex storage_index) -> iox::optional<ListenerStorage*>;
+    template <typename ListenerType>
+    inline auto get_stored_listener(StorageIndex storage_index) -> iox::optional<ListenerDetails<ListenerType>*>;
+
+    template <typename ListenerType>
+    inline auto listener_storage() -> std::vector<ListenerDetails<ListenerType>>&;
+
+    // TODO: rename
+    template <typename ListenerType>
+    inline static constexpr auto service_type = []() -> ::iox2::ServiceType {
+        if constexpr (std::is_same_v<ListenerType, GuardConditionListener>) {
+            return ::iox2::ServiceType::Local;
+        } else if constexpr (std::is_same_v<ListenerType, SubscriberListener>) {
+            return ::iox2::ServiceType::Ipc;
+        } else {
+            static_assert(std::false_type::value, "Unsupported listener type");
+        }
+    }();
 
 private:
     ContextImpl& m_context;
@@ -164,12 +186,72 @@ private:
     // Listeners for entities are created on first attachment, and re-used in subsequent calls.
     // WARNING: Listeners must not be removed once added to the storage as this invalidates held storage indicies.
     // TODO: A less error-prone solution. This is the quickest "dumb" implementation to get things working.
-    std::vector<ListenerStorage> m_listener_storage;
+    std::vector<ListenerDetails<GuardConditionListener>> m_guard_condition_listeners;
+    std::vector<ListenerDetails<SubscriberListener>> m_subscriber_listeners;
 
     // Listeners staged to be waited on in the next wait call.
     // Maps the attachment to the index used in the RMW for tracking.
     std::vector<StagedWaitable> m_staged_waitables;
 };
+
+// ===================================================================================================================
+
+template <typename ListenerType>
+auto WaitSetImpl::create_listener(const std::string& service_name) -> iox::expected<StorageIndex, ErrorType> {
+    using ::iox::err;
+    using ::iox::ok;
+
+    auto& storage = listener_storage<ListenerType>();
+
+    auto it = std::find_if(storage.begin(), storage.end(), [&service_name](const auto& listener) {
+        return listener.service_name == service_name;
+    });
+
+    if (it == storage.end()) {
+        auto service_result =
+            m_context.iox2().service_builder<service_type<ListenerType>>(service_name).event().open_or_create();
+        if (service_result.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service_result.error()));
+            return err(ErrorType::SERVICE_CREATION_FAILURE);
+        }
+        auto& service = service_result.value();
+
+        auto listener = service.listener_builder().create();
+        if (listener.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(listener.error()));
+            return err(ErrorType::LISTENER_CREATION_FAILURE);
+        }
+
+        storage.emplace_back(ListenerDetails<ListenerType>{service_name, std::move(listener.value())});
+        auto storage_index = static_cast<StorageIndex>(storage.size() - 1);
+        return ok(storage_index);
+    } else {
+        // An iceoryx2 listener already exists. Reuse it and mark it for attachment.
+        auto storage_index = static_cast<StorageIndex>(it - storage.begin());
+        return ok(storage_index);
+    }
+}
+
+template <typename ListenerType>
+auto WaitSetImpl::get_stored_listener(StorageIndex storage_index) -> iox::optional<ListenerDetails<ListenerType>*> {
+    auto& storage = listener_storage<ListenerType>();
+
+    if (storage_index < storage.size()) {
+        return &storage[storage_index];
+    }
+    return iox::nullopt;
+}
+
+template <typename ListenerType>
+inline auto WaitSetImpl::listener_storage() -> std::vector<ListenerDetails<ListenerType>>& {
+    if constexpr (std::is_same_v<ListenerType, GuardConditionListener>) {
+        return m_guard_condition_listeners;
+    } else if constexpr (std::is_same_v<ListenerType, SubscriberListener>) {
+        return m_subscriber_listeners;
+    } else {
+        // TODO: Panic
+    }
+}
 
 } // namespace rmw::iox2
 
