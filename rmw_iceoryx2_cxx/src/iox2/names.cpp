@@ -14,20 +14,12 @@
 namespace rmw::iox2::names
 {
 
-std::string node(const uint32_t context_id) {
-#ifdef _WIN32
-    return "ros2://pid/" + std::to_string(_getpid()) + "/context/" + std::to_string(context_id);
-#else
-    return "ros2://pid/" + std::to_string(getpid()) + "/context/" + std::to_string(context_id);
-#endif
+std::string context(const uint32_t context_id) {
+    return "ros2://context/" + std::to_string(context_id);
 }
 
 std::string node(const uint32_t context_id, const char* name, const char* ns) {
-#ifdef _WIN32
-    auto s = "ros2://pid/" + std::to_string(_getpid()) + "/context/" + std::to_string(context_id) + "/nodes/";
-#else
-    auto s = "ros2://pid/" + std::to_string(getpid()) + "/context/" + std::to_string(context_id) + "/nodes/";
-#endif
+    auto s = "ros2://context/" + std::to_string(context_id) + "/nodes/";
     if (ns && ns[0] != '\0') {
         s += std::string(ns) + "/";
     }
@@ -36,13 +28,7 @@ std::string node(const uint32_t context_id, const char* name, const char* ns) {
 }
 
 std::string guard_condition(const uint32_t context_id, const uint32_t guard_condition_id) {
-#ifdef _WIN32
-    return "ros2://pid/" + std::to_string(_getpid()) + "/context/" + std::to_string(context_id) + "/guard_conditions/"
-           + std::to_string(guard_condition_id);
-#else
-    return "ros2://pid/" + std::to_string(getpid()) + "/context/" + std::to_string(context_id) + "/guard_conditions/"
-           + std::to_string(guard_condition_id);
-#endif
+    return "ros2://context/" + std::to_string(context_id) + "/guard_conditions/" + std::to_string(guard_condition_id);
 }
 
 // Topics are inter-process, thus pid is not included in the name

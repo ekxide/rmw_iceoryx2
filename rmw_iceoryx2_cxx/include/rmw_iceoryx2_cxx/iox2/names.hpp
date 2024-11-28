@@ -19,7 +19,7 @@ namespace rmw::iox2::names
 {
 
 RMW_PUBLIC
-std::string node(const uint32_t context_id);
+std::string context(const uint32_t context_id);
 
 RMW_PUBLIC
 std::string node(const uint32_t context_id, const char* name, const char* ns);
