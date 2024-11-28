@@ -11,8 +11,8 @@
 
 #include "iox2/callback_progression.hpp"
 #include "iox2/waitset.hpp"
-#include "rcutils/logging_macros.h"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/log.hpp"
 
 namespace rmw::iox2
 {
@@ -109,7 +109,7 @@ auto WaitSetImpl::wait(const iox::optional<Duration>& timeout)
                 if (auto result =
                         process_trigger(attachment.mapping().waitable_type, attachment.mapping().storage_index);
                     result.has_error()) {
-                    RCUTILS_LOG_ERROR_NAMED("rmw_iceoryx2", "Failed to process trigger from a waitset attachment");
+                    RMW_IOX2_LOG_ERROR("Failed to process trigger from a waitset attachment");
                     return CallbackProgression::Stop;
                 } else {
                     if (!ctx.result.has_value()) {
@@ -122,7 +122,7 @@ auto WaitSetImpl::wait(const iox::optional<Duration>& timeout)
 
         // If this occurs there is a bug in WaitsetImpl.
         // Continue looking for notifications from other attachments so as not to hinder functionality.
-        RCUTILS_LOG_ERROR_NAMED("rmw_iceoryx2", "Waitset was triggered by an unmapped subscriber or guard condition");
+        RMW_IOX2_LOG_ERROR("Waitset was triggered by an unmapped subscriber or guard condition");
         return CallbackProgression::Continue;
     };
 
