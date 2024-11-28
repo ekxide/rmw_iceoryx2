@@ -10,10 +10,16 @@
 #ifndef RMW_IOX2_HANDLE_HPP_
 #define RMW_IOX2_HANDLE_HPP_
 
-#include "iox/assertions.hpp"
+#include "iox2/listener.hpp"
 #include "iox2/node.hpp"
+#include "iox2/notifier.hpp"
+#include "iox2/publisher.hpp"
+#include "iox2/sample.hpp"
+#include "iox2/sample_mut.hpp"
+#include "iox2/sample_mut_uninit.hpp"
 #include "iox2/service_builder.hpp"
 #include "iox2/service_type.hpp"
+#include "iox2/subscriber.hpp"
 #include "iox2/waitset.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
@@ -52,6 +58,8 @@ public:
     // In iceoryx2, a node is an instance of iceoryx2 with its own lifetime management.
     using InstanceName = ::iox2::NodeName;
     using InstanceBuilder = ::iox2::NodeBuilder;
+
+    using Config = ::iox2::Config;
 
     using ServiceType = ::iox2::ServiceType;
     using ServiceName = ::iox2::ServiceName;

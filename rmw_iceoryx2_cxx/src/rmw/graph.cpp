@@ -8,8 +8,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "iox/assertions_addendum.hpp"
-#include "iox2/node.hpp"
-#include "iox2/service_type.hpp"
 #include "rcutils/strdup.h"
 #include "rmw/convert_rcutils_ret_to_rmw_ret.h"
 #include "rmw/get_node_info_and_types.h"
@@ -19,102 +17,157 @@
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 
 #include <set>
+#include <string>
+#include <string_view>
 
-struct NodeName
+class NodeName
 {
-    std::string namespace_{""};
-    std::string name{""};
+public:
+    NodeName(std::string ns = "", std::string n = "")
+        : namespace_(std::move(ns))
+        , name_(std::move(n)) {
+    }
+
+    const std::string& namespace_str() const {
+        return namespace_;
+    }
+    const std::string& name_str() const {
+        return name_;
+    }
 
     bool operator<(const NodeName& other) const {
         if (namespace_ != other.namespace_) {
             return namespace_ < other.namespace_;
         }
-        return name < other.name;
+        return name_ < other.name_;
+    }
+
+private:
+    std::string namespace_;
+    std::string name_;
+};
+
+/// @brief Parses the name and namespace from the name used to represent rmw nodes in iceoryx2
+class NodeNameParser
+{
+public:
+    static iox::optional<NodeName> parse(std::string_view full_name) {
+        // Check for ROS2 prefix
+        constexpr std::string_view ROS2_PREFIX = "ros2://context/";
+        if (full_name.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
+            return iox::nullopt;
+        }
+
+        // Find the "/nodes/" part after the context ID
+        constexpr std::string_view NODES_MARKER = "/nodes/";
+        auto nodes_pos = full_name.find(NODES_MARKER);
+        if (nodes_pos == std::string_view::npos) {
+            return iox::nullopt;
+        }
+
+        // Extract the part after "/nodes/"
+        auto node_part = full_name.substr(nodes_pos + NODES_MARKER.length());
+        if (node_part.empty()) {
+            return iox::nullopt;
+        }
+
+        // Split into namespace and name
+        auto last_slash = node_part.find_last_of('/');
+        if (last_slash == std::string_view::npos) {
+            return NodeName("", std::string(node_part));
+        }
+
+        return NodeName(std::string(node_part.substr(0, last_slash)), std::string(node_part.substr(last_slash + 1)));
     }
 };
 
-// TODO: make more intuitive... maybe wrap in class that can parse the parts?
-const NodeName parse_node_name(const char* full_name) {
-    NodeName result{};
+/// @details Collects names of all rmw nodes present in iceoryx2
+class NodeNameCollector
+{
+public:
+    static rmw_ret_t collect_names(std::set<NodeName>& names) {
+        using ::iox2::CallbackProgression;
+        using ::rmw::iox2::Iceoryx2;
 
-    std::string str(full_name);
-    size_t nodes_pos = str.find("/nodes/");
+        rmw_ret_t result = RMW_RET_OK;
 
-    if (nodes_pos != std::string::npos) {
-        std::string node_part = str.substr(nodes_pos + 7); // +7 to skip "/nodes/"
+        Iceoryx2::InterProcess::Handle::list(Iceoryx2::Config::global_config(), [&names](auto node) {
+            node.alive([&names](const auto view) {
+                view.details().and_then([&names](const auto details) {
+                    if (auto node_name = NodeNameParser::parse(details.name().to_string().c_str())) {
+                        names.emplace(*node_name);
+                    }
+                });
+            });
+            return CallbackProgression::Continue;
+        }).or_else([&result](auto) { result = RMW_RET_ERROR; });
 
-        size_t last_slash = node_part.find_last_of('/');
-        if (last_slash != std::string::npos) {
-            result.namespace_ = node_part.substr(0, last_slash);
-            result.name = node_part.substr(last_slash + 1);
-        } else {
-            result.name = node_part;
-        }
+        return result;
     }
+};
 
-    return result;
-}
+/// @brief Helper to intialize strings via the rcutils allocator
+class StringArrayInitializer
+{
+public:
+    static rmw_ret_t init_arrays(rcutils_string_array_t* node_names,
+                                 rcutils_string_array_t* node_namespaces,
+                                 size_t size,
+                                 const rcutils_allocator_t& allocator) {
+        auto ret = rcutils_string_array_init(node_names, size, &allocator);
+        if (ret != RCUTILS_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+            return rmw_convert_rcutils_ret_to_rmw_ret(ret);
+        }
+
+        ret = rcutils_string_array_init(node_namespaces, size, &allocator);
+        if (ret != RCUTILS_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+            return rmw_convert_rcutils_ret_to_rmw_ret(ret);
+        }
+
+        return RMW_RET_OK;
+    }
+};
 
 extern "C" {
+
 rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
                              rcutils_string_array_t* node_names,
                              rcutils_string_array_t* node_namespaces) {
     using iox2::ServiceType;
-    using Node = iox2::Node<ServiceType::Ipc>;
-    using iox2::CallbackProgression;
-    using iox2::Config;
 
-    rmw_ret_t result = RMW_RET_OK;
-
-    // retrieve names from node
     std::set<NodeName> names{};
-    Node::list(Config::global_config(), [&names](auto node) {
-        node.alive([&names](const auto view) {
-            view.details().and_then([&names](const auto details) {
-                auto parts = parse_node_name(details.name().to_string().c_str());
-                names.emplace(parts);
-            });
-        });
-        return CallbackProgression::Continue;
-    }).or_else([&result](auto) { result = RMW_RET_ERROR; });
+    auto result = NodeNameCollector::collect_names(names);
     RMW_IOX2_OK_OR_RETURN(result);
 
-    // allocate output
     rcutils_allocator_t allocator = rcutils_get_default_allocator();
-    rcutils_ret_t rcutils_ret = rcutils_string_array_init(node_names, names.size(), &allocator);
-    if (rcutils_ret != RCUTILS_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
-        result = rmw_convert_rcutils_ret_to_rmw_ret(rcutils_ret);
-        return result;
-    }
-    rcutils_ret = rcutils_string_array_init(node_namespaces, names.size(), &allocator);
-    if (rcutils_ret != RCUTILS_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
-        result = rmw_convert_rcutils_ret_to_rmw_ret(rcutils_ret);
+    result = StringArrayInitializer::init_arrays(node_names, node_namespaces, names.size(), allocator);
+    if (result != RMW_RET_OK) {
         return result;
     }
 
-    // set output
     int i = 0;
-    for (auto name : names) {
-        node_names->data[i] = rcutils_strdup(name.name.c_str(), allocator);
+    for (const auto& name : names) {
+        node_names->data[i] = rcutils_strdup(name.name_str().c_str(), allocator);
         if (!node_names->data[i]) {
             RMW_IOX2_CHAIN_ERROR_MSG("could not allocate memory for node name");
-            result = RMW_RET_ERROR;
-            return result;
+            return RMW_RET_ERROR;
         }
-        node_namespaces->data[i] = rcutils_strdup(name.namespace_.c_str(), allocator);
+
+        node_namespaces->data[i] = rcutils_strdup(name.namespace_str().c_str(), allocator);
         if (!node_namespaces->data[i]) {
             RMW_IOX2_CHAIN_ERROR_MSG("could not allocate memory for node namespace");
-            result = RMW_RET_ERROR;
-            return result;
+            return RMW_RET_ERROR;
         }
+
         ++i;
     }
 
-    return result;
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* node,
