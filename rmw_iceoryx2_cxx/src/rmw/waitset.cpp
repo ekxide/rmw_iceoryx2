@@ -94,7 +94,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     using ::rmw::iox2::GuardConditionImpl;
     using ::rmw::iox2::SubscriberImpl;
     using ::rmw::iox2::unsafe_cast;
-    using ::rmw::iox2::WaitableType;
+    using ::rmw::iox2::WaitableEntity;
     using ::rmw::iox2::WaitSetImpl;
 
     // TODO: Null checks for waitables?
@@ -119,7 +119,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardConditionImpl");
                 return RMW_RET_ERROR;
             }
-            if (auto result = waitset_impl->attach(index, *guard_condition.value()); result.has_error()) {
+            if (auto result = waitset_impl->map(index, *guard_condition.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardConditionImpl to WaitSetImpl");
                 return RMW_RET_ERROR;
@@ -135,7 +135,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
                 return RMW_RET_ERROR;
             }
-            if (auto result = waitset_impl->attach(index, *subscriber.value()); result.has_error()) {
+            if (auto result = waitset_impl->map(index, *subscriber.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to attach SubscriberImpl to WaitSetImpl");
                 return RMW_RET_ERROR;
@@ -159,14 +159,14 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
             auto triggered_waitable = trigger.value();
             // TODO: In need of optimization. Quick and dirty just for functionality.
             switch (triggered_waitable.waitable_type) {
-            case WaitableType::SUBSCRIBER:
+            case WaitableEntity::SUBSCRIBER:
                 for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
                     if (index != triggered_waitable.rmw_index) {
                         subscriptions->subscribers[index] = nullptr;
                     }
                 }
                 break;
-            case WaitableType::GUARD_CONDITION:
+            case WaitableEntity::GUARD_CONDITION:
                 for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
                     if (index != triggered_waitable.rmw_index) {
                         guard_conditions->guard_conditions[index] = nullptr;
@@ -180,7 +180,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
         }
     }
 
-    waitset_impl->detach_all();
+    waitset_impl->unmap_all();
 
     return RMW_RET_OK;
 }

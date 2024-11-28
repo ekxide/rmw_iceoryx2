@@ -49,6 +49,8 @@ struct Error<Iceoryx2>
 class RMW_PUBLIC Iceoryx2
 {
 public:
+    using ServiceType = ::iox2::ServiceType;
+
     struct Local
     {
         using Handle = ::iox2::Node<::iox2::ServiceType::Local>;
@@ -78,11 +80,14 @@ public:
 
     struct WaitSet
     {
-        using Builder = ::iox2::WaitSetBuilder;
         // NOTE: Service type is inconsequential. Will be removed from iceoryx2 soon.
-        using Handle = ::iox2::WaitSet<::iox2::ServiceType::Ipc>;
-        using Guard = ::iox2::WaitSetGuard<::iox2::ServiceType::Ipc>;
-        using AttachmentId = ::iox2::WaitSetAttachmentId<::iox2::ServiceType::Ipc>;
+        using Handle = ::iox2::WaitSet<::iox2::ServiceType::Local>;
+        using Guard = ::iox2::WaitSetGuard<::iox2::ServiceType::Local>;
+        using AttachmentId = ::iox2::WaitSetAttachmentId<::iox2::ServiceType::Local>;
+
+        static inline auto create = []() {
+            return ::iox2::WaitSetBuilder().template create<::iox2::ServiceType::Local>();
+        };
     };
 
 public:
@@ -103,6 +108,12 @@ public:
     /// @return Factory to create IPC entities bound to the lifetime of this instance
     auto ipc() -> InterProcess::Handle&;
 
+    /// @brief Creates a service builder for the specified service type and name
+    /// @tparam ServiceType The type of service (Local or Ipc) to create
+    /// @param[in] service_name Name of the service to create
+    /// @return Service builder configured for the specified service type and name
+    /// @note Local services can only communicate within the same process while IPC services can communicate across
+    /// processes
     template <::iox2::ServiceType ServiceType>
     auto service_builder(const std::string& service_name) -> ::iox2::ServiceBuilder<ServiceType>;
 
@@ -124,7 +135,7 @@ auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::Servi
     } else if constexpr (ServiceType == ::iox2::ServiceType::Ipc) {
         return ipc().service_builder(name.value());
     } else {
-        // TODO: Panic
+        static_assert(std::false_type::value, "Attempted to build a service of unknown type");
     }
 }
 
