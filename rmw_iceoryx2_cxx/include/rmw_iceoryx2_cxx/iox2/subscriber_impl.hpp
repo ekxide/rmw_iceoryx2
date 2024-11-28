@@ -91,8 +91,8 @@ private:
     const std::string m_type;
     const std::string m_service_name;
 
-    iox::optional<IdType> m_unique_id;
-    iox::optional<Subscriber> m_subscriber;
+    iox::optional<IdType> m_iox2_unique_id;
+    iox::optional<Subscriber> m_iox2_subscriber;
     SampleRegistry m_registry;
 };
 

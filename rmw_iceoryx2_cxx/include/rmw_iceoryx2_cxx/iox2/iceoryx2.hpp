@@ -49,12 +49,17 @@ struct Error<Iceoryx2>
 class RMW_PUBLIC Iceoryx2
 {
 public:
+    // In iceoryx2, a node is an instance of iceoryx2 with its own lifetime management.
+    using InstanceName = ::iox2::NodeName;
+    using InstanceBuilder = ::iox2::NodeBuilder;
+
     using ServiceType = ::iox2::ServiceType;
+    using ServiceName = ::iox2::ServiceName;
+    using EventId = ::iox2::EventId;
 
     struct Local
     {
         using Handle = ::iox2::Node<::iox2::ServiceType::Local>;
-
         using Notifier = ::iox2::Notifier<::iox2::ServiceType::Local>;
         using Listener = ::iox2::Listener<::iox2::ServiceType::Local>;
     };
@@ -62,7 +67,6 @@ public:
     struct InterProcess
     {
         using Handle = ::iox2::Node<::iox2::ServiceType::Ipc>;
-
         using Notifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
         using Listener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
 
@@ -76,6 +80,10 @@ public:
         using Publisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, void>;
         template <typename Payload>
         using Subscriber = ::iox2::Subscriber<::iox2::ServiceType::Ipc, Payload, void>;
+
+        template <typename Payload>
+        static inline auto send =
+            [](SampleMutUninit<Payload>&& sample) { return ::iox2::send(::iox2::assume_init(std::move(sample))); };
     };
 
     struct WaitSet

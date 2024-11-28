@@ -10,6 +10,7 @@
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
 
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
 namespace rmw::iox2
@@ -20,39 +21,37 @@ SubscriberImpl::SubscriberImpl(
     : m_topic{topic}
     , m_type{type}
     , m_service_name{::rmw::iox2::names::topic(topic)} {
-    using ::iox2::ServiceName;
-
-    auto service_name = ServiceName::create(m_service_name.c_str());
-    if (service_name.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service_name.error()));
+    auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
+    if (iox2_service_name.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_service_name.error()));
         error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         return;
     }
 
-    auto service = node.iox2()
-                       .ipc()
-                       .service_builder(service_name.value())
-                       .publish_subscribe<Payload>()
-                       .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
-                       .open_or_create();
-    if (service.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(service.error()));
+    auto iox2_pubsub_service = node.iox2()
+                                   .ipc()
+                                   .service_builder(iox2_service_name.value())
+                                   .publish_subscribe<Payload>()
+                                   .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
+                                   .open_or_create();
+    if (iox2_pubsub_service.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_pubsub_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 
-    auto subscriber = service.value().subscriber_builder().create();
-    if (subscriber.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(subscriber.error()));
+    auto iox2_subscriber = iox2_pubsub_service.value().subscriber_builder().create();
+    if (iox2_subscriber.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_subscriber.error()));
         error.emplace(ErrorType::SUBSCRIBER_CREATION_FAILURE);
         return;
     }
-    m_unique_id.emplace(subscriber->id());
-    m_subscriber.emplace(std::move(subscriber.value()));
+    m_iox2_unique_id.emplace(iox2_subscriber->id());
+    m_iox2_subscriber.emplace(std::move(iox2_subscriber.value()));
 }
 
 auto SubscriberImpl::unique_id() -> const iox::optional<RawIdType>& {
-    auto& bytes = m_unique_id->bytes();
+    auto& bytes = m_iox2_unique_id->bytes();
     return bytes;
 }
 
@@ -74,7 +73,7 @@ auto SubscriberImpl::take_copy(void* dest) -> iox::expected<bool, ErrorType> {
     using iox::ok;
     using iox::optional;
 
-    auto result = m_subscriber->receive();
+    auto result = m_iox2_subscriber->receive();
     if (result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);
@@ -96,7 +95,7 @@ auto SubscriberImpl::take_loan() -> iox::expected<iox::optional<const void*>, Er
     using iox::ok;
     using iox::optional;
 
-    auto result = m_subscriber->receive();
+    auto result = m_iox2_subscriber->receive();
     if (result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);

@@ -113,9 +113,9 @@ private:
     const std::string m_service_name;
     const uint64_t m_payload_size;
 
-    iox::optional<IdType> m_unique_id;
-    iox::optional<Notifier> m_notifier;
-    iox::optional<Publisher> m_publisher;
+    iox::optional<IdType> m_iox_unique_id;
+    iox::optional<Notifier> m_iox2_notifier;
+    iox::optional<Publisher> m_iox2_publisher;
     SampleRegistry m_registry;
 };
 

@@ -13,6 +13,7 @@
 #include "iox2/node.hpp"
 #include "iox2/sample_mut_uninit.hpp"
 #include "iox2/service_name.hpp"
+#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/iox2/sample_registry.hpp"
 #include "testing/base.hpp"
 
@@ -34,25 +35,21 @@ protected:
 TEST_F(RmwSampleRegistryTest, store_and_retrieve_loaned_publisher_sample) {
     using Payload = ::iox::Slice<uint8_t>;
     using Sample = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, void>;
-    using ::iox2::NodeBuilder;
-    using ::iox2::NodeName;
-    using ::iox2::ServiceName;
-    using ::iox2::ServiceType;
+    using ::rmw::iox2::Iceoryx2;
     using ::rmw::iox2::SampleRegistry;
 
     SampleRegistry<Sample> sut{};
 
-    auto node =
-        NodeBuilder()
-            .name(
-                NodeName::create("rmw_sample_registry_test::store_loaned_sample").expect("failed to create node name"))
-            .create<ServiceType::Ipc>()
-            .expect("");
+    auto iox2 = Iceoryx2::InstanceBuilder()
+                    .name(Iceoryx2::InstanceName::create("rmw_sample_registry_test::store_loaned_sample")
+                              .expect("failed to create node name"))
+                    .create<Iceoryx2::ServiceType::Ipc>()
+                    .expect("");
 
     auto payload_size = 64;
-    auto service_name = ServiceName::create("rmw_sample_registry_test::store_loaned_sample::topic")
+    auto service_name = Iceoryx2::ServiceName::create("rmw_sample_registry_test::store_loaned_sample::topic")
                             .expect("failed to create service name");
-    auto service = node.service_builder(service_name)
+    auto service = iox2.service_builder(service_name)
                        .publish_subscribe<Payload>()
                        .open_or_create()
                        .expect("failed to create service");
