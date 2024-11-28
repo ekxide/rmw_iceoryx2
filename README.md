@@ -19,20 +19,20 @@ bindings to the Rust core.
 
 ## Feature Completeness
 
-| Feature | Status |
-|---------|--------|
-| Node | :white_check_mark: |
-| Guard Condition | :white_check_mark: |
-| Event | :construction: |
-| Publish-Subscribe (Intra) | :construction: |
-| Publish-Subscribe (Copy) | :white_check_mark: |
-| Publish-Subscribe (Loan) | :white_check_mark: |
-| Publish-Subscribe (Serialized) | :construction: |
-| Server-Client | :construction: |
-| Waitset | :white_check_mark: |
-| Graph | :construction: |
-| QoS | :construction: |
-| Logging | :white_check_mark: |
+| Feature                          | Status             |
+|----------------------------------|--------------------|
+| Node                             | :white_check_mark: |
+| Guard Condition                  | :white_check_mark: |
+| Event                            | :construction:     |
+| Publish-Subscribe (Intra)        | :construction:     |
+| Publish-Subscribe (Copy)         | :white_check_mark: |
+| Publish-Subscribe (Loan)         | :white_check_mark: |
+| Publish-Subscribe (Serialized)   | :construction:     |
+| Server-Client                    | :construction:     |
+| Waitset                          | :white_check_mark: |
+| Graph                            | :construction:     |
+| QoS                              | :construction:     |
+| Logging                          | :white_check_mark: |
 
 ## Setup
 
@@ -101,6 +101,32 @@ bindings to the Rust core.
         source ~/workspace/install/setup.zsh
         ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes talker
         ```
+
+## FAQ
+
+### What is a self-contained message?
+
+A message definition that does not contain any pointers or references to addresses in a process's virtual 
+address space.
+
+Self-contained messages can be stored in shared memory without any serialization and subsequently read by
+any other process on the host system. Binaries should be compiled with the same compiler flags to ensure
+consistent memory representation.
+
+### How can I verify that iceoryx2 is being used by my ROS application?
+
+The `iox2` CLI can be used to verify services are created for ROS endpoints:
+
+```console
+iox2 service list
+```
+
+### Does iceoryx2 include optimizations for intra-process endpoints?
+
+While `iceoryx2` does include a mode for intra-process communication (passing pointers), `rmw_iceoryx2_cxx` 
+currently uses the inter-process mode for all communication.
+
+This may be revisited in the future.
 
 ## Commercial Support
 
