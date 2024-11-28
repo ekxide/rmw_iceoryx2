@@ -177,32 +177,8 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* node,
     return RMW_RET_UNSUPPORTED;
 }
 
+// Publishers ======================================================================================================
 rmw_ret_t rmw_count_publishers(const rmw_node_t* node, const char* topic_name, size_t* count) {
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, size_t* count) {
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_count_clients(const rmw_node_t* node, const char* service_name, size_t* count) {
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_count_services(const rmw_node_t* node, const char* service_name, size_t* count) {
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_service_server_is_available(const rmw_node_t* node, const rmw_client_t* client, bool* is_available) {
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* node,
-                                                     rcutils_allocator_t* allocator,
-                                                     const char* node_name,
-                                                     const char* node_namespace,
-                                                     bool no_demangle,
-                                                     rmw_names_and_types_t* topic_names_and_types) {
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -215,6 +191,44 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* node,
     return RMW_RET_UNSUPPORTED;
 }
 
+rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* node,
+                                           rcutils_allocator_t* allocator,
+                                           const char* topic_name,
+                                           bool no_mangle,
+                                           rmw_topic_endpoint_info_array_t* publishers_info) {
+    return RMW_RET_UNSUPPORTED;
+}
+
+// Subscribers ======================================================================================================
+rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, size_t* count) {
+    return RMW_RET_UNSUPPORTED;
+}
+
+rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* node,
+                                                     rcutils_allocator_t* allocator,
+                                                     const char* node_name,
+                                                     const char* node_namespace,
+                                                     bool no_demangle,
+                                                     rmw_names_and_types_t* topic_names_and_types) {
+    return RMW_RET_UNSUPPORTED;
+}
+
+rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* node,
+                                              rcutils_allocator_t* allocator,
+                                              const char* topic_name,
+                                              bool no_mangle,
+                                              rmw_topic_endpoint_info_array_t* subscriptions_info) {
+    return RMW_RET_UNSUPPORTED;
+}
+
+// Services ==========================================================================================================
+rmw_ret_t rmw_count_services(const rmw_node_t* node, const char* service_name, size_t* count) {
+    return RMW_RET_UNSUPPORTED;
+}
+
+rmw_ret_t rmw_service_server_is_available(const rmw_node_t* node, const rmw_client_t* client, bool* is_available) {
+    return RMW_RET_UNSUPPORTED;
+}
 
 rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* node,
                                                   rcutils_allocator_t* allocator,
@@ -224,6 +238,18 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* node,
     return RMW_RET_UNSUPPORTED;
 }
 
+rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* node,
+                                          rcutils_allocator_t* allocator,
+                                          rmw_names_and_types_t* service_names_and_types) {
+    return RMW_RET_UNSUPPORTED;
+}
+
+// Clients ==========================================================================================================
+rmw_ret_t rmw_count_clients(const rmw_node_t* node, const char* service_name, size_t* count) {
+    return RMW_RET_UNSUPPORTED;
+}
+
+
 rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* node,
                                                  rcutils_allocator_t* allocator,
                                                  const char* node_name,
@@ -232,32 +258,11 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* node,
     return RMW_RET_UNSUPPORTED;
 }
 
+// Topics ===========================================================================================================
 rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* node,
                                         rcutils_allocator_t* allocator,
                                         bool no_demangle,
                                         rmw_names_and_types_t* topic_names_and_types) {
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* node,
-                                          rcutils_allocator_t* allocator,
-                                          rmw_names_and_types_t* service_names_and_types) {
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* node,
-                                           rcutils_allocator_t* allocator,
-                                           const char* topic_name,
-                                           bool no_mangle,
-                                           rmw_topic_endpoint_info_array_t* publishers_info) {
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* node,
-                                              rcutils_allocator_t* allocator,
-                                              const char* topic_name,
-                                              bool no_mangle,
-                                              rmw_topic_endpoint_info_array_t* subscriptions_info) {
     return RMW_RET_UNSUPPORTED;
 }
 }
