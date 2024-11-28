@@ -17,6 +17,7 @@
 #include "iox2/sample.hpp"
 #include "iox2/sample_mut.hpp"
 #include "iox2/sample_mut_uninit.hpp"
+#include "iox2/service.hpp"
 #include "iox2/service_builder.hpp"
 #include "iox2/service_type.hpp"
 #include "iox2/subscriber.hpp"
@@ -75,6 +76,7 @@ public:
     struct InterProcess
     {
         using Handle = ::iox2::Node<::iox2::ServiceType::Ipc>;
+        using Service = ::iox2::Service<::iox2::ServiceType::Ipc>;
         using Notifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
         using Listener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
 
