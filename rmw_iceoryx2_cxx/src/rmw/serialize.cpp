@@ -43,7 +43,7 @@ rmw_ret_t rmw_serialize(const void* ros_message,
     }
 
     serialized_message->buffer_length = size;
-    memcpy(serialized_message->buffer, ros_message, size);
+    memcpy(serialized_message->buffer, ros_message, serialized_message->buffer_length);
 
     return RMW_RET_OK;
 }

@@ -12,30 +12,28 @@
 
   <build_depend>rmw_implementation_cmake</build_depend>
 
-  <depend>rcpputils</depend>
   <depend>rcutils</depend>
+  <depend>rcpputils</depend>
   <depend>rmw</depend>
-  <depend>rosidl_runtime_c</depend>
   <depend>rosidl_runtime_cpp</depend>
   <depend>rosidl_typesupport_cpp</depend>
-  <depend>rosidl_typesupport_introspection_c</depend>
+  <depend>rosidl_typesupport_fastrtps_cpp</depend>
   <depend>rosidl_typesupport_introspection_cpp</depend>
+  <depend>fastrtps</depend>
 
   <depend>iceoryx2_cxx</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-  <test_depend>rosidl_typesupport_cpp</test_depend>
   <test_depend>rosidl_typesupport_interface</test_depend>
   <test_depend>rosidl_default_runtime</test_depend>
   <test_depend>rosidl_cmake</test_depend>
   <test_depend>rmw_iceoryx2_cxx_test_msgs</test_depend>
 
+  <member_of_group>rmw_implementation_packages</member_of_group>
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
-
-  <member_of_group>rmw_implementation_packages</member_of_group>
-
 </package>

@@ -31,10 +31,10 @@ set(AMENT_PACKAGES
     rcutils
     rcpputils
     rmw
-    rosidl_runtime_c
     rosidl_runtime_cpp
-    rosidl_typesupport_introspection_c
     rosidl_typesupport_introspection_cpp
+    rosidl_typesupport_fastrtps_cpp
+    fastrtps
 )
 foreach(package ${AMENT_PACKAGES})
     find_package(${package} REQUIRED)
@@ -53,6 +53,7 @@ add_library(${PROJECT_NAME} SHARED
   src/iox2/subscriber_impl.cpp
   src/iox2/waitset_impl.cpp
   src/message/introspect.cpp
+  src/message/serialize.cpp
   src/rmw/client.cpp
   src/rmw/event.cpp
   src/rmw/feature.cpp
@@ -80,6 +81,7 @@ target_include_directories(${PROJECT_NAME}
 # Manual linking required as iceoryx2 is not an ament package
 target_link_libraries(${PROJECT_NAME}
   iceoryx2-cxx::static-lib-cxx
+  rosidl_typesupport_fastrtps_cpp::rosidl_typesupport_fastrtps_cpp
 )
 
 # ----------------------------------------------------------------------------
@@ -112,8 +114,8 @@ install(
 
 configure_rmw_library(${PROJECT_NAME})
 register_rmw_implementation(
-  "c:rosidl_typesupport_c:rosidl_typesupport_introspection_c"
-  "cpp:rosidl_typesupport_cpp:rosidl_typesupport_introspection_cpp"
+  "cpp:rosidl_typesupport_fastrtps_cpp:rosidl_typesupport_introspection_cpp"
+
 )
 
 # ----------------------------------------------------------------------------
@@ -130,6 +132,7 @@ if(BUILD_TESTING)
     test/testing/base.cpp
     test/test_iox2_context_impl.cpp
     test/test_iox2_guard_condition_impl.cpp
+    test/test_iox2_message_introspection.cpp
     test/test_iox2_node_impl.cpp
     test/test_iox2_publisher_impl.cpp
     test/test_iox2_sample_registry.cpp

@@ -15,6 +15,8 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
+#include "rosidl_typesupport_fastrtps_cpp/message_type_support_decl.hpp"
+
 
 #include <random>
 
