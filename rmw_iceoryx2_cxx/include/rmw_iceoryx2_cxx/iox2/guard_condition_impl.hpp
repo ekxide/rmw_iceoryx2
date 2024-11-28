@@ -71,8 +71,8 @@ private:
     const uint32_t m_trigger_id;
     const std::string m_service_name;
 
-    iox::optional<IdType> m_unique_id;
-    iox::optional<Notifier> m_notifier;
+    iox::optional<IdType> m_iox2_unique_id;
+    iox::optional<Notifier> m_iox2_notifier;
 };
 
 } // namespace rmw::iox2
