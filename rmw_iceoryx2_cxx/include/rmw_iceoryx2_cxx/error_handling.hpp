@@ -12,7 +12,6 @@
 
 #include "rmw/check_type_identifiers_match.h"
 #include "rmw/error_handling.h"
-#include <stddef.h>
 
 namespace rmw::iox2
 {
@@ -21,7 +20,6 @@ static const size_t MAX_ERROR_MSG_LENGTH = 4096;
 
 } // namespace rmw::iox2
 
-extern "C" {
 
 #define RMW_IOX2_CHECK_ALLOCATOR(allocator, fail_statement) RCUTILS_CHECK_ALLOCATOR(allocator, fail_statement)
 
@@ -47,5 +45,6 @@ extern "C" {
     if (result != RMW_RET_OK) {                                                                                        \
         return result;                                                                                                 \
     }
-}
+
+
 #endif

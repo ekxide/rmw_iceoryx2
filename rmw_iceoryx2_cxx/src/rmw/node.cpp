@@ -7,7 +7,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rcutils/logging_macros.h"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -15,8 +14,8 @@
 #include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/names.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
+#include "rmw_iceoryx2_cxx/log.hpp"
 #include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 
 extern "C" {
@@ -49,7 +48,6 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::NodeImpl;
-    namespace names = rmw::iox2::names;
 
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
     RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(name, nullptr);
@@ -59,7 +57,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
                                           rmw_get_implementation_identifier(),
                                           return nullptr);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Creating node '%s' in namespace '%s'", name, namespace_);
+    RMW_IOX2_LOG_DEBUG("Creating node '%s' in namespace '%s'", name, namespace_);
 
     rmw_node_t* node = rmw_node_allocate();
     if (!node) {
@@ -112,7 +110,7 @@ rmw_ret_t rmw_destroy_node(rmw_node_t* node) {
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Destroying node '%s' in namespace '%s'", node->name, node->namespace_);
+    RMW_IOX2_LOG_DEBUG("Destroying node '%s' in namespace '%s'", node->name, node->namespace_);
 
     destroy_node_impl(node);
 

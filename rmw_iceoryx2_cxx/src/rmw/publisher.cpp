@@ -8,7 +8,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "iox/assertions_addendum.hpp"
-#include "rcutils/logging_macros.h"
 #include "rmw/allocators.h"
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
@@ -18,6 +17,7 @@
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
+#include "rmw_iceoryx2_cxx/log.hpp"
 #include "rmw_iceoryx2_cxx/message/introspect.hpp"
 
 extern "C" {
@@ -48,7 +48,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
                                           rmw_get_implementation_identifier(),
                                           return nullptr);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Creating publisher to '%s'", topic_name);
+    RMW_IOX2_LOG_DEBUG("Creating publisher to '%s'", topic_name);
 
     auto* publisher = rmw_publisher_allocate();
     if (publisher == nullptr) {
@@ -61,9 +61,8 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
         publisher->can_loan_messages = true;
     } else {
         publisher->can_loan_messages = false;
-        RCUTILS_LOG_WARN_NAMED("rmw_iceoryx2",
-                               "Message type '%s' is not self-contained. Loaning disabled.",
-                               type_support->get_type_description_func(type_support)->type_description.type_name.data);
+        RMW_IOX2_LOG_DEBUG("Message type '%s' is not self-contained. Loaning disabled.",
+                           type_support->get_type_description_func(type_support)->type_description.type_name.data);
     }
 
     if (auto ptr = allocate_copy(topic_name); ptr.has_error()) {
@@ -116,7 +115,7 @@ rmw_ret_t rmw_destroy_publisher(rmw_node_t* node, rmw_publisher_t* publisher) {
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Destroying publisher to '%s'", publisher->topic_name);
+    RMW_IOX2_LOG_DEBUG("Destroying publisher to '%s'", publisher->topic_name);
 
     if (publisher->data) {
         destruct<PublisherImpl>(publisher->data);
@@ -161,7 +160,7 @@ rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* publisher,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "New loan from '%s'", publisher->topic_name);
+    RMW_IOX2_LOG_DEBUG("New loan from '%s'", publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {
@@ -190,7 +189,7 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* publis
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Releasing loan to '%s'", publisher->topic_name);
+    RMW_IOX2_LOG_DEBUG("Releasing loan to '%s'", publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {
@@ -218,7 +217,7 @@ rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publi
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Publishing copy to '%s'", publisher->topic_name);
+    RMW_IOX2_LOG_DEBUG("Publishing copy to '%s'", publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {
@@ -255,7 +254,7 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Publishing loan to '%s'", publisher->topic_name);
+    RMW_IOX2_LOG_DEBUG("Publishing loan to '%s'", publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
     if (publisher_impl.has_error()) {

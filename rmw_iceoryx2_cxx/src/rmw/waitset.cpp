@@ -8,7 +8,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "iox/assertions_addendum.hpp"
-#include "rcutils/logging_macros.h"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -16,6 +15,7 @@
 #include "rmw_iceoryx2_cxx/create.hpp"
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
 #include "rmw_iceoryx2_cxx/iox2/waitset_impl.hpp"
+#include "rmw_iceoryx2_cxx/log.hpp"
 
 extern "C" {
 rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_conditions) {
@@ -34,7 +34,7 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_condition
                                           rmw_get_implementation_identifier(),
                                           return nullptr);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Creating waitset");
+    RMW_IOX2_LOG_DEBUG("Creating waitset");
 
     rmw_wait_set_t* wait_set = rmw_wait_set_allocate();
     if (!wait_set) {
@@ -73,7 +73,7 @@ rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* wait_set) {
                                           rmw_get_implementation_identifier(),
                                           return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Destroying waitset");
+    RMW_IOX2_LOG_DEBUG("Destroying waitset");
 
     if (wait_set->data) {
         destruct<WaitSetImpl>(wait_set->data);
@@ -148,7 +148,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     auto nsecs = wait_timeout ? Duration::fromNanoseconds(wait_timeout->nsec) : Duration::fromNanoseconds(0);
     auto timeout = secs + nsecs;
 
-    RCUTILS_LOG_DEBUG_NAMED("rmw_iceoryx2", "Waiting on waitset (timeout=%lu)", timeout.toNanoseconds());
+    RMW_IOX2_LOG_DEBUG("Waiting on waitset (timeout=%lu)", timeout.toNanoseconds());
 
     if (auto result = waitset_impl->wait(timeout); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("wait failure");
