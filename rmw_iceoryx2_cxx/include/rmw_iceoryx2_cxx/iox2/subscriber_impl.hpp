@@ -37,15 +37,16 @@ struct Error<SubscriberImpl>
 /// iceoryx2 middleware layer.
 class RMW_PUBLIC SubscriberImpl
 {
+public:
+    using ErrorType = Error<SubscriberImpl>::Type;
+    using Payload = ::iox::Slice<uint8_t>;
+
+private:
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniqueSubscriberId;
-    using Payload = ::iox::Slice<uint8_t>;
     using Sample = Iceoryx2::InterProcess::Sample<Payload>;
     using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
     using Subscriber = Iceoryx2::InterProcess::Subscriber<Payload>;
-
-public:
-    using ErrorType = Error<SubscriberImpl>::Type;
 
 public:
     /// @brief Constructor for SubscriberImpl

@@ -9,7 +9,10 @@
 
 #include <gtest/gtest.h>
 
+#include "rmw/get_topic_names_and_types.h"
+#include "rmw/names_and_types.h"
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -23,10 +26,12 @@ class RmwGraphTest : public TestBase
 protected:
     void SetUp() override {
         initialize_test_context();
+        initialize_test_node();
     }
 
     void TearDown() override {
         cleanup_test_context();
+        cleanup_test_node();
         print_rmw_errors();
     }
 
@@ -55,7 +60,7 @@ protected:
     }
 };
 
-TEST_F(RmwGraphTest, list_nodes) {
+TEST_F(RmwGraphTest, can_get_node_names) {
     auto camera_node = rmw_create_node(&context, "Camera", "Sensors");
     auto lidar_node = rmw_create_node(&context, "Lidar", "Sensors");
     auto perception_node = rmw_create_node(&context, "Perception", "ADAS");
@@ -63,7 +68,7 @@ TEST_F(RmwGraphTest, list_nodes) {
     rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
     rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
 
-    EXPECT_RMW_OK(rmw_get_node_names(nullptr, &names, &namespaces));
+    EXPECT_RMW_OK(rmw_get_node_names(test_node(), &names, &namespaces));
 
     ASSERT_GE(names.size, 3u);
     ASSERT_GE(namespaces.size, 3u);
@@ -77,6 +82,85 @@ TEST_F(RmwGraphTest, list_nodes) {
     ASSERT_RMW_OK(rmw_destroy_node(camera_node));
     ASSERT_RMW_OK(rmw_destroy_node(lidar_node));
     ASSERT_RMW_OK(rmw_destroy_node(perception_node));
+}
+
+TEST_F(RmwGraphTest, can_count_publishers) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto publisher_a = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
+    auto publisher_b = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
+    auto publisher_c = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
+
+    // TODO: Add support to iceoryx2_cxx to get number of publishers
+    // size_t count{0};
+    // ASSERT_RMW_OK(rmw_count_publishers(test_node(), "Defaults", &count));
+    // ASSERT_EQ(count, 3);
+
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_c));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_b));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_a));
+}
+
+TEST_F(RmwGraphTest, can_count_subscribers) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto subscription_a =
+        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
+    auto subscription_b =
+        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
+    auto subscription_c =
+        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
+
+    // TODO: Add support to iceoryx2_cxx to get number of subscribers
+    // size_t count{0};
+    // ASSERT_RMW_OK(rmw_count_subscribers(test_node(), "Defaults", &count));
+    // ASSERT_EQ(count, 3);
+
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_c));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_b));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_a));
+}
+
+
+TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto publisher_a = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "DefaultsA", nullptr, nullptr);
+    auto publisher_b = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "DefaultsB", nullptr, nullptr);
+    auto publisher_c = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "DefaultsC", nullptr, nullptr);
+    auto subscription_a =
+        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "DefaultsA", nullptr, nullptr);
+    auto subscription_b =
+        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "DefaultsB", nullptr, nullptr);
+    auto subscription_c =
+        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "DefaultsC", nullptr, nullptr);
+
+    auto allocator = rcutils_get_default_allocator();
+    auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_names_and_types_init(&topic_names_and_types, 0, &allocator));
+
+    ASSERT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
+
+    ASSERT_EQ(topic_names_and_types.names.size, 3);
+    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, "DefaultsA"));
+    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, "DefaultsB"));
+    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, "DefaultsC"));
+
+    ASSERT_EQ(topic_names_and_types.types->size, 3);
+    // TODO: Make it possible to get typename from iceoryx2 service
+    //       Requires capability to store ROS typename in iceoryx2 service attributes
+    //       Currently available in Rust but not CXX
+    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
+    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
+    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_c));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_b));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_a));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_c));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_b));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_a));
 }
 
 } // namespace

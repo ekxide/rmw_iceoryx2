@@ -40,16 +40,17 @@ struct Error<PublisherImpl>
 /// iceoryx2 middleware layer.
 class RMW_PUBLIC PublisherImpl
 {
+public:
+    using Payload = ::iox::Slice<uint8_t>;
+    using ErrorType = Error<PublisherImpl>::Type;
+
+private:
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniquePublisherId;
-    using Payload = ::iox::Slice<uint8_t>;
     using Sample = Iceoryx2::InterProcess::SampleMutUninit<Payload>;
     using SampleRegistry = ::rmw::iox2::SampleRegistry<Sample>;
     using Notifier = Iceoryx2::InterProcess::Notifier;
     using Publisher = Iceoryx2::InterProcess::Publisher<Payload>;
-
-public:
-    using ErrorType = Error<PublisherImpl>::Type;
 
 public:
     /// @brief Constructor for PublisherImpl

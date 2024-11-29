@@ -38,8 +38,12 @@ PublisherImpl::PublisherImpl(CreationLock,
                                    .ipc()
                                    .service_builder(iox2_service_name.value())
                                    .publish_subscribe<Payload>()
+                                   // TODO: make configurable
+                                   .max_publishers(10)
+                                   .max_subscribers(10)
                                    .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
-                                   .open_or_create();
+                                   .open_or_create();    // TODO: set attribute for ROS typename
+
     if (iox2_pubsub_service.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_pubsub_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);

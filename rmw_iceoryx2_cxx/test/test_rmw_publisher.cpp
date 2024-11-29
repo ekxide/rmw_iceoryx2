@@ -12,7 +12,6 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 
-#include "rosidl_typesupport_cpp/message_type_support.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
