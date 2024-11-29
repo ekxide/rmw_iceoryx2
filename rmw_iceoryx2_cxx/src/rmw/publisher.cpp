@@ -234,8 +234,8 @@ rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publi
         }
     } else {
         // Non-loanable message types must be serialized
-        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained message types are not yet supported");
-        return RMW_RET_UNSUPPORTED;
+        RMW_IOX2_LOG_WARN("skipping publish to topic '%s'", publisher->topic_name);
+        RMW_IOX2_LOG_WARN("non-self-contained message types are not yet supported");
     }
 
     return RMW_RET_OK;

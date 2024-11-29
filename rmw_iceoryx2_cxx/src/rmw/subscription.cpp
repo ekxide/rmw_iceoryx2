@@ -271,8 +271,8 @@ rmw_ret_t rmw_take(const rmw_subscription_t* subscription,
         // Subscriptions with non-loanable messages need to be deserialized beforehand
         // Where to store this though, so that it can be automatically cleaned up ..?
         // - use rmw_serialize directly with source=loan target=ros_message
-        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained message types are not yet supported");
-        return RMW_RET_UNSUPPORTED;
+        RMW_IOX2_LOG_WARN("skipping take from topic '%s'", subscription->topic_name);
+        RMW_IOX2_LOG_WARN("non-self-contained message types are not yet supported");
     }
 
     return RMW_RET_OK;
