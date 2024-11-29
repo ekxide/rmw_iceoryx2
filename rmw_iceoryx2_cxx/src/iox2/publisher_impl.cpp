@@ -10,7 +10,7 @@
 #include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
 
 #include "iox2/sample_mut.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
@@ -39,8 +39,8 @@ PublisherImpl::PublisherImpl(CreationLock,
                                    .service_builder(iox2_service_name.value())
                                    .publish_subscribe<Payload>()
                                    // TODO: make configurable
-                                   .max_publishers(10)
-                                   .max_subscribers(10)
+                                   .max_publishers(64)
+                                   .max_subscribers(64)
                                    .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                    .open_or_create();    // TODO: set attribute for ROS typename
 
@@ -50,7 +50,7 @@ PublisherImpl::PublisherImpl(CreationLock,
         return;
     }
 
-    auto publisher = iox2_pubsub_service.value().publisher_builder().max_slice_len(m_payload_size).create();
+    auto publisher = iox2_pubsub_service.value().publisher_builder().initial_max_slice_len(m_payload_size).create();
     if (publisher.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(publisher.error()));
         error.emplace(ErrorType::PUBLISHER_CREATION_FAILURE);

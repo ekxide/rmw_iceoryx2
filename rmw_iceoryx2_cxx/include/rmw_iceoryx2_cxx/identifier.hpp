@@ -12,9 +12,9 @@
 
 #include "rmw/visibility_control.h"
 
-extern "C" {
+constexpr const char* rmw_iox2_identifier = "rmw_iceoryx2_cxx";
 
-extern const char* const rmw_iox2_identifier;
+extern "C" {
 
 RMW_PUBLIC
 const char* rmw_get_implementation_identifier();

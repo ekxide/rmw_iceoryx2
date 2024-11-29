@@ -12,25 +12,25 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator.hpp"
 #include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 
 extern "C" {
 rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(context, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(context->implementation_identifier, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(context->impl, nullptr);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::GuardConditionImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context->impl, nullptr);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_guard_condition: context",
-                                          context->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return nullptr);
 
     auto* guard_condition = rmw_guard_condition_allocate();
     if (guard_condition == nullptr) {
@@ -61,15 +61,14 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* context) {
 }
 
 rmw_ret_t rmw_destroy_guard_condition(rmw_guard_condition_t* guard_condition) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(guard_condition, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(guard_condition->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
     using rmw::iox2::GuardConditionImpl;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(guard_condition, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_guard_condition: guard_condition",
-                                          guard_condition->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     if (guard_condition->data) {
         destruct<GuardConditionImpl>(guard_condition->data);
@@ -81,18 +80,18 @@ rmw_ret_t rmw_destroy_guard_condition(rmw_guard_condition_t* guard_condition) {
 }
 
 rmw_ret_t rmw_trigger_guard_condition(const rmw_guard_condition_t* guard_condition) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(guard_condition, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(guard_condition->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
     using rmw::iox2::GuardConditionImpl;
     using rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(guard_condition, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_trigger_guard_condition: guard_condition",
-                                          guard_condition->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     auto result = RMW_RET_OK;
     unsafe_cast<GuardConditionImpl*>(guard_condition->data).and_then([&result](auto impl) {
         if (impl->trigger().has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to trigger guard condition");
             result = RMW_RET_ERROR;
         }
     });

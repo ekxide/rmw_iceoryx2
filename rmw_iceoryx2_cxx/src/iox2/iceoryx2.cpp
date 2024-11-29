@@ -8,7 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 
 namespace rmw::iox2
 {

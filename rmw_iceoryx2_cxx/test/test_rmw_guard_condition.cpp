@@ -66,7 +66,7 @@ private:
 };
 
 TEST_F(RmwGuardConditionTest, create_and_destroy) {
-    auto guard_condition = rmw_create_guard_condition(&context);
+    auto guard_condition = rmw_create_guard_condition(test_context());
 
     RMW_ASSERT_NE(guard_condition, nullptr);
     RMW_ASSERT_NE(guard_condition->context, nullptr);
@@ -81,7 +81,7 @@ TEST_F(RmwGuardConditionTest, trigger) {
     using ::rmw::iox2::unsafe_cast;
     namespace names = ::rmw::iox2::names;
 
-    auto guard_condition = rmw_create_guard_condition(&context);
+    auto guard_condition = rmw_create_guard_condition(test_context());
     EXPECT_NE(guard_condition, nullptr);
     EXPECT_NE(guard_condition->data, nullptr);
 

@@ -15,7 +15,7 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/error.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
@@ -26,7 +26,7 @@
 namespace rmw::iox2
 {
 
-// TODO: Move somewhere else
+// TODO: Move somewhere else?
 template <typename T>
 static constexpr bool always_false = false;
 
@@ -138,7 +138,7 @@ class RMW_PUBLIC WaitSetImpl
     {
         iox::optional<AttachmentDetails> attached_timeout;
         std::vector<AttachmentDetails> attached_listeners;
-        iox::optional<TriggeredWaitable> result;
+        std::vector<TriggeredWaitable> result;
     };
 
 public:
@@ -178,13 +178,12 @@ public:
     //       ... Maybe XOR of the unique IDs? Something to try when time permits.
     //
     /// @brief Block the thread until at least one attached entity is triggered or the timeout is reached.
-    /// @details Although multiple events may be present on wake-up, only one is returned to the caller. Remaining
-    ///          events can be consumed via subsequent wait calls.
     /// @param timeout Optional timeout after which waiting is stopped. If null waits indefinitely. If 0 does not wait
     ///                at all.
-    /// @returns The triggered waitable
+    /// @returns All triggered waitables.
+    // TODO: Change return type. Copying the result vector is likely waste of runtime.
     auto wait(const iox::optional<Duration>& timeout = iox::nullopt)
-        -> iox::expected<iox::optional<TriggeredWaitable>, ErrorType>;
+        -> iox::expected<std::vector<TriggeredWaitable>, ErrorType>;
 
 private:
     /// @brief Gets the storage index of the listener for the provided service.
@@ -221,13 +220,13 @@ private:
     template <typename ListenerType>
     inline auto listener_storage() -> std::vector<ListenerDetails<ListenerType>>&;
 
-    /// @brief Determine whether the waitset has a non-zero timeout.
-    /// @return True if the waitset should time out.
-    auto non_zero_timeout(const iox::optional<Duration>& timeout) const -> bool;
+    /// @brief Determine if provided timeout exists AND is zero
+    /// @return True if timeout provided but it is zero i.e. process events without waiting
+    auto zero_timeout(const iox::optional<Duration>& timeout) const -> bool;
 
-    /// @brief Determine if the waitset should block and wait to be notified according to provided timeout.
-    /// @return True if the timeout is a value that indicates a wait is necessary, otherwise false
-    auto should_block(const iox::optional<Duration>& timeout) const -> bool;
+    /// @brief Determine if provided timeout is a nullopt
+    /// @return True if timeout is a nullopt i.e. wait indefinitely
+    auto no_timeout(const iox::optional<Duration>& timeout) const -> bool;
 
     /// @brief Attach a timeout to the waitset.
     /// @details Creates an interval attachment to the waitset that will trigger after the specified duration
@@ -280,7 +279,7 @@ private:
 
     // Listeners staged to be waited on in the next wait call.
     // Maps the attachment to the index used in the RMW for tracking.
-    std::vector<RmwMapping> m_mapped_listeners;
+    std::vector<RmwMapping> m_mapping;
 };
 
 // ===================================================================================================================

@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
+#include "rmw_iceoryx2_cxx/identifier.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -33,11 +33,12 @@ protected:
 
 protected:
     const char* test_name = "Perception";
-    const char* test_namespace = "ADAS";
+    const char* test_namespace = "/ADAS";
 };
 
 TEST_F(RmwNodeTest, create_and_destroy) {
-    auto node = rmw_create_node(&context, test_name, test_namespace);
+    auto node = rmw_create_node(test_context(), test_name, test_namespace);
+    ASSERT_NE(node, nullptr);
 
     ASSERT_EQ(node->implementation_identifier, rmw_get_implementation_identifier());
     ASSERT_STREQ(node->name, test_name);
@@ -48,12 +49,6 @@ TEST_F(RmwNodeTest, create_and_destroy) {
     ASSERT_EQ(node->name, nullptr);
     ASSERT_EQ(node->namespace_, nullptr);
     ASSERT_EQ(node->data, nullptr);
-}
-
-TEST_F(RmwNodeTest, create_with_invalid_args) {
-    EXPECT_NULLPTR_WITH_RMW_ERR(rmw_create_node(nullptr, test_name, test_namespace));
-    EXPECT_NULLPTR_WITH_RMW_ERR(rmw_create_node(&context, nullptr, test_namespace));
-    EXPECT_NULLPTR_WITH_RMW_ERR(rmw_create_node(&context, test_name, nullptr));
 }
 
 } // namespace

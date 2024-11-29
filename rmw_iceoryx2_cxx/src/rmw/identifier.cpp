@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
-
-const char* const rmw_iox2_identifier = "rmw_iceoryx2_cxx";
+#include "rmw_iceoryx2_cxx/identifier.hpp"
 
 extern "C" {
 

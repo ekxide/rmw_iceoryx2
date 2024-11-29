@@ -36,9 +36,8 @@ TEST_F(RmwSerializeTest, serialize_pod_type_succeeds) {
 
     Defaults msg{};
     rmw_serialized_message_t serialized_msg{};
-    auto allocator = rcutils_get_default_allocator();
 
-    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Defaults), &allocator));
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Defaults), &test_allocator()));
     ASSERT_RMW_OK(rmw_serialize(&msg, test_type_support<Defaults>(), &serialized_msg));
     ASSERT_EQ(msg, *reinterpret_cast<Defaults*>(serialized_msg.buffer));
 }
@@ -49,8 +48,7 @@ TEST_F(RmwSerializeTest, deserialize_pod_type_succeeds) {
     Defaults msg{};
     msg.int64_value = 777;
     rmw_serialized_message_t serialized_msg{};
-    auto allocator = rcutils_get_default_allocator();
-    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Defaults), &allocator));
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Defaults), &test_allocator()));
     new (serialized_msg.buffer) Defaults{};
     serialized_msg.buffer_length = sizeof(Defaults);
 
@@ -64,9 +62,8 @@ TEST_F(RmwSerializeTest, serialize_non_pod_type_fails) {
 
     Strings msg{};
     rmw_serialized_message_t serialized_msg{};
-    auto allocator = rcutils_get_default_allocator();
 
-    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Strings), &allocator));
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Strings), &test_allocator()));
     ASSERT_RMW_ERR(RMW_RET_UNSUPPORTED, rmw_serialize(&msg, test_type_support<Strings>(), &serialized_msg));
 }
 
@@ -75,8 +72,7 @@ TEST_F(RmwSerializeTest, deserialize_non_pod_type_fails) {
 
     Strings msg{};
     rmw_serialized_message_t serialized_msg{};
-    auto allocator = rcutils_get_default_allocator();
-    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Strings), &allocator));
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Strings), &test_allocator()));
     new (serialized_msg.buffer) Strings{};
     serialized_msg.buffer_length = sizeof(Strings);
 

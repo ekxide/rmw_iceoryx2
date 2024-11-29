@@ -7,18 +7,26 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "iox/assertions_addendum.hpp"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/allocator.hpp"
 #include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/waitset_impl.hpp"
 #include "rmw_iceoryx2_cxx/log.hpp"
 
+#include <set>
+
 extern "C" {
 rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_conditions) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(context, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(context->impl, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(context->implementation_identifier, nullptr);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
@@ -26,13 +34,6 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_condition
     using ::rmw::iox2::WaitSetImpl;
 
     (void)max_conditions; // not needed
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context->impl, nullptr);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_wait_set: context",
-                                          context->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return nullptr);
 
     RMW_IOX2_LOG_DEBUG("Creating waitset");
 
@@ -63,15 +64,14 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_condition
 }
 
 rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* wait_set) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(wait_set->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::WaitSetImpl;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_wait_set: context",
-                                          wait_set->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("Destroying waitset");
 
@@ -85,11 +85,32 @@ rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* wait_set) {
 
 rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
                    rmw_guard_conditions_t* guard_conditions,
-                   rmw_services_t* /* NOT SUPPORTED */,
-                   rmw_clients_t* /* NOT SUPPORTED */,
-                   rmw_events_t* /* NOT SUPPORTED */,
+                   rmw_services_t* services,
+                   rmw_clients_t* clients,
+                   rmw_events_t* events,
                    rmw_wait_set_t* wait_set,
                    const rmw_time_t* wait_timeout) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(wait_set->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    if (guard_conditions) {
+        for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
+            if (guard_conditions->guard_conditions[index] == nullptr) {
+                RMW_IOX2_CHAIN_ERROR_MSG("waitset input guard condition contains nullptr");
+                return RMW_RET_INVALID_ARGUMENT;
+            }
+        }
+    }
+    if (subscriptions) {
+        for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
+            if (subscriptions->subscribers[index] == nullptr) {
+                RMW_IOX2_CHAIN_ERROR_MSG("waitset input subscriber contains nullptr");
+                return RMW_RET_INVALID_ARGUMENT;
+            }
+        }
+    }
+
+    // Implementation -------------------------------------------------------------------------------
     using ::iox::units::Duration;
     using ::rmw::iox2::GuardConditionImpl;
     using ::rmw::iox2::SubscriberImpl;
@@ -97,12 +118,10 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     using ::rmw::iox2::WaitableEntity;
     using ::rmw::iox2::WaitSetImpl;
 
-    // TODO: Null checks for waitables?
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_wait: wait_set",
-                                          wait_set->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    iox::optional<Duration> timeout;
+    if (wait_timeout) {
+        timeout.emplace(Duration::fromSeconds(wait_timeout->sec) + Duration::fromNanoseconds(wait_timeout->nsec));
+    }
 
     auto ptr = unsafe_cast<WaitSetImpl*>(wait_set->data);
     if (ptr.has_error()) {
@@ -144,44 +163,74 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     }
 
     // Wait and process
-    auto secs = wait_timeout ? Duration::fromSeconds(wait_timeout->sec) : Duration::fromSeconds(0);
-    auto nsecs = wait_timeout ? Duration::fromNanoseconds(wait_timeout->nsec) : Duration::fromNanoseconds(0);
-    auto timeout = secs + nsecs;
-
-    RMW_IOX2_LOG_DEBUG("Waiting on waitset (timeout=%lu)", timeout.toNanoseconds());
-
-    if (auto result = waitset_impl->wait(timeout); result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("wait failure");
-        return RMW_RET_ERROR;
+    if (timeout.has_value()) {
+        RMW_IOX2_LOG_DEBUG("Waiting on waitset (timeout=%lu)", timeout->toNanoseconds());
     } else {
-        auto trigger = std::move(result.value());
-        if (trigger.has_value()) {
-            auto triggered_waitable = trigger.value();
-            // TODO: In need of optimization. Quick and dirty just for functionality.
-            switch (triggered_waitable.waitable_type) {
+        RMW_IOX2_LOG_DEBUG("Waiting on waitset (no timeout)");
+    }
+    auto wait_result = waitset_impl->wait(timeout);
+    if (wait_result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("waiting on waitset failed");
+        return RMW_RET_ERROR;
+    }
+
+    // Reset all mappings - each wait call provides a different set of mappings
+    waitset_impl->unmap_all();
+
+    // Process triggers
+    auto return_code = RMW_RET_TIMEOUT;
+    auto triggers = std::move(wait_result.value());
+    if (!triggers.empty()) {
+        return_code = RMW_RET_OK;
+
+        // Collect all triggered indices
+        std::set<size_t> triggered_subscribers;
+        std::set<size_t> triggered_guard_conditions;
+        for (const auto& trigger : triggers) {
+            switch (trigger.waitable_type) {
             case WaitableEntity::SUBSCRIBER:
-                for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
-                    if (index != triggered_waitable.rmw_index) {
-                        subscriptions->subscribers[index] = nullptr;
-                    }
-                }
+                triggered_subscribers.insert(trigger.rmw_index);
                 break;
             case WaitableEntity::GUARD_CONDITION:
-                for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
-                    if (index != triggered_waitable.rmw_index) {
-                        guard_conditions->guard_conditions[index] = nullptr;
-                    }
-                }
+                triggered_guard_conditions.insert(trigger.rmw_index);
                 break;
             }
-        } else {
-            // Timed out
-            return RMW_RET_TIMEOUT;
+        }
+
+        // Set non-triggered indices to nullptr
+        if (subscriptions) {
+            for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
+                if (triggered_subscribers.find(index) == triggered_subscribers.end()) {
+                    subscriptions->subscribers[index] = nullptr;
+                }
+            }
+        }
+        if (guard_conditions) {
+            for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
+                if (triggered_guard_conditions.find(index) == triggered_guard_conditions.end()) {
+                    guard_conditions->guard_conditions[index] = nullptr;
+                }
+            }
         }
     }
 
-    waitset_impl->unmap_all();
+    // Set all events to null (not supported yet)
+    if (events) {
+        for (size_t index = 0; index < events->event_count; index++) {
+            events->events[index] = nullptr;
+        }
+    }
+    if (services) {
+        for (size_t index = 0; index < services->service_count; index++) {
+            services->services[index] = nullptr;
+        }
+    }
+    if (clients) {
+        for (size_t index = 0; index < clients->client_count; index++) {
+            clients->clients[index] = nullptr;
+        }
+    }
 
-    return RMW_RET_OK;
+    return return_code;
 }
 }

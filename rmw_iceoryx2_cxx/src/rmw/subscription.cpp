@@ -13,9 +13,11 @@
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
+#include "rmw/validate_full_topic_name.h"
 #include "rmw_iceoryx2_cxx/allocator.hpp"
 #include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
 #include "rmw_iceoryx2_cxx/log.hpp"
@@ -26,8 +28,24 @@ extern "C" {
 rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
                                             const rosidl_message_type_support_t* type_support,
                                             const char* topic_name,
-                                            const rmw_qos_profile_t* qos_policies,
+                                            const rmw_qos_profile_t* qos_profile,
                                             const rmw_subscription_options_t* subscription_options) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(node->context, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(node->context->impl, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(type_support, nullptr);
+    RMW_IOX2_ENSURE_VALID_TYPESUPPORT(type_support, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_name, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(qos_profile, nullptr);
+    RMW_IOX2_ENSURE_VALID_QOS(qos_profile, nullptr);
+    if (!qos_profile->avoid_ros_namespace_conventions) {
+        RMW_IOX2_ENSURE_VALID_TOPIC_NAME(topic_name, nullptr);
+    }
+    RMW_IOX2_ENSURE_NOT_NULL(subscription_options, nullptr);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::allocate_copy;
     using ::rmw::iox2::create_in_place;
@@ -37,16 +55,6 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
     using ::rmw::iox2::NodeImpl;
     using ::rmw::iox2::SubscriberImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context->impl, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_subscriber: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return nullptr);
 
     RMW_IOX2_LOG_DEBUG("Creating subscription to '%s'", topic_name);
 
@@ -102,15 +110,16 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* node,
 }
 
 rmw_ret_t rmw_destroy_subscription(rmw_node_t* node, rmw_subscription_t* subscription) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::SubscriberImpl;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_subscription: subscription",
-                                          subscription->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("Destroying subscription to '%s'", subscription->topic_name);
 
@@ -124,19 +133,22 @@ rmw_ret_t rmw_destroy_subscription(rmw_node_t* node, rmw_subscription_t* subscri
 }
 
 rmw_ret_t rmw_subscription_count_matched_publishers(const rmw_subscription_t* subscription, size_t* publisher_count) {
-    IOX_TODO();
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(publisher_count, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
+    return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_subscription_get_actual_qos(const rmw_subscription_t* subscription, rmw_qos_profile_t* qos) {
-    (void)subscription;
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_ERROR);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_ERROR);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_subscription_get_actual_qos: subscription",
-                                          subscription->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-
+    // Implementation -------------------------------------------------------------------------------
     *qos = rmw_qos_profile_default;
 
     return RMW_RET_OK;
@@ -146,21 +158,22 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* subscription,
                                   void** loaned_message,
                                   bool* taken,
                                   rmw_subscription_allocation_t* allocation) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_CAN_LOAN(subscription, RMW_RET_UNSUPPORTED);
+    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NULL(*loaned_message, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::SubscriberImpl;
     using ::rmw::iox2::unsafe_cast;
-
     (void)allocation; // not used
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_loaned_message: subscription",
-                                          subscription->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     if (!subscription->can_loan_messages) {
         RMW_IOX2_CHAIN_ERROR_MSG("attempted to take loan from subscription that does not support loaning");
-        return RMW_RET_ERROR;
+        return RMW_RET_UNSUPPORTED;
     }
 
     RMW_IOX2_LOG_DEBUG("Retrieving loan from from '%s'", subscription->topic_name);
@@ -193,28 +206,28 @@ rmw_ret_t rmw_take_loaned_message_with_info(const rmw_subscription_t* subscripti
                                             bool* taken,
                                             rmw_message_info_t* message_info,
                                             rmw_subscription_allocation_t* allocation) {
-    (void)message_info; // TODO: support this
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_CAN_LOAN(subscription, RMW_RET_UNSUPPORTED);
+    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
 
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_loaned_message_with_info: subscription",
-                                          subscription->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    // Implementation -------------------------------------------------------------------------------
+    (void)message_info; // TODO: support this
 
     return rmw_take_loaned_message(subscription, loaned_message, taken, allocation);
 }
 
 rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* subscription, void* loaned_message) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_CAN_LOAN(subscription, RMW_RET_UNSUPPORTED);
+    RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::SubscriberImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_return_loaned_message_from_subscription: subscription",
-                                          subscription->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("Releasing loan to '%s'", subscription->topic_name);
 
@@ -238,17 +251,15 @@ rmw_ret_t rmw_take(const rmw_subscription_t* subscription,
                    void* ros_message,
                    bool* taken,
                    rmw_subscription_allocation_t* allocation) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::SubscriberImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    (void)allocation; // not used
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_loaned_message: subscription",
-                                          subscription->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("Retrieving copy from '%s'", subscription->topic_name);
 
@@ -283,15 +294,14 @@ rmw_ret_t rmw_take_with_info(const rmw_subscription_t* subscription,
                              bool* taken,
                              rmw_message_info_t* message_info,
                              rmw_subscription_allocation_t* allocation) {
-    (void)message_info; // TODO: support this
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(message_info, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_take_with_info: subscription",
-                                          subscription->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-
+    // Implementation -------------------------------------------------------------------------------
     return rmw_take(subscription, ros_message, taken, allocation);
 }
 
@@ -302,13 +312,31 @@ rmw_ret_t rmw_take_sequence(const rmw_subscription_t* subscription,
                             rmw_message_info_sequence_t* message_info_sequence,
                             size_t* taken,
                             rmw_subscription_allocation_t* allocation) {
-    IOX_TODO();
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(message_sequence, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(message_info_sequence, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    if (count == 0 || message_sequence->capacity < count || message_info_sequence->capacity < count) {
+        return RMW_RET_INVALID_ARGUMENT;
+    }
+
+    // Implementation -------------------------------------------------------------------------------
+    return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* subscription,
                                       rmw_serialized_message_t* serialized_message,
                                       bool* taken,
                                       rmw_subscription_allocation_t* allocation) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -317,6 +345,14 @@ rmw_ret_t rmw_take_serialized_message_with_info(const rmw_subscription_t* subscr
                                                 bool* taken,
                                                 rmw_message_info_t* message_info,
                                                 rmw_subscription_allocation_t* allocation) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(message_info, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 

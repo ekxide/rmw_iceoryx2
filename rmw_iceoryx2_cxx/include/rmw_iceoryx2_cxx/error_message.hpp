@@ -10,8 +10,10 @@
 #ifndef RMW_IOX2_ERROR_HANDLING_HPP_
 #define RMW_IOX2_ERROR_HANDLING_HPP_
 
-#include "rmw/check_type_identifiers_match.h"
+#include "rmw/allocators.h"
 #include "rmw/error_handling.h"
+
+#include <cstddef>
 
 namespace rmw::iox2
 {
@@ -19,15 +21,6 @@ namespace rmw::iox2
 static const size_t MAX_ERROR_MSG_LENGTH = 4096;
 
 } // namespace rmw::iox2
-
-
-#define RMW_IOX2_CHECK_ALLOCATOR(allocator, fail_statement) RCUTILS_CHECK_ALLOCATOR(allocator, fail_statement)
-
-#define RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH(element, type_id, expected_type_id, on_failure)                          \
-    RMW_CHECK_TYPE_IDENTIFIERS_MATCH(element, type_id, expected_type_id, on_failure)
-
-#define RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(argument, error_return_value)                                                 \
-    RCUTILS_CHECK_ARGUMENT_FOR_NULL(argument, error_return_value)
 
 
 #define RMW_IOX2_CHAIN_ERROR_MSG(msg)                                                                                  \
@@ -41,10 +34,16 @@ static const size_t MAX_ERROR_MSG_LENGTH = 4096;
         }                                                                                                              \
     } while (0)
 
-#define RMW_IOX2_OK_OR_RETURN(result)                                                                                  \
-    if (result != RMW_RET_OK) {                                                                                        \
-        return result;                                                                                                 \
-    }
-
-
+#define RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(format, ...)                                                       \
+    do {                                                                                                               \
+        if (rcutils_error_is_set()) {                                                                                  \
+            rcutils_error_string_t error_string = rcutils_get_error_string();                                          \
+            rcutils_reset_error();                                                                                     \
+            char formatted_msg[rmw::iox2::MAX_ERROR_MSG_LENGTH];                                                       \
+            snprintf(formatted_msg, sizeof(formatted_msg), format, __VA_ARGS__);                                       \
+            RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING("%s: %s", formatted_msg, error_string.str);                       \
+        } else {                                                                                                       \
+            RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(format, __VA_ARGS__);                                             \
+        }                                                                                                              \
+    } while (0)
 #endif

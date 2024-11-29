@@ -10,13 +10,16 @@
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
+#include "rmw/validate_namespace.h"
+#include "rmw/validate_node_name.h"
 #include "rmw_iceoryx2_cxx/allocator.hpp"
 #include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
+#include "rmw_iceoryx2_cxx/identifier.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 #include "rmw_iceoryx2_cxx/log.hpp"
-#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 
 extern "C" {
 
@@ -42,20 +45,22 @@ void inline destroy_node_impl(rmw_node_t* node) noexcept {
 } // namespace
 
 rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char* namespace_) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(context, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(name, nullptr);
+    RMW_IOX2_ENSURE_VALID_NODE_NAME(name, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(namespace_, nullptr);
+    RMW_IOX2_ENSURE_VALID_NAMESPACE(namespace_, nullptr);
+    RMW_IOX2_ENSURE_INITIALIZED(context, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(context->implementation_identifier, nullptr);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::allocate_copy;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::NodeImpl;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(context, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(name, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(namespace_, nullptr);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_node: context",
-                                          context->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return nullptr);
 
     RMW_IOX2_LOG_DEBUG("Creating node '%s' in namespace '%s'", name, namespace_);
 
@@ -104,11 +109,12 @@ rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char
 }
 
 rmw_ret_t rmw_destroy_node(rmw_node_t* node) {
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_node: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    // Invariants ----------------------------------------------------------------------------------
+
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
 
     RMW_IOX2_LOG_DEBUG("Destroying node '%s' in namespace '%s'", node->name, node->namespace_);
 
@@ -118,16 +124,15 @@ rmw_ret_t rmw_destroy_node(rmw_node_t* node) {
 }
 
 const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t* node) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(node->context, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(node->context->impl, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, nullptr);
+
+    // Implementation -------------------------------------------------------------------------------
     using rmw::iox2::NodeImpl;
     using rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context->impl, nullptr);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_node_get_graph_guard_condition: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return nullptr);
 
     auto* guard_condition = rmw_guard_condition_allocate();
     if (guard_condition == nullptr) {

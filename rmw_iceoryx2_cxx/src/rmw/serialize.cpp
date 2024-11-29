@@ -10,7 +10,8 @@
 #include "rmw/dynamic_message_type_support.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/message/introspect.hpp"
 
 const char* const rmw_iox2_serialization_format = "iceoryx2";
@@ -24,12 +25,14 @@ const char* rmw_get_serialization_format(void) {
 rmw_ret_t rmw_serialize(const void* ros_message,
                         const rosidl_message_type_support_t* type_support,
                         rmw_serialized_message_t* serialized_message) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     using rmw::iox2::is_pod;
     using rmw::iox2::message_size;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
     if (!is_pod(type_support)) {
         RMW_IOX2_CHAIN_ERROR_MSG("serialization of non-self-contained-types is currently not supported");
@@ -51,11 +54,13 @@ rmw_ret_t rmw_serialize(const void* ros_message,
 rmw_ret_t rmw_deserialize(const rmw_serialized_message_t* serialized_message,
                           const rosidl_message_type_support_t* type_support,
                           void* ros_message) {
-    using rmw::iox2::is_pod;
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
+    // Implementation -------------------------------------------------------------------------------
+    using rmw::iox2::is_pod;
 
     if (!is_pod(type_support)) {
         RMW_IOX2_CHAIN_ERROR_MSG("serialization of non-self-contained-types is currently not supported");

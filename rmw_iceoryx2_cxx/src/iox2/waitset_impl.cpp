@@ -11,7 +11,7 @@
 
 #include "iox2/callback_progression.hpp"
 #include "iox2/waitset.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/log.hpp"
 
 namespace rmw::iox2
@@ -57,34 +57,44 @@ auto WaitSetImpl::map(RmwIndex rmw_index, SubscriberImpl& subscriber) -> iox::ex
 auto WaitSetImpl::map_stored_listener(WaitableEntity waitable_type,
                                       StorageIndex storage_index,
                                       RmwIndex rmw_index) -> void {
-    auto it = std::find_if(
-        m_mapped_listeners.begin(), m_mapped_listeners.end(), [waitable_type, storage_index](const auto& staged) {
-            return staged.waitable_type == waitable_type && staged.storage_index == storage_index;
-        });
+    auto it = std::find_if(m_mapping.begin(), m_mapping.end(), [waitable_type, storage_index](const auto& staged) {
+        return staged.waitable_type == waitable_type && staged.storage_index == storage_index;
+    });
 
-    if (it == m_mapped_listeners.end()) {
-        m_mapped_listeners.push_back(RmwMapping{waitable_type, storage_index, rmw_index});
+    if (it == m_mapping.end()) {
+        m_mapping.push_back(RmwMapping{waitable_type, storage_index, rmw_index});
     }
 }
 
 auto WaitSetImpl::unmap_all() -> void {
     // Detaching removes the mapping, but the listener remains in the storage for re-use in subsequent calls.
-    m_mapped_listeners.clear();
+    m_mapping.clear();
 }
 
-
 auto WaitSetImpl::wait(const iox::optional<Duration>& timeout)
-    -> iox::expected<iox::optional<TriggeredWaitable>, ErrorType> {
+    -> iox::expected<std::vector<TriggeredWaitable>, ErrorType> {
     using ::iox::err;
     using ::iox::ok;
     using ::iox2::CallbackProgression;
+
+    if (m_mapping.empty()) {
+        if (zero_timeout(timeout)) {
+            // This is a NOOP.
+            return ok(std::vector<TriggeredWaitable>{});
+        }
+        if (no_timeout(timeout)) {
+            // Trying to wait indefinitely with nothing mapped.
+            // This would deadlock.
+            return err(ErrorType::WAIT_FAILURE);
+        }
+    }
 
     // Context for this specific wait call.
     // Cleaned up automatically at end of scope, detaching all attachments from the waitset.
     WaitContext ctx;
 
     // Attach the timeout to the waitset
-    if (non_zero_timeout(timeout)) {
+    if (timeout.has_value()) {
         if (auto result = attach_timeout(timeout.value(), ctx); result.has_error()) {
             return err(result.error());
         }
@@ -110,25 +120,24 @@ auto WaitSetImpl::wait(const iox::optional<Duration>& timeout)
                         process_trigger(attachment.mapping().waitable_type, attachment.mapping().storage_index);
                     result.has_error()) {
                     RMW_IOX2_LOG_ERROR("Failed to process trigger from a waitset attachment");
-                    return CallbackProgression::Stop;
+                    // Continue checking for other triggers even on error
+                    return CallbackProgression::Continue;
                 } else {
-                    if (!ctx.result.has_value()) {
-                        ctx.result.emplace(TriggeredWaitable{attachment.mapping()});
-                    }
-                    return CallbackProgression::Stop;
+                    ctx.result.push_back(TriggeredWaitable{attachment.mapping()});
+                    // Continue checking for other triggers after finding one
+                    return CallbackProgression::Continue;
                 }
             }
         }
 
-        // If this occurs there is a bug in WaitsetImpl.
-        // Continue looking for notifications from other attachments so as not to hinder functionality.
         RMW_IOX2_LOG_ERROR("Waitset was triggered by an unmapped subscriber or guard condition");
+        // Continue looking for notifications from other attachments so as not to hinder functionality.
         return CallbackProgression::Continue;
     };
 
     // If timeout is non-zero, block and wait, otherwise check for events and return immediately.
-    if (auto result =
-            should_block(timeout) ? m_waitset->wait_and_process(on_event) : m_waitset->wait_and_process_once(on_event);
+    if (auto result = no_timeout(timeout) ? m_waitset->wait_and_process_once(on_event)
+                                          : m_waitset->wait_and_process_once_with_timeout(on_event, timeout.value());
         result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::WAIT_FAILURE);
@@ -137,12 +146,12 @@ auto WaitSetImpl::wait(const iox::optional<Duration>& timeout)
     return ok(ctx.result);
 }
 
-auto WaitSetImpl::non_zero_timeout(const iox::optional<Duration>& timeout) const -> bool {
-    return timeout.has_value() && timeout.value() != Duration::zero();
+auto WaitSetImpl::zero_timeout(const iox::optional<Duration>& timeout) const -> bool {
+    return timeout.has_value() && timeout.value() == Duration::zero();
 }
 
-auto WaitSetImpl::should_block(const iox::optional<Duration>& timeout) const -> bool {
-    return !(timeout.has_value() && timeout.value() == Duration::zero());
+auto WaitSetImpl::no_timeout(const iox::optional<Duration>& timeout) const -> bool {
+    return !timeout.has_value();
 }
 
 auto WaitSetImpl::attach_timeout(const Duration& timeout, WaitContext& ctx) -> ::iox::expected<void, ErrorType> {
@@ -161,7 +170,7 @@ auto WaitSetImpl::attach_mapped_listeners(WaitContext& ctx) -> iox::expected<voi
     using ::iox::err;
     using ::iox::ok;
 
-    for (const auto& staged : m_mapped_listeners) {
+    for (const auto& staged : m_mapping) {
         auto result = attach_mapped_listener(staged);
         if (result.has_error()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to attach mapped listeners to waitset");

@@ -32,7 +32,9 @@ set(AMENT_PACKAGES
     rcpputils
     rmw
     rosidl_runtime_cpp
+    rosidl_typesupport_introspection_c    
     rosidl_typesupport_introspection_cpp
+    rosidl_typesupport_fastrtps_c         
     rosidl_typesupport_fastrtps_cpp
     fastrtps
 )
@@ -82,7 +84,6 @@ target_include_directories(${PROJECT_NAME}
 # Manual linking required as iceoryx2 is not an ament package
 target_link_libraries(${PROJECT_NAME}
   iceoryx2-cxx::static-lib-cxx
-  rosidl_typesupport_fastrtps_cpp::rosidl_typesupport_fastrtps_cpp
 )
 
 # ----------------------------------------------------------------------------
@@ -115,8 +116,8 @@ install(
 
 configure_rmw_library(${PROJECT_NAME})
 register_rmw_implementation(
+  "c:rosidl_typesupport_fastrtps_c:rosidl_typesupport_introspection_c;"
   "cpp:rosidl_typesupport_fastrtps_cpp:rosidl_typesupport_introspection_cpp"
-
 )
 
 # ----------------------------------------------------------------------------

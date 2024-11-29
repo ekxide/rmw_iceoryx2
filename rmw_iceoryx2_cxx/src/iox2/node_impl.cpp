@@ -10,7 +10,7 @@
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
 
 #include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 
 namespace rmw::iox2

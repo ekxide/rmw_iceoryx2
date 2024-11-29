@@ -23,13 +23,11 @@ class RmwSubscriptionTest : public TestBase
 {
 protected:
     void SetUp() override {
-        initialize_test_context();
-        initialize_test_node();
+        initialize();
     }
 
     void TearDown() override {
-        cleanup_test_node();
-        cleanup_test_context();
+        cleanup();
         print_rmw_errors();
     }
 };
@@ -37,16 +35,13 @@ protected:
 TEST_F(RmwSubscriptionTest, create_and_destroy) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto subscription =
-        rmw_create_subscription(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
 
     RMW_ASSERT_NE(subscription, nullptr);
     RMW_ASSERT_NE(subscription->implementation_identifier, nullptr);
     RMW_ASSERT_NE(subscription->data, nullptr);
-    ASSERT_STREQ(subscription->topic_name, test_topic());
+    ASSERT_STREQ(subscription->topic_name, create_test_topic().c_str());
     RMW_ASSERT_TRUE(subscription->can_loan_messages);
-
-    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription));
 }
 
 } // namespace

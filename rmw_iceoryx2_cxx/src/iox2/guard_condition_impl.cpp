@@ -11,7 +11,7 @@
 
 #include "iox/optional.hpp"
 #include "iox2/event_id.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 

@@ -23,13 +23,11 @@ class RmwGidTest : public TestBase
 {
 protected:
     void SetUp() override {
-        initialize_test_context();
-        initialize_test_node();
+        initialize();
     }
 
     void TearDown() override {
-        cleanup_test_node();
-        cleanup_test_context();
+        cleanup();
         print_rmw_errors();
     }
 };
@@ -40,7 +38,7 @@ TEST_F(RmwGidTest, can_retrieve_publisher_gid) {
     using rmw::iox2::deallocate;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto publisher = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
     auto gid = allocate<rmw_gid_t>().expect("unable to allocate for rmw_gid_t");
     construct<rmw_gid_t>(gid).expect("unable to construct rmw_gid_t");
     memset(gid->data, 0, RMW_GID_STORAGE_SIZE);
@@ -50,7 +48,6 @@ TEST_F(RmwGidTest, can_retrieve_publisher_gid) {
     ASSERT_TRUE(memcmp(gid->data, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", RMW_GID_STORAGE_SIZE) != 0);
 
     deallocate(gid);
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
 }
 
 TEST_F(RmwGidTest, can_compare_publisher_gids) {
@@ -59,12 +56,12 @@ TEST_F(RmwGidTest, can_compare_publisher_gids) {
     using rmw::iox2::deallocate;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto publisher_1 = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+    auto* publisher_1 = create_default_publisher<Defaults>(create_test_topic());
     auto gid_1 = allocate<rmw_gid_t>().expect("unable to allocate for rmw_gid_t");
     construct<rmw_gid_t>(gid_1).expect("unable to construct rmw_gid_t");
     memset(gid_1->data, 0, RMW_GID_STORAGE_SIZE);
 
-    auto publisher_2 = rmw_create_publisher(test_node(), test_type_support<Defaults>(), test_topic(), nullptr, nullptr);
+    auto* publisher_2 = create_default_publisher<Defaults>(create_test_topic());
     auto gid_2 = allocate<rmw_gid_t>().expect("unable to allocate for rmw_gid_t");
     construct<rmw_gid_t>(gid_1).expect("unable to construct rmw_gid_t");
     memset(gid_1->data, 0, RMW_GID_STORAGE_SIZE);
@@ -82,8 +79,6 @@ TEST_F(RmwGidTest, can_compare_publisher_gids) {
 
     deallocate(gid_1);
     deallocate(gid_2);
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_1));
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_2));
 }
 
 } // namespace

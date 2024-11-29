@@ -9,7 +9,7 @@
 
 #include "rmw_iceoryx2_cxx/message/introspect.hpp"
 
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
 #include "rosidl_typesupport_introspection_c/identifier.h"

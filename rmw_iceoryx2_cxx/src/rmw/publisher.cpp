@@ -12,9 +12,11 @@
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
+#include "rmw/validate_full_topic_name.h"
 #include "rmw_iceoryx2_cxx/allocator.hpp"
 #include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
 #include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
 #include "rmw_iceoryx2_cxx/log.hpp"
@@ -25,8 +27,24 @@ extern "C" {
 rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
                                       const rosidl_message_type_support_t* type_support,
                                       const char* topic_name,
-                                      const rmw_qos_profile_t* /* NOT SUPPORTED */,
-                                      const rmw_publisher_options_t* /* NOT SUPPORTED */) {
+                                      const rmw_qos_profile_t* qos,
+                                      const rmw_publisher_options_t* publisher_options) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(node->context, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(node->context->impl, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(type_support, nullptr);
+    RMW_IOX2_ENSURE_VALID_TYPESUPPORT(type_support, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_name, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(qos, nullptr);
+    RMW_IOX2_ENSURE_VALID_QOS(qos, nullptr);
+    if (!qos->avoid_ros_namespace_conventions) {
+        RMW_IOX2_ENSURE_VALID_TOPIC_NAME(topic_name, nullptr);
+    }
+    RMW_IOX2_ENSURE_NOT_NULL(publisher_options, nullptr);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::allocate_copy;
     using ::rmw::iox2::create_in_place;
@@ -37,16 +55,6 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
     using ::rmw::iox2::NodeImpl;
     using ::rmw::iox2::PublisherImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node->context->impl, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, nullptr);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_name, nullptr);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_create_publisher: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return nullptr);
 
     RMW_IOX2_LOG_DEBUG("Creating publisher to '%s'", topic_name);
 
@@ -105,15 +113,16 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
 }
 
 rmw_ret_t rmw_destroy_publisher(rmw_node_t* node, rmw_publisher_t* publisher) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::PublisherImpl;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_destroy_publisher: publisher",
-                                          publisher->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("Destroying publisher to '%s'", publisher->topic_name);
 
@@ -127,19 +136,22 @@ rmw_ret_t rmw_destroy_publisher(rmw_node_t* node, rmw_publisher_t* publisher) {
 }
 
 rmw_ret_t rmw_publisher_count_matched_subscriptions(const rmw_publisher_t* publisher, size_t* subscription_count) {
-    IOX_TODO();
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(subscription_count, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
+    return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t* publisher, rmw_qos_profile_t* qos) {
-    (void)publisher;
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_ERROR);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(qos, RMW_RET_ERROR);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_publisher_get_actual_qos: publisher",
-                                          publisher->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-
+    // Implementation -------------------------------------------------------------------------------
     *qos = rmw_qos_profile_default;
 
     return RMW_RET_OK;
@@ -148,17 +160,17 @@ rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t* publisher, rmw_qos
 rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* publisher,
                                     const rosidl_message_type_support_t* type_support,
                                     void** ros_message) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(publisher->data, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NULL(*ros_message, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::PublisherImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher->data, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(type_support, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_borrow_loaned_message: publisher",
-                                          publisher->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("New loan from '%s'", publisher->topic_name);
 
@@ -179,15 +191,14 @@ rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* publisher,
 }
 
 rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* publisher, void* loaned_message) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::PublisherImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_return_loaned_message_from_publisher: publisher",
-                                          publisher->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("Releasing loan to '%s'", publisher->topic_name);
 
@@ -207,15 +218,14 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* publis
 
 rmw_ret_t
 rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publisher_allocation_t* allocation) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::PublisherImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_publish: publisher",
-                                          publisher->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("Publishing copy to '%s'", publisher->topic_name);
 
@@ -244,15 +254,14 @@ rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publi
 rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
                                      void* ros_message,
                                      rmw_publisher_allocation_t* allocation) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::PublisherImpl;
     using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_publish_loaned_message: publisher",
-                                          publisher->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     RMW_IOX2_LOG_DEBUG("Publishing loan to '%s'", publisher->topic_name);
 
@@ -273,6 +282,12 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
 rmw_ret_t rmw_publish_serialized_message(const rmw_publisher_t* publisher,
                                          const rmw_serialized_message_t* serialized_message,
                                          rmw_publisher_allocation_t* allocation) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 

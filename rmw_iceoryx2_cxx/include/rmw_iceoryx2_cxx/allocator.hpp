@@ -14,7 +14,7 @@
 #include "rmw/allocators.h"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/error.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 
 #include <cstring>
 
@@ -109,13 +109,7 @@ auto unsafe_cast(void* ptr) -> iox::expected<T, MemoryError> {
         RMW_IOX2_CHAIN_ERROR_MSG("attempted to cast nullptr");
         return err(MemoryError::CAST);
     }
-
-    auto result = reinterpret_cast<T>(ptr);
-    if (!result) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to cast void pointer");
-        return err(MemoryError::CAST);
-    }
-    return ok(result);
+    return ok(reinterpret_cast<T>(ptr));
 };
 
 } // namespace rmw::iox2

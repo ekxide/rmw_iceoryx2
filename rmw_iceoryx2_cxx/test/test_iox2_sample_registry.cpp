@@ -54,7 +54,7 @@ TEST_F(RmwSampleRegistryTest, store_and_retrieve_loaned_publisher_sample) {
                        .open_or_create()
                        .expect("failed to create service");
     auto publisher =
-        service.publisher_builder().max_slice_len(payload_size).create().expect("failed to create publisher");
+        service.publisher_builder().initial_max_slice_len(payload_size).create().expect("failed to create publisher");
     auto sample = publisher.loan_slice_uninit(payload_size).expect("failed to loan");
     auto sample_ptr = sample.payload().data();
     ASSERT_NE(sample_ptr, nullptr);

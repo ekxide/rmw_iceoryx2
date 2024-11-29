@@ -20,7 +20,9 @@
 #include "rmw/validate_namespace.h"
 #include "rmw/validate_node_name.h"
 #include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rmw_iceoryx2_cxx/defaults.hpp"
+#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/error_message.hpp"
 #include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/iox2/names.hpp"
 #include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
@@ -201,32 +203,17 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
                              rcutils_string_array_t* node_names,
                              rcutils_string_array_t* node_namespaces) {
     // Invariants ----------------------------------------------------------------------------------
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node_names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node_namespaces, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_get_node_names: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-
-    auto zero_array = rcutils_get_zero_initialized_string_array();
-    auto comparison_result{0};
-    if (rcutils_string_array_cmp(node_names, &zero_array, &comparison_result) != RMW_RET_OK || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify node names is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
-    if (rcutils_string_array_cmp(node_namespaces, &zero_array, &comparison_result) != RMW_RET_OK
-        || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify node name namespaces is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(node_names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_namespaces, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_namespaces, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-
     std::set<NodeName> names{};
     auto result = collect_node_names(names);
-    RMW_IOX2_OK_OR_RETURN(result);
+    RMW_IOX2_ENSURE_OK(result);
 
     rcutils_allocator_t allocator = rcutils_get_default_allocator();
     result = init_string_array(node_names, names.size(), &allocator);
@@ -264,6 +251,17 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* node,
                                            rcutils_string_array_t* node_names,
                                            rcutils_string_array_t* node_namespaces,
                                            rcutils_string_array_t* enclaves) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(node_names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_namespaces, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_namespaces, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(enclaves, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*enclaves, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -277,23 +275,13 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* node, const char* topic_name, s
     namespace names = rmw::iox2::names;
 
     // Invariants ----------------------------------------------------------------------------------
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_count_publishers: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    int validation_result{0}; // ignore
-    size_t invalid_index{0};  // ignore
-    if (rmw_validate_full_topic_name(topic_name, &validation_result, &invalid_index) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("invalid topic name");
-        return RMW_RET_INVALID_ARGUMENT;
-    }
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_TOPIC_NAME(topic_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-
     auto node_impl_result = unsafe_cast<NodeImpl*>(node->data);
     if (node_impl_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
@@ -336,42 +324,18 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* node,
     (void)no_demangle; // not used
 
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_get_publisher_names_and_types_by_node: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (!rcutils_allocator_is_valid(allocator)) {
-        return RMW_RET_INVALID_ARGUMENT;
-    }
-
-    int validation_result = {0};
-    size_t invalid_index{0}; // ignore
-    if (rmw_validate_node_name(node_name, &validation_result, &invalid_index) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("invalid node name");
-        return RMW_RET_INVALID_ARGUMENT;
-    }
-    if (rmw_validate_namespace(node_namespace, &validation_result, &invalid_index) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("invalid node namespace");
-        return RMW_RET_INVALID_ARGUMENT;
-    }
-
-    auto zero_array = rcutils_get_zero_initialized_string_array();
-    auto comparison_result{0};
-    if (rcutils_string_array_cmp(&topic_names_and_types->names, &zero_array, &comparison_result) != RMW_RET_OK
-        || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify topic names is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
-    if (rcutils_string_array_cmp(topic_names_and_types->types, &zero_array, &comparison_result) != RMW_RET_OK
-        || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify topic names is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(topic_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*topic_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -380,16 +344,11 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* node,
                                            const char* topic_name,
                                            bool no_mangle,
                                            rmw_topic_endpoint_info_array_t* publishers_info) {
-    (void)no_mangle; // not used
-
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(publishers_info, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_get_publishers_info_by_topic: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(publishers_info, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
@@ -398,7 +357,6 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -412,23 +370,13 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, 
     namespace names = rmw::iox2::names;
 
     // Invariants ----------------------------------------------------------------------------------
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(count, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_count_publishers: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    int validation_result{0}; // ignore
-    size_t invalid_index{0};  // ignore
-    if (rmw_validate_full_topic_name(topic_name, &validation_result, &invalid_index) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("invalid topic name");
-        return RMW_RET_INVALID_ARGUMENT;
-    }
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_TOPIC_NAME(topic_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-
     auto node_impl_result = unsafe_cast<NodeImpl*>(node->data);
     if (node_impl_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
@@ -466,48 +414,19 @@ rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* node,
                                                      const char* node_namespace,
                                                      bool no_demangle,
                                                      rmw_names_and_types_t* topic_names_and_types) {
-    using ::iox2::MessagingPattern;
-
-    (void)no_demangle; // not used
-
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_get_publisher_names_and_types_by_node: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (!rcutils_allocator_is_valid(allocator)) {
-        return RMW_RET_INVALID_ARGUMENT;
-    }
-
-    int validation_result = {0};
-    size_t invalid_index{0}; // ignore
-    if (rmw_validate_node_name(node_name, &validation_result, &invalid_index) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("invalid node name");
-        return RMW_RET_INVALID_ARGUMENT;
-    }
-    if (rmw_validate_namespace(node_namespace, &validation_result, &invalid_index) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("invalid node namespace");
-        return RMW_RET_INVALID_ARGUMENT;
-    }
-
-    auto zero_array = rcutils_get_zero_initialized_string_array();
-    auto comparison_result{0};
-    if (rcutils_string_array_cmp(&topic_names_and_types->names, &zero_array, &comparison_result) != RMW_RET_OK
-        || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify topic names is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
-    if (auto result =
-            rcutils_string_array_cmp(topic_names_and_types->types, &zero_array, &comparison_result) != RMW_RET_OK
-            || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify topic types is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NODE_NAME(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(topic_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*topic_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -516,16 +435,11 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* node,
                                               const char* topic_name,
                                               bool no_mangle,
                                               rmw_topic_endpoint_info_array_t* subscriptions_info) {
-    (void)no_mangle; // not used
-
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(subscriptions_info, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_get_publishers_info_by_topic: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(subscriptions_info, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
@@ -534,7 +448,6 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -544,18 +457,10 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* node,
                                         rcutils_allocator_t* allocator,
                                         bool no_demangle,
                                         rmw_names_and_types_t* topic_names_and_types) {
-    using ::iox2::MessagingPattern;
-
-    (void)no_demangle; // not used
-
     // Invariants -----------------------------------------------------------------------------------
-
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_ARGUMENT_FOR_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_CHECK_TYPE_IDENTIFIERS_MATCH("rmw_get_topic_names_and_types: node",
-                                          node->implementation_identifier,
-                                          rmw_get_implementation_identifier(),
-                                          return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
@@ -573,15 +478,16 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* node,
     };
 
     // Implementation -------------------------------------------------------------------------------
+    using ::iox2::MessagingPattern;
 
     std::set<TopicDetails> topics{};
     auto collect_result = collect_topic_names_and_types(topics, [](auto& service_details) {
         return service_details.messaging_pattern() == MessagingPattern::PublishSubscribe;
     });
-    RMW_IOX2_OK_OR_RETURN(collect_result);
+    RMW_IOX2_ENSURE_OK(collect_result);
 
     auto init_result = rmw_names_and_types_init(topic_names_and_types, topics.size(), allocator);
-    RMW_IOX2_OK_OR_RETURN(init_result);
+    RMW_IOX2_ENSURE_OK(init_result);
 
     if (rcutils_string_array_init(topic_names_and_types->types, topics.size(), allocator) != RMW_RET_OK) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic types");
@@ -613,10 +519,29 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* node,
 // Services ==========================================================================================================
 
 rmw_ret_t rmw_count_services(const rmw_node_t* node, const char* service_name, size_t* count) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_SERVICE_NAME(service_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_service_server_is_available(const rmw_node_t* node, const rmw_client_t* client, bool* is_available) {
+rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* node,
+                                          rcutils_allocator_t* allocator,
+                                          rmw_names_and_types_t* service_names_and_types) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -625,18 +550,33 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* node,
                                                   const char* node_name,
                                                   const char* node_namespace,
                                                   rmw_names_and_types_t* service_names_and_types) {
-    return RMW_RET_UNSUPPORTED;
-}
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
 
-rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* node,
-                                          rcutils_allocator_t* allocator,
-                                          rmw_names_and_types_t* service_names_and_types) {
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
 // Clients ==========================================================================================================
 
 rmw_ret_t rmw_count_clients(const rmw_node_t* node, const char* service_name, size_t* count) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_SERVICE_NAME(service_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -646,6 +586,19 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* node,
                                                  const char* node_name,
                                                  const char* node_namespace,
                                                  rmw_names_and_types_t* service_names_and_types) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 }

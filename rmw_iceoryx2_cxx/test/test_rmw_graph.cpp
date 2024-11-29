@@ -25,13 +25,11 @@ class RmwGraphTest : public TestBase
 {
 protected:
     void SetUp() override {
-        initialize_test_context();
-        initialize_test_node();
+        initialize();
     }
 
     void TearDown() override {
-        cleanup_test_context();
-        cleanup_test_node();
+        cleanup();
         print_rmw_errors();
     }
 
@@ -61,9 +59,9 @@ protected:
 };
 
 TEST_F(RmwGraphTest, can_get_node_names) {
-    auto camera_node = rmw_create_node(&context, "Camera", "Sensors");
-    auto lidar_node = rmw_create_node(&context, "Lidar", "Sensors");
-    auto perception_node = rmw_create_node(&context, "Perception", "ADAS");
+    auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
+    auto lidar_node = rmw_create_node(test_context(), "Lidar", "/Sensors");
+    auto perception_node = rmw_create_node(test_context(), "Perception", "/ADAS");
 
     rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
     rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
@@ -72,9 +70,9 @@ TEST_F(RmwGraphTest, can_get_node_names) {
 
     ASSERT_GE(names.size, 3u);
     ASSERT_GE(namespaces.size, 3u);
-    ASSERT_TRUE(contains_node_name_and_namespace("Camera", "Sensors", names, namespaces));
-    ASSERT_TRUE(contains_node_name_and_namespace("Lidar", "Sensors", names, namespaces));
-    ASSERT_TRUE(contains_node_name_and_namespace("Perception", "ADAS", names, namespaces));
+    ASSERT_TRUE(contains_node_name_and_namespace("Camera", "/Sensors", names, namespaces));
+    ASSERT_TRUE(contains_node_name_and_namespace("Lidar", "/Sensors", names, namespaces));
+    ASSERT_TRUE(contains_node_name_and_namespace("Perception", "/ADAS", names, namespaces));
 
     ASSERT_RMW_OK(rcutils_string_array_fini(&names));
     ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
@@ -87,80 +85,70 @@ TEST_F(RmwGraphTest, can_get_node_names) {
 TEST_F(RmwGraphTest, can_count_publishers) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto publisher_a = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
-    auto publisher_b = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
-    auto publisher_c = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
+    auto test_topic_a = create_test_topic("/TopicA");
+    auto test_topic_b = create_test_topic("/TopicB");
+    auto test_topic_c = create_test_topic("/TopicC");
+    create_default_publisher<Defaults>(test_topic_a.c_str());
+    create_default_publisher<Defaults>(test_topic_b.c_str());
+    create_default_publisher<Defaults>(test_topic_c.c_str());
 
     // TODO: Add support to iceoryx2_cxx to get number of publishers
     // size_t count{0};
     // ASSERT_RMW_OK(rmw_count_publishers(test_node(), "Defaults", &count));
     // ASSERT_EQ(count, 3);
-
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_c));
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_b));
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_a));
 }
 
 TEST_F(RmwGraphTest, can_count_subscribers) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto subscription_a =
-        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
-    auto subscription_b =
-        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
-    auto subscription_c =
-        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "Defaults", nullptr, nullptr);
+    auto test_topic_a = create_test_topic("/TopicA");
+    auto test_topic_b = create_test_topic("/TopicB");
+    auto test_topic_c = create_test_topic("/TopicC");
+    create_default_publisher<Defaults>(test_topic_a.c_str());
+    create_default_publisher<Defaults>(test_topic_b.c_str());
+    create_default_publisher<Defaults>(test_topic_c.c_str());
 
     // TODO: Add support to iceoryx2_cxx to get number of subscribers
     // size_t count{0};
     // ASSERT_RMW_OK(rmw_count_subscribers(test_node(), "Defaults", &count));
     // ASSERT_EQ(count, 3);
-
-    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_c));
-    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_b));
-    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_a));
 }
-
 
 TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto publisher_a = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "DefaultsA", nullptr, nullptr);
-    auto publisher_b = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "DefaultsB", nullptr, nullptr);
-    auto publisher_c = rmw_create_publisher(test_node(), test_type_support<Defaults>(), "DefaultsC", nullptr, nullptr);
-    auto subscription_a =
-        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "DefaultsA", nullptr, nullptr);
-    auto subscription_b =
-        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "DefaultsB", nullptr, nullptr);
-    auto subscription_c =
-        rmw_create_subscription(test_node(), test_type_support<Defaults>(), "DefaultsC", nullptr, nullptr);
+    auto test_topic_a = create_test_topic("/TopicA");
+    auto test_topic_b = create_test_topic("/TopicB");
+    auto test_topic_c = create_test_topic("/TopicC");
+    create_default_publisher<Defaults>(test_topic_a.c_str());
+    create_default_publisher<Defaults>(test_topic_b.c_str());
+    create_default_publisher<Defaults>(test_topic_c.c_str());
+    create_default_subscriber<Defaults>(test_topic_a.c_str());
+    create_default_subscriber<Defaults>(test_topic_b.c_str());
+    create_default_subscriber<Defaults>(test_topic_c.c_str());
 
     auto allocator = rcutils_get_default_allocator();
     auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
     ASSERT_RMW_OK(rmw_names_and_types_init(&topic_names_and_types, 0, &allocator));
-
     ASSERT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
 
-    ASSERT_EQ(topic_names_and_types.names.size, 3);
-    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, "DefaultsA"));
-    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, "DefaultsB"));
-    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, "DefaultsC"));
+    for (size_t i = 0; i < topic_names_and_types.names.size; i++) {
+        printf("Topic name %zu: %s\n", i, topic_names_and_types.names.data[i]);
+    }
+    // ASSERT_EQ(topic_names_and_types.names.size, 3); // Needs domain isolation
+    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_a.c_str()));
+    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_b.c_str()));
+    ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_c.c_str()));
 
-    ASSERT_EQ(topic_names_and_types.types->size, 3);
     // TODO: Make it possible to get typename from iceoryx2 service
     //       Requires capability to store ROS typename in iceoryx2 service attributes
     //       Currently available in Rust but not CXX
+    // ASSERT_EQ(topic_names_and_types.types->size, 3); // Needs domain isolation
     ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
     ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
     ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
-    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_c));
-    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_b));
-    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription_a));
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_c));
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_b));
-    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher_a));
 }
 
 } // namespace

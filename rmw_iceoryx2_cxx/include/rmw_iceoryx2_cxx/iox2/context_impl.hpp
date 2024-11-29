@@ -33,6 +33,14 @@ struct Error<rmw_context_impl_s>
 
 extern "C" {
 
+/// @brief Empty init options implementation
+/// @details Only used to check for initialization
+class RMW_PUBLIC rmw_init_options_impl_s
+{
+};
+
+constexpr rmw_init_options_impl_s INITIALIZED_OPTIONS{};
+
 /// @brief Implementation of the RMW context for iceoryx2
 /// @details The context manages the lifetime of entities used to implement guard conditions
 class RMW_PUBLIC rmw_context_impl_s

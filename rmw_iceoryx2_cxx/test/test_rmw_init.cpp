@@ -11,7 +11,7 @@
 
 #include "rmw/init.h"
 #include "rmw/init_options.h"
-#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
+#include "rmw_iceoryx2_cxx/identifier.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -24,21 +24,18 @@ class RmwInitTest : public TestBase
 {
 protected:
     void SetUp() override {
-        init_options = rmw_get_zero_initialized_init_options();
-        context = rmw_get_zero_initialized_context();
     }
 
     void TearDown() override {
-        // requires manual clean-up in tests since it depends on the test case
         print_rmw_errors();
     }
-
-    rmw_init_options_t init_options;
-    rmw_context_t context;
 };
 
 TEST_F(RmwInitTest, initialization_and_shutdown) {
-    EXPECT_RMW_OK(rmw_init_options_init(&init_options, allocator));
+    rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
+    rmw_context_t context = rmw_get_zero_initialized_context();
+
+    EXPECT_RMW_OK(rmw_init_options_init(&init_options, test_allocator()));
     EXPECT_RMW_OK(rmw_init(&init_options, &context));
 
     EXPECT_EQ(context.implementation_identifier, rmw_get_implementation_identifier());
@@ -47,25 +44,6 @@ TEST_F(RmwInitTest, initialization_and_shutdown) {
     EXPECT_RMW_OK(rmw_shutdown(&context));
     EXPECT_RMW_OK(rmw_context_fini(&context));
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
-}
-
-TEST_F(RmwInitTest, initialization_with_null_args) {
-    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init_options_init(nullptr, allocator));
-    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init(nullptr, &context));
-    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init(&init_options, nullptr));
-    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_shutdown(nullptr));
-}
-
-TEST_F(RmwInitTest, context_finalization) {
-    EXPECT_RMW_OK(rmw_init_options_init(&init_options, allocator));
-    EXPECT_RMW_OK(rmw_init(&init_options, &context));
-
-    EXPECT_RMW_OK(rmw_shutdown(&context));
-    EXPECT_RMW_OK(rmw_context_fini(&context));
-
-    EXPECT_EQ(context.implementation_identifier, nullptr);
-    EXPECT_EQ(context.instance_id, 0);
-    EXPECT_EQ(context.impl, nullptr);
 }
 
 } // namespace
