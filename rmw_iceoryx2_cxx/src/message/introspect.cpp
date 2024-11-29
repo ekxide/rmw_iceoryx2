@@ -10,14 +10,54 @@
 #include "rmw_iceoryx2_cxx/message/introspect.hpp"
 
 #include "rmw_iceoryx2_cxx/error_handling.hpp"
+#include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
+#include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
+#include "rosidl_typesupport_introspection_c/identifier.h"
 #include "rosidl_typesupport_introspection_cpp/field_types.hpp"
 #include "rosidl_typesupport_introspection_cpp/identifier.hpp"
 
-#include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
-#include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
-
 namespace rmw::iox2
 {
+
+bool is_message(const rosidl_typesupport_introspection_c__MessageMember* member) {
+    return member->type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_MESSAGE;
+}
+
+bool is_fixed_array(const rosidl_typesupport_introspection_c__MessageMember* member) {
+    return member->is_array_ && member->array_size_ > 0 && !member->is_upper_bound_;
+}
+
+bool is_dynamic_array(const rosidl_typesupport_introspection_c__MessageMember* member) {
+    return member->is_array_ && (member->array_size_ == 0 || member->is_upper_bound_);
+}
+
+bool is_dynamic_string(const rosidl_typesupport_introspection_c__MessageMember* member) {
+    return member->type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_STRING;
+}
+
+bool is_pod(const rosidl_typesupport_introspection_c__MessageMembers* members) {
+    if (members == nullptr) {
+        return false;
+    }
+
+    for (uint32_t i = 0; i < members->member_count_; ++i) {
+        const auto* member = members->members_ + i;
+
+        if (is_dynamic_array(member) || is_dynamic_string(member)) {
+            return false;
+        }
+        if (is_message(member)) {
+            if (!member->members_ || !member->members_->data) {
+                return false;
+            }
+            if (!is_pod(
+                    static_cast<const rosidl_typesupport_introspection_c__MessageMembers*>(member->members_->data))) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
 
 bool is_message(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
     return member->type_id_ == ::rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE;
@@ -67,11 +107,19 @@ bool is_pod(const rosidl_message_type_support_t* type_support) {
 }
 
 size_t message_size(const rosidl_message_type_support_t* type_support) {
+    // Try C++ typesupport first
     if (auto handle = get_message_typesupport_handle(type_support,
                                                      rosidl_typesupport_introspection_cpp::typesupport_identifier)) {
         auto members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(handle->data);
         return members->size_of_;
     }
+
+    // Try C typesupport if C++ failed
+    if (auto handle = get_message_typesupport_handle(type_support, rosidl_typesupport_introspection_c__identifier)) {
+        auto members = static_cast<const rosidl_typesupport_introspection_c__MessageMembers*>(handle->data);
+        return members->size_of_;
+    }
+
     RMW_IOX2_CHAIN_ERROR_MSG("failed to determine message size");
     return 0;
 }
