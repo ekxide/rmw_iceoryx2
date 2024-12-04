@@ -1,0 +1,15 @@
+diff --git a/performance_test/plugins/ros2/plugin_impl.hpp b/performance_test/plugins/ros2/plugin_impl.hpp
+index e63b40b..4c8f729 100644
+--- a/performance_test/plugins/ros2/plugin_impl.hpp
++++ b/performance_test/plugins/ros2/plugin_impl.hpp
+@@ -164,7 +164,9 @@ private:
+       enable_shared_memory_cyclonedds();
+     } else if (rmw_implementation == "rmw_fastrtps_cpp") {
+       enable_shared_memory_fastrtps();
+-    } else {
++    } else if(rmw_implementation == "rmw_iceoryx2_cxx"){
++	// Nothing to configure.
++    } else{
+       throw std::runtime_error("Shared memory is not supported for " + rmw_implementation);
+     }
+   }

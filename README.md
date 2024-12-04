@@ -44,6 +44,17 @@ bindings to the Rust core.
 | QoS                              | :construction:     |
 | Logging                          | :white_check_mark: |
 
+## Performance
+
+> [!NOTE]
+> * The latency measurement can be reproduced with [these instructions](benchmark)
+> * The measurements were taken on a Ryzen 3950X without a fine-tuned OS - lower latency could be expected on a fine-tuned target
+> * The [`performance_test`](https://gitlab.com/ApexAI/performance_test/-/tree/master/performance_test) tool uses `rmw_iceoryx2` through 
+>   the ROS 2 stack, which naturally introduces some overhead compared to pure `iceoryx2`
+> * The minimal possible latency achievable with `iceoryx2` is [in the nanosecond range](https://github.com/eclipse-iceoryx/iceoryx2/tree/main?tab=readme-ov-file#comparision-of-mechanisms)
+
+![Latency vs. Message Size v0.0.1](benchmark/figure/v0.0.1.png)
+
 ## Setup
 
 1. Set up [your environment](https://docs.ros.org/en/rolling/Installation/Alternatives/Latest-Development-Setup.html) for building ROS 2 from source
@@ -56,30 +67,31 @@ bindings to the Rust core.
 1. Clone the ROS 2 source:
 
     ```console
-    vcs import --input https://raw.githubusercontent.com/ros2/ros2/rolling/ros2.repos src
+    vcs import --input https://raw.githubusercontent.com/ros2/ros2/rolling/ros2.repos ~/workspace/src
     ```
 
 1. Check out the latest version of `iceoryx`:
 
     ```console
-    cd src/eclipse-iceoryx/iceoryx/ && git checkout main && cd -
+    cd ~/workspace/src/eclipse-iceoryx/iceoryx/ && git checkout main && cd -
     ```
 
 1. Clone `iceoryx2`:
 
     ```console
-    git clone git@github.com:eclipse-iceoryx/iceoryx2.git src/iceoryx2
+    git clone git@github.com:eclipse-iceoryx/iceoryx2.git ~/workspace/src/iceoryx2
     ```
 
 1. Clone `rmw_iceoryx2`:
 
     ```console
-    git clone git@github.com:ekxide/rmw_iceoryx2.git src/rmw_iceoryx2
+    git clone git@github.com:ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2
     ```
 
 1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes:
 
     ```console
+    
     RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_cxx_demo_nodes
     ```
 

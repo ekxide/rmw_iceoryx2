@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "rmw-iceoryx2-benchmark"
+version = "0.1.0"
+description = "Benchmarking utilities for RMW iceoryx2"
+authors = ["Jeff Ithier <jeff@ithier.dev>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+bokeh = "^3.6.2"
+pandas = "^2.2.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
