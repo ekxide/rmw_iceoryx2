@@ -53,7 +53,7 @@ bindings to the Rust core.
 >   the ROS 2 stack, which naturally introduces some overhead compared to pure `iceoryx2`
 > * The minimal possible latency achievable with `iceoryx2` is [in the nanosecond range](https://github.com/eclipse-iceoryx/iceoryx2/tree/main?tab=readme-ov-file#comparision-of-mechanisms)
 
-![Latency vs. Message Size v0.0.1](benchmark/figure/v0.0.1.png)
+![Latency vs. Message Size v0.1.0](benchmark/figure/v0.1.0.png)
 
 ## Setup
 
@@ -85,7 +85,7 @@ bindings to the Rust core.
 1. Clone `rmw_iceoryx2`:
 
     ```console
-    git clone git@github.com:ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2 -b v0.0.1
+    git clone git@github.com:ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2 -b v0.1.0
     ```
 
 1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes:

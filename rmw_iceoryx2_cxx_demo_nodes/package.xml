@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>rmw_iceoryx2_cxx_demo_nodes</name>
-  <version>0.0.1</version>
+  <version>0.1.0</version>
   <description>Demo nodes for verifying functionality of rmw_iceoryx2_cxx</description>
   <maintainer email="jeff@ithier.dev">Jeff Ithier</maintainer>
   <license>Apache-2.0</license>
