@@ -70,28 +70,27 @@ bindings to the Rust core.
     vcs import --input https://raw.githubusercontent.com/ros2/ros2/rolling/ros2.repos ~/workspace/src
     ```
 
-1. Check out the latest version of `iceoryx`:
+1. Check out the compatible version of `iceoryx_hoofs`:
 
     ```console
-    cd ~/workspace/src/eclipse-iceoryx/iceoryx/ && git checkout main && cd -
+    git -C ~/workspace/src/eclipse-iceoryx/iceoryx checkout e693cc28f64273891030a179ffc15fda155b305a
     ```
 
 1. Clone `iceoryx2`:
 
     ```console
-    git clone git@github.com:eclipse-iceoryx/iceoryx2.git ~/workspace/src/iceoryx2
+    git clone git@github.com:eclipse-iceoryx/iceoryx2.git ~/workspace/src/iceoryx2 && git -C ~/workspace/src/iceoryx2 checkout 54ebc96d03f4d7b14257413ccff6529cbb7288a3
     ```
 
 1. Clone `rmw_iceoryx2`:
 
     ```console
-    git clone git@github.com:ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2
+    git clone git@github.com:ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2 -b v0.0.1
     ```
 
 1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes:
 
     ```console
-    
     RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_cxx_demo_nodes
     ```
 
@@ -99,7 +98,7 @@ bindings to the Rust core.
 
     ```console
     source ~/workspace/install/setup.zsh # or setup.bash
-    RMW_IMPLEMENTATION=rmw_iceoryx2_cxx ros2 doctor --report
+    ros2 doctor --report
     ```
 
     The middleware should be properly set:
@@ -114,14 +113,14 @@ bindings to the Rust core.
 
         ```console
         source ~/workspace/install/setup.zsh # or setup.bash
-        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes listener
+        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes listener_basic_types
         ```
 
     1. Terminal 2
 
         ```console
         source ~/workspace/install/setup.zsh # or setup.bash
-        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes talker
+        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes talker_basic_types
         ```
 
 ## FAQ
