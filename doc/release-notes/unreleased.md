@@ -47,7 +47,7 @@
     conflicts when merging.
 -->
 
-* Example text [#1](https://github.com/ekxide/rmw_iceoryx2/issues/1)
+* Use VCS to manage dependencies [#13](https://github.com/ekxide/rmw_iceoryx2/issues/13)
 
 ### API Breaking Changes
 

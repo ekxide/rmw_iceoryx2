@@ -70,27 +70,16 @@ bindings to the Rust core.
     vcs import --input https://raw.githubusercontent.com/ros2/ros2/rolling/ros2.repos ~/workspace/src
     ```
 
-1. Check out the compatible version of `iceoryx_hoofs`:
+1. Clone `rmw_iceoryx2` and dependencies:
 
     ```console
-    git -C ~/workspace/src/eclipse-iceoryx/iceoryx checkout e693cc28f64273891030a179ffc15fda155b305a
-    ```
-
-1. Clone `iceoryx2`:
-
-    ```console
-    git clone git@github.com:eclipse-iceoryx/iceoryx2.git ~/workspace/src/iceoryx2 && git -C ~/workspace/src/iceoryx2 checkout 54ebc96d03f4d7b14257413ccff6529cbb7288a3
-    ```
-
-1. Clone `rmw_iceoryx2`:
-
-    ```console
-    git clone git@github.com:ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2 -b v0.1.0
+    vcs import --force --input https://raw.githubusercontent.com/ekxide/rmw_iceoryx2/blob/main/rmw_iceoryx2.repos ~/workspace/src
     ```
 
 1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes:
 
     ```console
+    cd ~/workspace/
     RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_cxx_demo_nodes
     ```
 
