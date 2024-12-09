@@ -73,7 +73,7 @@ bindings to the Rust core.
 1. Clone `rmw_iceoryx2` and dependencies:
 
     ```console
-    vcs import --force --input https://raw.githubusercontent.com/ekxide/rmw_iceoryx2/blob/main/rmw_iceoryx2.repos ~/workspace/src
+    vcs import --force --input https://raw.githubusercontent.com/ekxide/rmw_iceoryx2/refs/heads/main/rmw_iceoryx2.repos ~/workspace/src
     ```
 
 1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes:
