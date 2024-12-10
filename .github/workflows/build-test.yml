@@ -1,0 +1,40 @@
+name: CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ opened, ready_for_review, reopened, synchronize ]
+jobs:
+  changes:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      source-code: ${{ steps.filter.outputs.source-code }}
+      markdown: ${{ steps.filter.outputs.markdown }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Check for changed file types
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            source-code:
+              - '!**/*.md'
+            markdown:
+              - '**/*.md'
+  preflight-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.source-code == 'true' }}
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Check format of all commit messages
+        run: ./internal/scripts/ci/check-commit-msg.sh
+      - name: Check license header
+        run: ./internal/scripts/ci/check-spdx-license-header.sh
