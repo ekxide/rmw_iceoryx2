@@ -85,6 +85,7 @@ jobs:
         apt-get update
         apt-get install -y \
           libacl1-dev \
+          software-properties-common \
           curl \
           wget
     - name: Install rust toolchain
