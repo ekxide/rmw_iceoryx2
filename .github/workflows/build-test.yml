@@ -103,7 +103,7 @@ jobs:
       with:
         path: src/rmw_iceoryx2
     - name: Install clang toolchain
-      uses: src/rmw_iceoryx2/.github/actions/install-clang
+      uses: $WORKSPACE_DIR/src/rmw_iceoryx2/.github/actions/install-clang
     - name: Import dependencies with VCS
       run: |
         cd $WORKSPACE_DIR
