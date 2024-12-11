@@ -53,7 +53,7 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-      - name: Install clang-tidy and clang-format
+      - name: Install clang toolchain
         uses: ./.github/actions/install-clang
       - name: Display clang-format and clang-tidy versions
         run: |
@@ -86,7 +86,10 @@ jobs:
         apt-get install -y \
           libacl1-dev \
           curl
-    - uses: dtolnay/rust-toolchain@stable
+    - name: Install clang toolchain
+      uses: ./.github/actions/install-clang
+    - name: Install rust toolchain
+      uses: dtolnay/rust-toolchain@stable
     - name: Create workspace
       run: |
         mkdir -p $WORKSPACE_DIR/src/rmw_iceoryx2
