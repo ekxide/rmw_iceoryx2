@@ -1,4 +1,4 @@
-name: 'Install clang tools'
+name: 'Install iceoryx dependencies and clang-tidy'
 runs:
   using: "composite"
   steps:

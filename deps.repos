@@ -7,7 +7,3 @@ repositories:
     type: git
     url: git@github.com:eclipse-iceoryx/iceoryx2.git
     version: 54ebc96d03f4d7b14257413ccff6529cbb7288a3
-  rmw_iceoryx2:
-    type: git
-    url: git@github.com:ekxide/rmw_iceoryx2.git
-    version: v0.1.0
