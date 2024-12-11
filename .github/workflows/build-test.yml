@@ -85,7 +85,8 @@ jobs:
         apt-get update
         apt-get install -y \
           libacl1-dev \
-          curl
+          curl \
+          wget
     - name: Install rust toolchain
       uses: dtolnay/rust-toolchain@stable
     - name: Create workspace
