@@ -4,9 +4,12 @@
   <name>rmw_iceoryx2_cxx</name>
   <version>0.1.0</version>
   <description>RMW implementation for the pure Rust next-gen zero-copy middleware iceoryx2</description>
-  <author email="jeff@ithier.dev">Jeff Ithier</author>
   <maintainer email="oss-ros@ekxide.io">ekxide developers</maintainer>
+
+  <author email="jeff@ithier.dev">Jeff Ithier</author>
+
   <license>Apache 2.0</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

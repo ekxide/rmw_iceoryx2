@@ -1,3 +1,12 @@
+# Copyright (c) 2024 by Ekxide IO GmbH All rights reserved.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache Software License 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0, or the MIT license
+# which is available at https://opensource.org/licenses/MIT.
+#
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 cmake_minimum_required(VERSION 3.5)
 project(rmw_iceoryx2_cxx)
 
@@ -32,9 +41,9 @@ set(AMENT_PACKAGES
     rcpputils
     rmw
     rosidl_runtime_cpp
-    rosidl_typesupport_introspection_c    
+    rosidl_typesupport_introspection_c
     rosidl_typesupport_introspection_cpp
-    rosidl_typesupport_fastrtps_c         
+    rosidl_typesupport_fastrtps_c
     rosidl_typesupport_fastrtps_cpp
     fastrtps
 )
@@ -128,9 +137,17 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
 
+  # disabled because alternative copyright check utilized
+  set(ament_cmake_copyright_FOUND TRUE)
+  # disabled because clang-format and clang-tidy preferred
+  set(ament_cmake_cpplint_FOUND TRUE)
+  set(ament_cmake_uncrustify_FOUND TRUE)
+  # disabled because <package format="3"> not supported
+  set(ament_cmake_xmllint_FOUND TRUE)
+
   ament_lint_auto_find_test_dependencies()
 
-  ament_add_gtest(test_rmw_iceoryx2_cxx 
+  ament_add_gtest(test_rmw_iceoryx2_cxx
     test/testing/base.cpp
     test/test_iox2_context_impl.cpp
     test/test_iox2_guard_condition_impl.cpp
@@ -153,7 +170,7 @@ if(BUILD_TESTING)
     test/test_rmw_publish_subscribe.cpp
     test/test_rmw_waitset.cpp
   )
-  target_link_libraries(test_rmw_iceoryx2_cxx 
+  target_link_libraries(test_rmw_iceoryx2_cxx
     ${PROJECT_NAME}
   )
   ament_target_dependencies(test_rmw_iceoryx2_cxx
