@@ -18,7 +18,7 @@ jobs:
       source-code: ${{ steps.filter.outputs.source-code }}
       markdown: ${{ steps.filter.outputs.markdown }}
     steps:
-      - name: Checkout sources
+      - name: Check out sources
         uses: actions/checkout@v4
 
       - name: Check for changed file types
@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Check out sources
         uses: actions/checkout@v4
 
       - name: Check format of all commit messages
@@ -52,7 +52,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Check out sources
         uses: actions/checkout@v4
 
       - name: Install clang toolchain
@@ -109,29 +109,40 @@ jobs:
           mkdir -p $WORKSPACE_DIR/src/rmw_iceoryx2
           mkdir -p $WORKSPACE_DIR/src/test_interface_files
 
-      - name: Checkout test message interfaces
+      - name: Check out test message interfaces
         uses: actions/checkout@v4
         with:
           repository: ros2/test_interface_files
           path: src/test_interface_files
           ref: rolling
 
-      - name: Checkout current ref
+      - name: Check out current ref
         uses: actions/checkout@v4
         with:
           path: src/rmw_iceoryx2
 
       # this is also required for all builds as iceoryx2 depends on libclang
-      - name: Install compiler toolchain
+      - name: Install clang toolchain
         uses: ./src/rmw_iceoryx2/.github/actions/install-clang
 
-      - name: Checkout iceoryx
+      - name: Install gcc toolchain
+        if: matrix.compiler == 'gcc'
+        uses: ./src/rmw_iceoryx2/.github/actions/install-gcc
+
+      - name: Import iceoryx
         run: |
           cd $WORKSPACE_DIR
 
           # need to switch to https in ci
           sed 's|git@github.com:|https://github.com/|g' src/rmw_iceoryx2/iceoryx.repos > _deps.repos
           vcs import src < _deps.repos
+
+      - name: Check compiler versions
+        run: |
+          echo "C compiler version:"
+          ${{ matrix.cc }} --version
+          echo "C++ compiler version:"
+          ${{ matrix.cxx }} --version
 
       - name: Build workspace
         run: |
@@ -159,7 +170,6 @@ jobs:
           . install/setup.sh
           colcon test \
             --packages-select rmw_iceoryx2_cxx \
-            --event-handlers console_direct+ \
             --return-code-on-test-failure
 
       - name: Generate test reports

@@ -1,8 +1,8 @@
-name: 'Install clang toolchain'
+name: 'Install clang'
 runs:
   using: "composite"
   steps:
-    - name: Install iceoryx dependencies and clang-tidy
+    - name: Install clang
       shell: bash
       run: |
         sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -

@@ -56,14 +56,14 @@ public:
 
     ~WaitSetTestContext() {
         for (size_t i = 0; i < m_subscriptions.size(); i++) {
-            (void)rmw_destroy_publisher(m_rmw_node, m_publishers.at(i).publisher);
-            (void)rmw_destroy_subscription(m_rmw_node, m_subscriptions.at(i).subscriber);
+            EXPECT_RMW_OK(rmw_destroy_publisher(m_rmw_node, m_publishers.at(i).publisher));
+            EXPECT_RMW_OK(rmw_destroy_subscription(m_rmw_node, m_subscriptions.at(i).subscriber));
         }
         for (size_t i = 0; i < m_guard_conditions.size(); i++) {
-            (void)rmw_destroy_guard_condition(m_guard_conditions.at(i));
+            EXPECT_RMW_OK(rmw_destroy_guard_condition(m_guard_conditions.at(i)));
         }
         if (m_waitset) {
-            (void)rmw_destroy_wait_set(m_waitset);
+            EXPECT_RMW_OK(rmw_destroy_wait_set(m_waitset));
         }
     }
 

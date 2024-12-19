@@ -142,15 +142,15 @@ private:
 
 // ===================================================================================================================
 
-template <::iox2::ServiceType ServiceType>
-auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::ServiceBuilder<ServiceType> {
+template <::iox2::ServiceType S>
+auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::ServiceBuilder<S> {
     auto name = ::iox2::ServiceName::create(service_name.c_str());
     if (name.has_error()) {
         // TODO: propagate error
     }
-    if constexpr (ServiceType == ::iox2::ServiceType::Local) {
+    if constexpr (S == ::iox2::ServiceType::Local) {
         return local().service_builder(name.value());
-    } else if constexpr (ServiceType == ::iox2::ServiceType::Ipc) {
+    } else if constexpr (S == ::iox2::ServiceType::Ipc) {
         return ipc().service_builder(name.value());
     } else {
         static_assert(std::false_type::value, "Attempted to build a service of unknown type");
