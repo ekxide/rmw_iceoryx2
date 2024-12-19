@@ -352,7 +352,7 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* node,
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
-    if (auto result = rmw_topic_endpoint_info_array_check_zero(publishers_info) != RMW_RET_OK) {
+    if (rmw_topic_endpoint_info_array_check_zero(publishers_info) != RMW_RET_OK) {
         return RMW_RET_INVALID_ARGUMENT;
     }
 
@@ -443,7 +443,7 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* node,
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
-    if (auto result = rmw_topic_endpoint_info_array_check_zero(subscriptions_info) != RMW_RET_OK) {
+    if (rmw_topic_endpoint_info_array_check_zero(subscriptions_info) != RMW_RET_OK) {
         return RMW_RET_INVALID_ARGUMENT;
     }
 
