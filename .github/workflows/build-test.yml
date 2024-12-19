@@ -116,7 +116,7 @@ jobs:
     - name: Import dependencies with VCS
       run: |
         cd $WORKSPACE_DIR
-        sed 's|git@github.com:|https://github.com/|g' src/rmw_iceoryx2/deps.repos > _deps.repos
+        sed 's|git@github.com:|https://github.com/|g' src/rmw_iceoryx2/iceoryx.repos > _deps.repos
         vcs import src < _deps.repos
 
     - name: Build with colcon
