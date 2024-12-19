@@ -74,12 +74,16 @@ jobs:
   colcon-build-test:
     needs: [preflight-check, static-code-analysis]
     strategy:
+      fail-fast: false
       matrix:
-        compiler: [clang]
+        compiler: [clang, gcc]
         include:
           - compiler: clang
             cc: clang
             cxx: clang++
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
     runs-on: ubuntu-latest
     container:
       image: ros:rolling
@@ -117,8 +121,8 @@ jobs:
         with:
           path: src/rmw_iceoryx2
 
+      # this is also required for all builds as iceoryx2 depends on libclang
       - name: Install compiler toolchain
-        if: matrix.compiler == 'clang'
         uses: ./src/rmw_iceoryx2/.github/actions/install-clang
 
       - name: Checkout iceoryx
