@@ -11,12 +11,12 @@
 
 #include "iox/optional.hpp"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/iox2/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -77,7 +77,7 @@ TEST_F(RmwGuardConditionTest, create_and_destroy) {
 }
 
 TEST_F(RmwGuardConditionTest, trigger) {
-    using ::rmw::iox2::GuardConditionImpl;
+    using ::rmw::iox2::GuardCondition;
     using ::rmw::iox2::unsafe_cast;
     namespace names = ::rmw::iox2::names;
 
@@ -86,7 +86,7 @@ TEST_F(RmwGuardConditionTest, trigger) {
     EXPECT_NE(guard_condition->data, nullptr);
 
     // TODO: An easier way to access the guard condition ID?
-    auto impl = unsafe_cast<GuardConditionImpl*>(guard_condition->data).expect("failed to get guard condition impl");
+    auto impl = unsafe_cast<GuardCondition*>(guard_condition->data).expect("failed to get guard condition impl");
     auto listener = iox2_listener(names::guard_condition(guard_condition->context->instance_id, impl->trigger_id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));

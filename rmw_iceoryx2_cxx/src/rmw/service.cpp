@@ -11,9 +11,9 @@
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw/validate_full_topic_name.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
-#include "rmw_iceoryx2_cxx/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 
 extern "C" {
 

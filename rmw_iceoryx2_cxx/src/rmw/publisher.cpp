@@ -7,20 +7,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "iox/assertions_addendum.hpp"
 #include "rmw/allocators.h"
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw/validate_full_topic_name.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
-#include "rmw_iceoryx2_cxx/error_message.hpp"
-#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
-#include "rmw_iceoryx2_cxx/log.hpp"
-#include "rmw_iceoryx2_cxx/message/introspect.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 
 extern "C" {
 
@@ -44,7 +44,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
     }
     RMW_IOX2_ENSURE_NOT_NULL(publisher_options, nullptr);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::allocate_copy;
     using ::rmw::iox2::create_in_place;
@@ -52,8 +52,8 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::is_pod;
     using ::rmw::iox2::message_size;
-    using ::rmw::iox2::NodeImpl;
-    using ::rmw::iox2::PublisherImpl;
+    using ::rmw::iox2::Node;
+    using ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("Creating publisher to '%s'", topic_name);
@@ -81,28 +81,28 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* node,
         publisher->topic_name = ptr.value();
     }
 
-    auto node_impl = unsafe_cast<NodeImpl*>(node->data);
+    auto node_impl = unsafe_cast<Node*>(node->data);
     if (node_impl.has_error()) {
         rmw_publisher_free(publisher);
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve NodeImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
-    if (auto ptr = allocate<PublisherImpl>(); ptr.has_error()) {
+    if (auto ptr = allocate<Publisher>(); ptr.has_error()) {
         rmw_publisher_free(publisher);
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for PublisherImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Publisher");
         return nullptr;
     } else {
-        if (create_in_place<PublisherImpl>(ptr.value(),
-                                           *node_impl.value(),
-                                           topic_name,
-                                           type_support->typesupport_identifier,
-                                           message_size(type_support))
+        if (create_in_place<Publisher>(ptr.value(),
+                                       *node_impl.value(),
+                                       topic_name,
+                                       type_support->typesupport_identifier,
+                                       message_size(type_support))
                 .has_error()) {
-            destruct<PublisherImpl>(ptr.value());
-            deallocate<PublisherImpl>(ptr.value());
+            destruct<Publisher>(ptr.value());
+            deallocate<Publisher>(ptr.value());
             rmw_publisher_free(publisher);
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct PublisherImpl");
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Publisher");
             return nullptr;
         } else {
             publisher->data = ptr.value();
@@ -119,15 +119,15 @@ rmw_ret_t rmw_destroy_publisher(rmw_node_t* node, rmw_publisher_t* publisher) {
     RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using ::rmw::iox2::PublisherImpl;
+    using ::rmw::iox2::Publisher;
 
     RMW_IOX2_LOG_DEBUG("Destroying publisher to '%s'", publisher->topic_name);
 
     if (publisher->data) {
-        destruct<PublisherImpl>(publisher->data);
+        destruct<Publisher>(publisher->data);
         deallocate(publisher->data);
     }
     rmw_publisher_free(publisher);
@@ -141,7 +141,7 @@ rmw_ret_t rmw_publisher_count_matched_subscriptions(const rmw_publisher_t* publi
     RMW_IOX2_ENSURE_NOT_NULL(subscription_count, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -151,7 +151,7 @@ rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t* publisher, rmw_qos
     RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     *qos = rmw_qos_profile_default;
 
     return RMW_RET_OK;
@@ -168,15 +168,15 @@ rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* publisher,
     RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NULL(*ros_message, RMW_RET_INVALID_ARGUMENT);
 
-    // Implementation -------------------------------------------------------------------------------
-    using ::rmw::iox2::PublisherImpl;
+    // ementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("New loan from '%s'", publisher->topic_name);
 
-    auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
+    auto publisher_impl = unsafe_cast<Publisher*>(publisher->data);
     if (publisher_impl.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
@@ -196,15 +196,15 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* publis
     RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    // Implementation -------------------------------------------------------------------------------
-    using ::rmw::iox2::PublisherImpl;
+    // ementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("Releasing loan to '%s'", publisher->topic_name);
 
-    auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
+    auto publisher_impl = unsafe_cast<Publisher*>(publisher->data);
     if (publisher_impl.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
@@ -223,15 +223,15 @@ rmw_publish(const rmw_publisher_t* publisher, const void* ros_message, rmw_publi
     RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
 
-    // Implementation -------------------------------------------------------------------------------
-    using ::rmw::iox2::PublisherImpl;
+    // ementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("Publishing copy to '%s'", publisher->topic_name);
 
-    auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
+    auto publisher_impl = unsafe_cast<Publisher*>(publisher->data);
     if (publisher_impl.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
@@ -259,15 +259,15 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* publisher,
     RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
 
-    // Implementation -------------------------------------------------------------------------------
-    using ::rmw::iox2::PublisherImpl;
+    // ementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("Publishing loan to '%s'", publisher->topic_name);
 
-    auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
+    auto publisher_impl = unsafe_cast<Publisher*>(publisher->data);
     if (publisher_impl.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
@@ -287,7 +287,7 @@ rmw_ret_t rmw_publish_serialized_message(const rmw_publisher_t* publisher,
     RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 

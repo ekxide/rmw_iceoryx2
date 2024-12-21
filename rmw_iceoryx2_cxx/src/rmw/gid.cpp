@@ -10,34 +10,34 @@
 #include "iox/assertions_addendum.hpp"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
-#include "rmw_iceoryx2_cxx/error_message.hpp"
-#include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 
-rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t* publisher, rmw_gid_t* gid) {
+rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t* rmw_publisher, rmw_gid_t* rmw_gid) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    RMW_IOX2_ENSURE_NOT_NULL(gid, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_gid, RMW_RET_INVALID_ARGUMENT);
 
-    // Implementation -------------------------------------------------------------------------------
-    using ::rmw::iox2::PublisherImpl;
+    // ementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
 
-    auto publisher_impl = unsafe_cast<PublisherImpl*>(publisher->data);
+    auto publisher_impl = unsafe_cast<Publisher*>(rmw_publisher->data);
     if (publisher_impl.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve PublisherImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
     if (auto id = publisher_impl.value()->unique_id(); id.has_value()) {
-        gid->implementation_identifier = rmw_get_implementation_identifier();
-        std::copy(id.value().data(), id.value().data() + RMW_GID_STORAGE_SIZE, gid->data);
+        rmw_gid->implementation_identifier = rmw_get_implementation_identifier();
+        std::copy(id.value().data(), id.value().data() + RMW_GID_STORAGE_SIZE, rmw_gid->data);
         return RMW_RET_OK;
     }
 
-    RMW_IOX2_CHAIN_ERROR_MSG("unable to retrieve UniquePortId for PublisherImpl");
+    RMW_IOX2_CHAIN_ERROR_MSG("unable to retrieve UniquePortId for Publisher");
     return RMW_RET_ERROR;
 }
 
@@ -47,7 +47,7 @@ rmw_ret_t rmw_get_gid_for_client(const rmw_client_t* client, rmw_gid_t* gid) {
     RMW_IOX2_ENSURE_IMPLEMENTATION(client->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(gid, RMW_RET_INVALID_ARGUMENT);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -59,7 +59,7 @@ rmw_ret_t rmw_compare_gids_equal(const rmw_gid_t* gid1, const rmw_gid_t* gid2, b
     RMW_IOX2_ENSURE_IMPLEMENTATION(gid1->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_IMPLEMENTATION(gid2->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     // NOTE: In iceoryx2, GIDs for different entities (Publishers, Notifiers, etc.) have unique types.
     //       Thus, these IDs may have the same value but the type system prevents them from being considered equal.
     //       In C, only the raw value is worked with. This might cause problems.

@@ -13,8 +13,8 @@
 #include "rmw/qos_profiles.h"
 #include "rmw/rmw.h"
 #include "rmw/subscription_options.h"
-#include "rmw_iceoryx2_cxx/iox2/guard_condition_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
@@ -30,8 +30,8 @@ using namespace rmw::iox2::testing;
 /// By containing the complexity here, the hope is that tests are more readable.
 class WaitSetTestContext
 {
-    using GuardConditionImpl = rmw::iox2::GuardConditionImpl;
-    using SubscriberImpl = rmw::iox2::SubscriberImpl;
+    using GuardCondition = rmw::iox2::GuardCondition;
+    using Subscriber = rmw::iox2::Subscriber;
 
     // Keeps track of typesupports used by added publishers
     struct PublisherDetails
@@ -90,9 +90,9 @@ public:
     ///        This is expected by rmw_wait().
     rmw_guard_conditions_t* guard_conditions_array() {
         auto guard_condition_data =
-            static_cast<GuardConditionImpl**>(rmw_allocate(sizeof(GuardConditionImpl*) * m_guard_conditions.size()));
+            static_cast<GuardCondition**>(rmw_allocate(sizeof(GuardCondition*) * m_guard_conditions.size()));
         for (size_t i = 0; i < m_guard_conditions.size(); i++) {
-            guard_condition_data[i] = static_cast<GuardConditionImpl*>(m_guard_conditions.at(i)->data);
+            guard_condition_data[i] = static_cast<GuardCondition*>(m_guard_conditions.at(i)->data);
         }
 
         m_guard_condition_array = std::make_unique<rmw_guard_conditions_t>();
@@ -148,10 +148,9 @@ public:
     /// @brief Constructs the array of subscriptions containing all subscriptions in the context.
     ///        This is expected by rmw_wait().
     rmw_subscriptions_t* subscriptions_array() {
-        auto subscriber_data =
-            static_cast<SubscriberImpl**>(rmw_allocate(sizeof(SubscriberImpl*) * m_subscriptions.size()));
+        auto subscriber_data = static_cast<Subscriber**>(rmw_allocate(sizeof(Subscriber*) * m_subscriptions.size()));
         for (size_t i = 0; i < m_subscriptions.size(); i++) {
-            subscriber_data[i] = static_cast<SubscriberImpl*>(m_subscriptions.at(i).subscriber->data);
+            subscriber_data[i] = static_cast<Subscriber*>(m_subscriptions.at(i).subscriber->data);
         }
 
         m_subscriptions_array = std::make_unique<rmw_subscriptions_t>();
@@ -264,7 +263,7 @@ TEST_F(RmwWaitSetTest, can_wait_with_timeout) {
 }
 
 TEST_F(RmwWaitSetTest, can_be_triggered_by_guard_condition) {
-    using rmw::iox2::GuardConditionImpl;
+    using rmw::iox2::GuardCondition;
 
     // ===== Setup
     constexpr size_t NUM_GUARD_CONDITIONS{3};
@@ -303,7 +302,7 @@ TEST_F(RmwWaitSetTest, can_be_triggered_by_guard_condition) {
 }
 
 TEST_F(RmwWaitSetTest, can_be_triggered_by_message_sent_to_subscriber) {
-    using rmw::iox2::SubscriberImpl;
+    using rmw::iox2::Subscriber;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     // ===== Setup
@@ -342,8 +341,8 @@ TEST_F(RmwWaitSetTest, can_be_triggered_by_message_sent_to_subscriber) {
 }
 
 TEST_F(RmwWaitSetTest, can_get_triggers_from_all_entity_types_in_single_wait) {
-    using rmw::iox2::GuardConditionImpl;
-    using rmw::iox2::SubscriberImpl;
+    using rmw::iox2::GuardCondition;
+    using rmw::iox2::Subscriber;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     // ===== Setup

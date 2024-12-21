@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "rmw_iceoryx2_cxx/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
 #include "testing/base.hpp"
 
 namespace

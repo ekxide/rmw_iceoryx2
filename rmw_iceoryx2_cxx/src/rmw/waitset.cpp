@@ -7,15 +7,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "rmw_iceoryx2_cxx/impl/runtime/waitset.hpp"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
-#include "rmw_iceoryx2_cxx/error_message.hpp"
-#include "rmw_iceoryx2_cxx/iox2/waitset_impl.hpp"
-#include "rmw_iceoryx2_cxx/log.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 
 #include <set>
 
@@ -26,12 +26,12 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_condition
     RMW_IOX2_ENSURE_NOT_NULL(context->impl, nullptr);
     RMW_IOX2_ENSURE_IMPLEMENTATION(context->implementation_identifier, nullptr);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using ::rmw::iox2::WaitSetImpl;
+    using ::rmw::iox2::WaitSet;
 
     (void)max_conditions; // not needed
 
@@ -44,16 +44,16 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_condition
     }
     wait_set->implementation_identifier = rmw_get_implementation_identifier();
 
-    if (auto ptr = allocate<WaitSetImpl>(); ptr.has_error()) {
+    if (auto ptr = allocate<WaitSet>(); ptr.has_error()) {
         rmw_wait_set_free(wait_set);
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for WaitSetImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for WaitSet");
         return nullptr;
     } else {
-        if (create_in_place<WaitSetImpl>(ptr.value(), *context->impl).has_error()) {
-            destruct<WaitSetImpl>(ptr.value());
-            deallocate<WaitSetImpl>(ptr.value());
+        if (create_in_place<WaitSet>(ptr.value(), *context->impl).has_error()) {
+            destruct<WaitSet>(ptr.value());
+            deallocate<WaitSet>(ptr.value());
             rmw_wait_set_free(wait_set);
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct WaitSetImpl");
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct WaitSet");
             return nullptr;
         } else {
             wait_set->data = ptr.value();
@@ -68,15 +68,15 @@ rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* wait_set) {
     RMW_IOX2_ENSURE_NOT_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(wait_set->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using ::rmw::iox2::WaitSetImpl;
+    using ::rmw::iox2::WaitSet;
 
     RMW_IOX2_LOG_DEBUG("Destroying waitset");
 
     if (wait_set->data) {
-        destruct<WaitSetImpl>(wait_set->data);
+        destruct<WaitSet>(wait_set->data);
         deallocate(wait_set->data);
     }
 
@@ -110,22 +110,22 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
         }
     }
 
-    // Implementation -------------------------------------------------------------------------------
+    // ementation -------------------------------------------------------------------------------
     using ::iox::units::Duration;
-    using ::rmw::iox2::GuardConditionImpl;
-    using ::rmw::iox2::SubscriberImpl;
+    using ::rmw::iox2::GuardCondition;
+    using ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
     using ::rmw::iox2::WaitableEntity;
-    using ::rmw::iox2::WaitSetImpl;
+    using ::rmw::iox2::WaitSet;
 
     iox::optional<Duration> timeout;
     if (wait_timeout) {
         timeout.emplace(Duration::fromSeconds(wait_timeout->sec) + Duration::fromNanoseconds(wait_timeout->nsec));
     }
 
-    auto ptr = unsafe_cast<WaitSetImpl*>(wait_set->data);
+    auto ptr = unsafe_cast<WaitSet*>(wait_set->data);
     if (ptr.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve WaitSetImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve WaitSet");
         return RMW_RET_ERROR;
     }
     auto waitset_impl = ptr.value();
@@ -133,14 +133,14 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     // Attach all guard_conditions to waitset
     if (guard_conditions) {
         for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
-            auto guard_condition = unsafe_cast<GuardConditionImpl*>(guard_conditions->guard_conditions[index]);
+            auto guard_condition = unsafe_cast<GuardCondition*>(guard_conditions->guard_conditions[index]);
             if (guard_condition.has_error()) {
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardConditionImpl");
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardCondition");
                 return RMW_RET_ERROR;
             }
             if (auto result = waitset_impl->map(index, *guard_condition.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardConditionImpl to WaitSetImpl");
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardCondition to WaitSet");
                 return RMW_RET_ERROR;
             }
         }
@@ -149,14 +149,14 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
     // Attach all subscriptions to waitset
     if (subscriptions) {
         for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
-            auto subscriber = unsafe_cast<SubscriberImpl*>(subscriptions->subscribers[index]);
+            auto subscriber = unsafe_cast<Subscriber*>(subscriptions->subscribers[index]);
             if (subscriber.has_error()) {
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
                 return RMW_RET_ERROR;
             }
             if (auto result = waitset_impl->map(index, *subscriber.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach SubscriberImpl to WaitSetImpl");
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach Subscriber to WaitSet");
                 return RMW_RET_ERROR;
             }
         }

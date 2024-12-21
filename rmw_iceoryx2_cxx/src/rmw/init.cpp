@@ -11,12 +11,12 @@
 #include "rcutils/strdup.h"
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
-#include "rmw_iceoryx2_cxx/error_message.hpp"
-#include "rmw_iceoryx2_cxx/identifier.hpp"
-#include "rmw_iceoryx2_cxx/iox2/context_impl.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 
 constexpr const char* DEFAULT_ENCLAVE = "";
 

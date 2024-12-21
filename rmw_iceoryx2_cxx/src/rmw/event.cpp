@@ -9,7 +9,7 @@
 
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 
 extern "C" {
 

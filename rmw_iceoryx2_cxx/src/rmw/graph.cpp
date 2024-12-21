@@ -19,15 +19,15 @@
 #include "rmw/validate_full_topic_name.h"
 #include "rmw/validate_namespace.h"
 #include "rmw/validate_node_name.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/defaults.hpp"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
-#include "rmw_iceoryx2_cxx/error_message.hpp"
-#include "rmw_iceoryx2_cxx/iox2/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/iox2/names.hpp"
-#include "rmw_iceoryx2_cxx/iox2/node_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/publisher_impl.hpp"
-#include "rmw_iceoryx2_cxx/iox2/subscriber_impl.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/defaults.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
 #include <functional>
 #include <set>
@@ -269,8 +269,8 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* node,
 
 rmw_ret_t rmw_count_publishers(const rmw_node_t* node, const char* topic_name, size_t* count) {
     using ::rmw::iox2::Iceoryx2;
-    using ::rmw::iox2::NodeImpl;
-    using ::rmw::iox2::PublisherImpl;
+    using ::rmw::iox2::Node;
+    using ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
     namespace names = rmw::iox2::names;
 
@@ -282,7 +282,7 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* node, const char* topic_name, s
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(node->data);
+    auto node_impl_result = unsafe_cast<Node*>(node->data);
     if (node_impl_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return RMW_RET_ERROR;
@@ -299,7 +299,7 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* node, const char* topic_name, s
     auto service_result = node_impl->iox2()
                               .ipc()
                               .service_builder(iox2_service_name.value())
-                              .publish_subscribe<PublisherImpl::Payload>()
+                              .publish_subscribe<Publisher::Payload>()
                               .open_or_create();
     if (service_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
@@ -364,8 +364,8 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* node,
 
 rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, size_t* count) {
     using ::rmw::iox2::Iceoryx2;
-    using ::rmw::iox2::NodeImpl;
-    using ::rmw::iox2::SubscriberImpl;
+    using ::rmw::iox2::Node;
+    using ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
     namespace names = rmw::iox2::names;
 
@@ -377,7 +377,7 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, 
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(node->data);
+    auto node_impl_result = unsafe_cast<Node*>(node->data);
     if (node_impl_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return RMW_RET_ERROR;
@@ -394,7 +394,7 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, 
     auto service_result = node_impl->iox2()
                               .ipc()
                               .service_builder(iox2_service_name.value())
-                              .publish_subscribe<SubscriberImpl::Payload>()
+                              .publish_subscribe<Subscriber::Payload>()
                               .open_or_create();
     if (service_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");

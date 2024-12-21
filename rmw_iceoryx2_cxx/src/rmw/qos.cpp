@@ -9,7 +9,7 @@
 
 #include "rmw/qos_profiles.h"
 #include "rmw/ret_types.h"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 
 extern "C" {
 rmw_ret_t rmw_qos_profile_check_compatible(const rmw_qos_profile_t publisher_profile,

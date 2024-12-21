@@ -7,12 +7,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
+#include "rcutils/types/string_array.h"
 
-extern "C" {
+#ifndef RMW_IOX2_COMMON_DEFAULTS_HPP_
+#define RMW_IOX2_COMMON_DEFAULTS_HPP_
 
-const char* rmw_get_implementation_identifier() {
-    return rmw_iox2_identifier;
-}
+constexpr rcutils_string_array_t RCUTILS_STRING_ARRAY_ZERO = {
+    0,                                            // size
+    nullptr,                                      // data
+    {nullptr, nullptr, nullptr, nullptr, nullptr} // allocator
+};
 
-} // extern "C"
+#endif
