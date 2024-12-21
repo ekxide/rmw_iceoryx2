@@ -11,19 +11,19 @@
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw/validate_full_topic_name.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
-#include "rmw_iceoryx2_cxx/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 
 extern "C" {
 
-rmw_service_t* rmw_create_service(const rmw_node_t* node,
+rmw_service_t* rmw_create_service(const rmw_node_t* rmw_node,
                                   const rosidl_service_type_support_t* type_support,
                                   const char* service_name,
                                   const rmw_qos_profile_t* qos) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, nullptr);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, nullptr);
     RMW_IOX2_ENSURE_NOT_NULL(type_support, nullptr);
     RMW_IOX2_ENSURE_VALID_SERVICE_TYPESUPPORT(type_support, nullptr);
     RMW_IOX2_ENSURE_NOT_NULL(service_name, nullptr);
@@ -34,47 +34,47 @@ rmw_service_t* rmw_create_service(const rmw_node_t* node,
     // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate_copy;
 
-    auto service = rmw_service_allocate();
-    if (service == nullptr) {
+    auto rmw_service = rmw_service_allocate();
+    if (rmw_service == nullptr) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_publisher_t");
         return nullptr;
     }
-    service->implementation_identifier = rmw_get_implementation_identifier();
+    rmw_service->implementation_identifier = rmw_get_implementation_identifier();
 
     if (auto ptr = allocate_copy(service_name); ptr.has_error()) {
-        rmw_service_free(service);
+        rmw_service_free(rmw_service);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
         return nullptr;
     } else {
-        service->service_name = ptr.value();
+        rmw_service->service_name = ptr.value();
     }
 
-    return service;
+    return rmw_service;
 }
 
-rmw_ret_t rmw_destroy_service(rmw_node_t* node, rmw_service_t* service) {
+rmw_ret_t rmw_destroy_service(rmw_node_t* rmw_node, rmw_service_t* rmw_service) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    RMW_IOX2_ENSURE_NOT_NULL(service, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_service, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
 
-    if (service->service_name != nullptr) {
-        deallocate(service->service_name);
+    if (rmw_service->service_name != nullptr) {
+        deallocate(rmw_service->service_name);
     }
-    rmw_service_free(service);
+    rmw_service_free(rmw_service);
 
     return RMW_RET_OK;
 }
 
 rmw_ret_t
-rmw_take_request(const rmw_service_t* service, rmw_service_info_t* request_header, void* ros_request, bool* taken) {
+rmw_take_request(const rmw_service_t* rmw_service, rmw_service_info_t* request_header, void* ros_request, bool* taken) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(service, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_service, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(request_header, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(ros_request, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
@@ -83,10 +83,10 @@ rmw_take_request(const rmw_service_t* service, rmw_service_info_t* request_heade
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_send_response(const rmw_service_t* service, rmw_request_id_t* request_header, void* ros_response) {
+rmw_ret_t rmw_send_response(const rmw_service_t* rmw_service, rmw_request_id_t* request_header, void* ros_response) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(service, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_service, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(request_header, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(ros_response, RMW_RET_INVALID_ARGUMENT);
 
@@ -94,10 +94,10 @@ rmw_ret_t rmw_send_response(const rmw_service_t* service, rmw_request_id_t* requ
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_service_request_subscription_get_actual_qos(const rmw_service_t* service, rmw_qos_profile_t* qos) {
+rmw_ret_t rmw_service_request_subscription_get_actual_qos(const rmw_service_t* rmw_service, rmw_qos_profile_t* qos) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(service, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_service, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
     *qos = rmw_qos_profile_services_default;
@@ -106,10 +106,10 @@ rmw_ret_t rmw_service_request_subscription_get_actual_qos(const rmw_service_t* s
     return RMW_RET_OK;
 }
 
-rmw_ret_t rmw_service_response_publisher_get_actual_qos(const rmw_service_t* service, rmw_qos_profile_t* qos) {
+rmw_ret_t rmw_service_response_publisher_get_actual_qos(const rmw_service_t* rmw_service, rmw_qos_profile_t* qos) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(service, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_service, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
@@ -118,11 +118,12 @@ rmw_ret_t rmw_service_response_publisher_get_actual_qos(const rmw_service_t* ser
     return RMW_RET_OK;
 }
 
-rmw_ret_t
-rmw_service_set_on_new_request_callback(rmw_service_t* service, rmw_event_callback_t callback, const void* user_data) {
+rmw_ret_t rmw_service_set_on_new_request_callback(rmw_service_t* rmw_service,
+                                                  rmw_event_callback_t callback,
+                                                  const void* user_data) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(service, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_service, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(user_data, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------

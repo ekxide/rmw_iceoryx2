@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/identifier.hpp"
+#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 

@@ -56,16 +56,17 @@ endforeach()
 # ----------------------------------------------------------------------------
 
 add_library(${PROJECT_NAME} SHARED
-  src/iox2/context_impl.cpp
-  src/iox2/guard_condition_impl.cpp
-  src/iox2/iceoryx2.cpp
-  src/iox2/names.cpp
-  src/iox2/node_impl.cpp
-  src/iox2/publisher_impl.cpp
-  src/iox2/subscriber_impl.cpp
-  src/iox2/waitset_impl.cpp
-  src/message/introspect.cpp
-  src/message/serialize.cpp
+  src/impl/common/names.cpp
+  src/impl/message/introspection.cpp
+  src/impl/message/serialization.cpp
+  src/impl/middleware/iceoryx2.cpp
+  src/impl/runtime/context.cpp
+  src/impl/runtime/guard_condition.cpp
+  src/impl/runtime/node.cpp
+  src/impl/runtime/publisher.cpp
+  src/impl/runtime/subscriber.cpp
+  src/impl/runtime/waitset.cpp
+
   src/rmw/client.cpp
   src/rmw/event.cpp
   src/rmw/feature.cpp
@@ -149,14 +150,14 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_rmw_iceoryx2_cxx
     test/testing/base.cpp
-    test/test_iox2_context_impl.cpp
-    test/test_iox2_guard_condition_impl.cpp
-    test/test_iox2_message_introspection.cpp
-    test/test_iox2_node_impl.cpp
-    test/test_iox2_publisher_impl.cpp
-    test/test_iox2_sample_registry.cpp
-    test/test_iox2_subscriber_impl.cpp
-    test/test_iox2_waitset_impl.cpp
+    test/test_impl_context.cpp
+    test/test_impl_guard_condition.cpp
+    test/test_impl_message_introspection.cpp
+    test/test_impl_node.cpp
+    test/test_impl_publisher.cpp
+    test/test_impl_sample_registry.cpp
+    test/test_impl_subscriber.cpp
+    test/test_impl_waitset.cpp
     test/test_rmw_allocator.cpp
     test/test_rmw_gid.cpp
     test/test_rmw_graph.cpp

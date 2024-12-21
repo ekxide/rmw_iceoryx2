@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/identifier.hpp"
+#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 
 extern "C" {
 

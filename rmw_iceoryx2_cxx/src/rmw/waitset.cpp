@@ -7,103 +7,103 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "rmw_iceoryx2_cxx/impl/runtime/waitset.hpp"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/allocator.hpp"
-#include "rmw_iceoryx2_cxx/create.hpp"
-#include "rmw_iceoryx2_cxx/ensure.hpp"
-#include "rmw_iceoryx2_cxx/error_message.hpp"
-#include "rmw_iceoryx2_cxx/iox2/waitset_impl.hpp"
-#include "rmw_iceoryx2_cxx/log.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 
 #include <set>
 
 extern "C" {
-rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* context, size_t max_conditions) {
+rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* rmw_context, size_t max_conditions) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(context, nullptr);
-    RMW_IOX2_ENSURE_NOT_NULL(context->impl, nullptr);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(context->implementation_identifier, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_context, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_context->impl, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_context->implementation_identifier, nullptr);
 
     // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using ::rmw::iox2::WaitSetImpl;
+    using WaitSetImpl = ::rmw::iox2::WaitSet;
 
     (void)max_conditions; // not needed
 
     RMW_IOX2_LOG_DEBUG("Creating waitset");
 
-    rmw_wait_set_t* wait_set = rmw_wait_set_allocate();
-    if (!wait_set) {
+    rmw_wait_set_t* rmw_wait_set = rmw_wait_set_allocate();
+    if (!rmw_wait_set) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for waitset handle");
         return nullptr;
     }
-    wait_set->implementation_identifier = rmw_get_implementation_identifier();
+    rmw_wait_set->implementation_identifier = rmw_get_implementation_identifier();
 
-    if (auto ptr = allocate<WaitSetImpl>(); ptr.has_error()) {
-        rmw_wait_set_free(wait_set);
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for WaitSetImpl");
+    if (auto waitset_impl = allocate<WaitSetImpl>(); waitset_impl.has_error()) {
+        rmw_wait_set_free(rmw_wait_set);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for WaitSet");
         return nullptr;
     } else {
-        if (create_in_place<WaitSetImpl>(ptr.value(), *context->impl).has_error()) {
-            destruct<WaitSetImpl>(ptr.value());
-            deallocate<WaitSetImpl>(ptr.value());
-            rmw_wait_set_free(wait_set);
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct WaitSetImpl");
+        if (create_in_place<WaitSetImpl>(waitset_impl.value(), *rmw_context->impl).has_error()) {
+            destruct<WaitSetImpl>(waitset_impl.value());
+            deallocate<WaitSetImpl>(waitset_impl.value());
+            rmw_wait_set_free(rmw_wait_set);
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct WaitSet");
             return nullptr;
         } else {
-            wait_set->data = ptr.value();
+            rmw_wait_set->data = waitset_impl.value();
         }
     }
 
-    return wait_set;
+    return rmw_wait_set;
 }
 
-rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* wait_set) {
+rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* rmw_wait_set) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(wait_set->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_wait_set, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_wait_set->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using ::rmw::iox2::WaitSetImpl;
+    using WaitSetImpl = ::rmw::iox2::WaitSet;
 
     RMW_IOX2_LOG_DEBUG("Destroying waitset");
 
-    if (wait_set->data) {
-        destruct<WaitSetImpl>(wait_set->data);
-        deallocate(wait_set->data);
+    if (rmw_wait_set->data) {
+        destruct<WaitSetImpl>(rmw_wait_set->data);
+        deallocate(rmw_wait_set->data);
     }
 
     return RMW_RET_OK;
 }
 
-rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
-                   rmw_guard_conditions_t* guard_conditions,
-                   rmw_services_t* services,
-                   rmw_clients_t* clients,
-                   rmw_events_t* events,
-                   rmw_wait_set_t* wait_set,
+rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
+                   rmw_guard_conditions_t* rmw_guard_conditions,
+                   rmw_services_t* rmw_services,
+                   rmw_clients_t* rmw_clients,
+                   rmw_events_t* rmw_events,
+                   rmw_wait_set_t* rmw_wait_set,
                    const rmw_time_t* wait_timeout) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(wait_set, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(wait_set->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (guard_conditions) {
-        for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
-            if (guard_conditions->guard_conditions[index] == nullptr) {
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_wait_set, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_wait_set->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    if (rmw_guard_conditions) {
+        for (size_t index = 0; index < rmw_guard_conditions->guard_condition_count; index++) {
+            if (rmw_guard_conditions->guard_conditions[index] == nullptr) {
                 RMW_IOX2_CHAIN_ERROR_MSG("waitset input guard condition contains nullptr");
                 return RMW_RET_INVALID_ARGUMENT;
             }
         }
     }
-    if (subscriptions) {
-        for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
-            if (subscriptions->subscribers[index] == nullptr) {
+    if (rmw_subscriptions) {
+        for (size_t index = 0; index < rmw_subscriptions->subscriber_count; index++) {
+            if (rmw_subscriptions->subscribers[index] == nullptr) {
                 RMW_IOX2_CHAIN_ERROR_MSG("waitset input subscriber contains nullptr");
                 return RMW_RET_INVALID_ARGUMENT;
             }
@@ -112,51 +112,51 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
 
     // Implementation -------------------------------------------------------------------------------
     using ::iox::units::Duration;
-    using ::rmw::iox2::GuardConditionImpl;
-    using ::rmw::iox2::SubscriberImpl;
+    using GuardConditionImpl = ::rmw::iox2::GuardCondition;
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
     using ::rmw::iox2::WaitableEntity;
-    using ::rmw::iox2::WaitSetImpl;
+    using WaitSetImpl = ::rmw::iox2::WaitSet;
 
     iox::optional<Duration> timeout;
     if (wait_timeout) {
         timeout.emplace(Duration::fromSeconds(wait_timeout->sec) + Duration::fromNanoseconds(wait_timeout->nsec));
     }
 
-    auto ptr = unsafe_cast<WaitSetImpl*>(wait_set->data);
+    auto ptr = unsafe_cast<WaitSetImpl*>(rmw_wait_set->data);
     if (ptr.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve WaitSetImpl");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve WaitSet");
         return RMW_RET_ERROR;
     }
     auto waitset_impl = ptr.value();
 
     // Attach all guard_conditions to waitset
-    if (guard_conditions) {
-        for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
-            auto guard_condition = unsafe_cast<GuardConditionImpl*>(guard_conditions->guard_conditions[index]);
+    if (rmw_guard_conditions) {
+        for (size_t index = 0; index < rmw_guard_conditions->guard_condition_count; index++) {
+            auto guard_condition = unsafe_cast<GuardConditionImpl*>(rmw_guard_conditions->guard_conditions[index]);
             if (guard_condition.has_error()) {
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardConditionImpl");
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardCondition");
                 return RMW_RET_ERROR;
             }
             if (auto result = waitset_impl->map(index, *guard_condition.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardConditionImpl to WaitSetImpl");
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardCondition to WaitSet");
                 return RMW_RET_ERROR;
             }
         }
     }
 
     // Attach all subscriptions to waitset
-    if (subscriptions) {
-        for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
-            auto subscriber = unsafe_cast<SubscriberImpl*>(subscriptions->subscribers[index]);
+    if (rmw_subscriptions) {
+        for (size_t index = 0; index < rmw_subscriptions->subscriber_count; index++) {
+            auto subscriber = unsafe_cast<SubscriberImpl*>(rmw_subscriptions->subscribers[index]);
             if (subscriber.has_error()) {
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve SubscriberImpl");
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
                 return RMW_RET_ERROR;
             }
             if (auto result = waitset_impl->map(index, *subscriber.value()); result.has_error()) {
                 // TODO: maybe detach previously attached elements? Detach all?
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach SubscriberImpl to WaitSetImpl");
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach Subscriber to WaitSet");
                 return RMW_RET_ERROR;
             }
         }
@@ -198,36 +198,36 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* subscriptions,
         }
 
         // Set non-triggered indices to nullptr
-        if (subscriptions) {
-            for (size_t index = 0; index < subscriptions->subscriber_count; index++) {
+        if (rmw_subscriptions) {
+            for (size_t index = 0; index < rmw_subscriptions->subscriber_count; index++) {
                 if (triggered_subscribers.find(index) == triggered_subscribers.end()) {
-                    subscriptions->subscribers[index] = nullptr;
+                    rmw_subscriptions->subscribers[index] = nullptr;
                 }
             }
         }
-        if (guard_conditions) {
-            for (size_t index = 0; index < guard_conditions->guard_condition_count; index++) {
+        if (rmw_guard_conditions) {
+            for (size_t index = 0; index < rmw_guard_conditions->guard_condition_count; index++) {
                 if (triggered_guard_conditions.find(index) == triggered_guard_conditions.end()) {
-                    guard_conditions->guard_conditions[index] = nullptr;
+                    rmw_guard_conditions->guard_conditions[index] = nullptr;
                 }
             }
         }
     }
 
     // Set all events to null (not supported yet)
-    if (events) {
-        for (size_t index = 0; index < events->event_count; index++) {
-            events->events[index] = nullptr;
+    if (rmw_events) {
+        for (size_t index = 0; index < rmw_events->event_count; index++) {
+            rmw_events->events[index] = nullptr;
         }
     }
-    if (services) {
-        for (size_t index = 0; index < services->service_count; index++) {
-            services->services[index] = nullptr;
+    if (rmw_services) {
+        for (size_t index = 0; index < rmw_services->service_count; index++) {
+            rmw_services->services[index] = nullptr;
         }
     }
-    if (clients) {
-        for (size_t index = 0; index < clients->client_count; index++) {
-            clients->clients[index] = nullptr;
+    if (rmw_clients) {
+        for (size_t index = 0; index < rmw_clients->client_count; index++) {
+            rmw_clients->clients[index] = nullptr;
         }
     }
 

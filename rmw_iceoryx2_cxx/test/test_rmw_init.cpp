@@ -11,7 +11,7 @@
 
 #include "rmw/init.h"
 #include "rmw/init_options.h"
-#include "rmw_iceoryx2_cxx/identifier.hpp"
+#include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
