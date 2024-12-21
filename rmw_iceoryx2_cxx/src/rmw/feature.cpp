@@ -9,7 +9,7 @@
 
 #include "rmw/features.h"
 
-bool rmw_feature_supported(rmw_feature_t feature) {
-    static_cast<void>(feature);
+bool rmw_feature_supported(rmw_feature_t rmw_feature) {
+    static_cast<void>(rmw_feature);
     return false;
 }

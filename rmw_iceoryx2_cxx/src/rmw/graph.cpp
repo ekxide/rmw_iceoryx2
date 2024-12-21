@@ -199,12 +199,12 @@ extern "C" {
 
 // Nodes ==========================================================================================================
 
-rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
+rmw_ret_t rmw_get_node_names(const rmw_node_t* rmw_node,
                              rcutils_string_array_t* node_names,
                              rcutils_string_array_t* node_namespaces) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(node_names, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_names, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(node_namespaces, RMW_RET_INVALID_ARGUMENT);
@@ -247,13 +247,13 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* node,
     return RMW_RET_OK;
 }
 
-rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* node,
+rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* rmw_node,
                                            rcutils_string_array_t* node_names,
                                            rcutils_string_array_t* node_namespaces,
                                            rcutils_string_array_t* enclaves) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(node_names, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_names, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(node_namespaces, RMW_RET_INVALID_ARGUMENT);
@@ -267,22 +267,22 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* node,
 
 // Publishers ======================================================================================================
 
-rmw_ret_t rmw_count_publishers(const rmw_node_t* node, const char* topic_name, size_t* count) {
+rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_name, size_t* count) {
     using ::rmw::iox2::Iceoryx2;
-    using ::rmw::iox2::Node;
-    using ::rmw::iox2::Publisher;
+    using NodeImpl = ::rmw::iox2::Node;
+    using PublisherImpl = ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
     namespace names = rmw::iox2::names;
 
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_TOPIC_NAME(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<Node*>(node->data);
+    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
     if (node_impl_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return RMW_RET_ERROR;
@@ -299,7 +299,7 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* node, const char* topic_name, s
     auto service_result = node_impl->iox2()
                               .ipc()
                               .service_builder(iox2_service_name.value())
-                              .publish_subscribe<Publisher::Payload>()
+                              .publish_subscribe<PublisherImpl::Payload>()
                               .open_or_create();
     if (service_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
@@ -313,7 +313,7 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* node, const char* topic_name, s
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* node,
+rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* rmw_node,
                                                     rcutils_allocator_t* allocator,
                                                     const char* node_name,
                                                     const char* node_namespace,
@@ -324,8 +324,8 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* node,
     (void)no_demangle; // not used
 
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);
@@ -339,16 +339,16 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* node,
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* node,
+rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* rmw_node,
                                            rcutils_allocator_t* allocator,
                                            const char* topic_name,
                                            bool no_mangle,
                                            rmw_topic_endpoint_info_array_t* publishers_info) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(publishers_info, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
@@ -362,22 +362,22 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* node,
 
 // Subscribers ======================================================================================================
 
-rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, size_t* count) {
+rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_name, size_t* count) {
     using ::rmw::iox2::Iceoryx2;
-    using ::rmw::iox2::Node;
-    using ::rmw::iox2::Subscriber;
+    using NodeImpl = ::rmw::iox2::Node;
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
     namespace names = rmw::iox2::names;
 
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_TOPIC_NAME(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<Node*>(node->data);
+    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
     if (node_impl_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return RMW_RET_ERROR;
@@ -394,7 +394,7 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, 
     auto service_result = node_impl->iox2()
                               .ipc()
                               .service_builder(iox2_service_name.value())
-                              .publish_subscribe<Subscriber::Payload>()
+                              .publish_subscribe<SubscriberImpl::Payload>()
                               .open_or_create();
     if (service_result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
@@ -408,15 +408,15 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* node, const char* topic_name, 
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* node,
+rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* rmw_node,
                                                      rcutils_allocator_t* allocator,
                                                      const char* node_name,
                                                      const char* node_namespace,
                                                      bool no_demangle,
                                                      rmw_names_and_types_t* topic_names_and_types) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);
@@ -430,16 +430,16 @@ rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* node,
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* node,
+rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* rmw_node,
                                               rcutils_allocator_t* allocator,
                                               const char* topic_name,
                                               bool no_mangle,
                                               rmw_topic_endpoint_info_array_t* subscriptions_info) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(subscriptions_info, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
@@ -453,14 +453,14 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* node,
 
 // Topics ===========================================================================================================
 
-rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* node,
+rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
                                         rcutils_allocator_t* allocator,
                                         bool no_demangle,
                                         rmw_names_and_types_t* topic_names_and_types) {
     // Invariants -----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
@@ -518,10 +518,10 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* node,
 
 // Services ==========================================================================================================
 
-rmw_ret_t rmw_count_services(const rmw_node_t* node, const char* service_name, size_t* count) {
+rmw_ret_t rmw_count_services(const rmw_node_t* rmw_node, const char* service_name, size_t* count) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_SERVICE_NAME(service_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
@@ -530,12 +530,12 @@ rmw_ret_t rmw_count_services(const rmw_node_t* node, const char* service_name, s
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* node,
+rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* rmw_node,
                                           rcutils_allocator_t* allocator,
                                           rmw_names_and_types_t* service_names_and_types) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
@@ -545,14 +545,14 @@ rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* node,
     return RMW_RET_UNSUPPORTED;
 }
 
-rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* node,
+rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
                                                   rcutils_allocator_t* allocator,
                                                   const char* node_name,
                                                   const char* node_namespace,
                                                   rmw_names_and_types_t* service_names_and_types) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);
@@ -568,10 +568,10 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* node,
 
 // Clients ==========================================================================================================
 
-rmw_ret_t rmw_count_clients(const rmw_node_t* node, const char* service_name, size_t* count) {
+rmw_ret_t rmw_count_clients(const rmw_node_t* rmw_node, const char* service_name, size_t* count) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_SERVICE_NAME(service_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
@@ -581,14 +581,14 @@ rmw_ret_t rmw_count_clients(const rmw_node_t* node, const char* service_name, si
 }
 
 
-rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* node,
+rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
                                                  rcutils_allocator_t* allocator,
                                                  const char* node_name,
                                                  const char* node_namespace,
                                                  rmw_names_and_types_t* service_names_and_types) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);

@@ -26,131 +26,130 @@ extern "C" {
 namespace
 {
 
-void inline destroy_node_impl(rmw_node_t* node) noexcept {
+void inline cleanup_node(rmw_node_t* rmw_node) noexcept {
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
     using rmw::iox2::Node;
 
-    if (node) {
-        deallocate(node->name);
-        deallocate(node->namespace_);
-        if (node->data) {
-            destruct<Node>(node->data);
-            deallocate(node->data);
+    if (rmw_node) {
+        deallocate(rmw_node->name);
+        deallocate(rmw_node->namespace_);
+        if (rmw_node->data) {
+            destruct<Node>(rmw_node->data);
+            deallocate(rmw_node->data);
         }
-        rmw_node_free(node);
+        rmw_node_free(rmw_node);
     }
 }
 
 } // namespace
 
-rmw_node_t* rmw_create_node(rmw_context_t* context, const char* name, const char* namespace_) {
+rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const char* namespace_) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(context, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_context, nullptr);
     RMW_IOX2_ENSURE_NOT_NULL(name, nullptr);
     RMW_IOX2_ENSURE_VALID_NODE_NAME(name, nullptr);
     RMW_IOX2_ENSURE_NOT_NULL(namespace_, nullptr);
     RMW_IOX2_ENSURE_VALID_NAMESPACE(namespace_, nullptr);
-    RMW_IOX2_ENSURE_INITIALIZED(context, nullptr);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(context->implementation_identifier, nullptr);
+    RMW_IOX2_ENSURE_INITIALIZED(rmw_context, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_context->implementation_identifier, nullptr);
 
-    // ementation -------------------------------------------------------------------------------
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::allocate_copy;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using ::rmw::iox2::Node;
+    using NodeImpl = ::rmw::iox2::Node;
 
     RMW_IOX2_LOG_DEBUG("Creating node '%s' in namespace '%s'", name, namespace_);
 
-    rmw_node_t* node = rmw_node_allocate();
-    if (!node) {
+    rmw_node_t* rmw_node = rmw_node_allocate();
+    if (!rmw_node) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node handle");
         return nullptr;
     }
-    node->context = context;
-    node->implementation_identifier = rmw_get_implementation_identifier();
+    rmw_node->context = rmw_context;
+    rmw_node->implementation_identifier = rmw_get_implementation_identifier();
 
     auto name_ptr = allocate_copy(name);
     if (name_ptr.has_error()) {
-        destroy_node_impl(node);
+        cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node name");
         return nullptr;
     }
-    node->name = name_ptr.value();
+    rmw_node->name = name_ptr.value();
 
     auto namespace_ptr = allocate_copy(namespace_);
     if (namespace_ptr.has_error()) {
-        destroy_node_impl(node);
+        cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node namespace");
         return nullptr;
     }
-    node->namespace_ = namespace_ptr.value();
+    rmw_node->namespace_ = namespace_ptr.value();
 
-    auto ptr = allocate<Node>();
-    if (ptr.has_error()) {
-        destroy_node_impl(node);
+    auto node_impl = allocate<NodeImpl>();
+    if (node_impl.has_error()) {
+        cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Node");
         return nullptr;
     }
 
-    if (auto construction = create_in_place<Node>(ptr.value(), *context->impl, node->name, node->namespace_);
+    if (auto construction =
+            create_in_place<NodeImpl>(node_impl.value(), *rmw_context->impl, rmw_node->name, rmw_node->namespace_);
         construction.has_error()) {
-        destruct<Node>(ptr.value());
-        deallocate<Node>(ptr.value());
-        destroy_node_impl(node);
+        destruct<NodeImpl>(node_impl.value());
+        deallocate<NodeImpl>(node_impl.value());
+        cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Node");
         return nullptr;
     }
-    node->data = ptr.value();
+    rmw_node->data = node_impl.value();
 
-    return node;
+    return rmw_node;
 }
 
-rmw_ret_t rmw_destroy_node(rmw_node_t* node) {
+rmw_ret_t rmw_destroy_node(rmw_node_t* rmw_node) {
     // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    RMW_IOX2_ENSURE_NOT_NULL(node, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    // Implementation -------------------------------------------------------------------------------
+    RMW_IOX2_LOG_DEBUG("Destroying node '%s' in namespace '%s'", rmw_node->name, rmw_node->namespace_);
 
-    // ementation -------------------------------------------------------------------------------
-
-    RMW_IOX2_LOG_DEBUG("Destroying node '%s' in namespace '%s'", node->name, node->namespace_);
-
-    destroy_node_impl(node);
+    cleanup_node(rmw_node);
 
     return RMW_RET_OK;
 }
 
-const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t* node) {
+const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t* rmw_node) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(node, nullptr);
-    RMW_IOX2_ENSURE_NOT_NULL(node->context, nullptr);
-    RMW_IOX2_ENSURE_NOT_NULL(node->context->impl, nullptr);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(node->implementation_identifier, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node->context, nullptr);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node->context->impl, nullptr);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, nullptr);
 
-    // ementation -------------------------------------------------------------------------------
-    using rmw::iox2::Node;
+    // Implementation -------------------------------------------------------------------------------
+    using NodeImpl = rmw::iox2::Node;
     using rmw::iox2::unsafe_cast;
 
-    auto* guard_condition = rmw_guard_condition_allocate();
-    if (guard_condition == nullptr) {
+    auto* rmw_guard_condition = rmw_guard_condition_allocate();
+    if (rmw_guard_condition == nullptr) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_guard_condition_t");
         return nullptr;
     }
 
-    guard_condition->implementation_identifier = rmw_get_implementation_identifier();
-    guard_condition->context = node->context;
+    rmw_guard_condition->implementation_identifier = rmw_get_implementation_identifier();
+    rmw_guard_condition->context = rmw_node->context;
 
-    auto node_impl = unsafe_cast<Node*>(node->data);
+    auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
     if (node_impl.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
-    guard_condition->data = static_cast<void*>(&node_impl.value()->graph_guard_condition());
+    rmw_guard_condition->data = static_cast<void*>(&node_impl.value()->graph_guard_condition());
 
-    return guard_condition;
+    return rmw_guard_condition;
 }
 }

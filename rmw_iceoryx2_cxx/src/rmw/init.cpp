@@ -53,28 +53,28 @@ rmw_ret_t rmw_init_options_copy(const rmw_init_options_t* src, rmw_init_options_
     return RMW_RET_OK;
 }
 
-rmw_ret_t rmw_init_options_fini(rmw_init_options_t* init_options) {
+rmw_ret_t rmw_init_options_fini(rmw_init_options_t* rmw_init_options) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(init_options, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_VALID_ALLOCATOR(&init_options->allocator, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_NOT_ZERO_INITIALIZED(init_options, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(init_options->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_init_options, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(&rmw_init_options->allocator, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_ZERO_INITIALIZED(rmw_init_options, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_init_options->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
-    *init_options = rmw_get_zero_initialized_init_options();
+    *rmw_init_options = rmw_get_zero_initialized_init_options();
 
     return RMW_RET_OK;
 }
 
-rmw_ret_t rmw_init(const rmw_init_options_t* init_options, rmw_context_t* context) {
+rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* context) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(init_options, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_NOT_NULL(init_options->enclave, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_NOT_ZERO_INITIALIZED(init_options, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_init_options, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_init_options->enclave, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_ZERO_INITIALIZED(rmw_init_options, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(context, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_ZERO_INITIALIZED(context, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_INITIALIZED(context, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(init_options->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_init_options->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
     using rmw::iox2::allocate;
@@ -83,9 +83,9 @@ rmw_ret_t rmw_init(const rmw_init_options_t* init_options, rmw_context_t* contex
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
 
-    context->instance_id = init_options->instance_id;
+    context->instance_id = rmw_init_options->instance_id;
     context->implementation_identifier = rmw_get_implementation_identifier();
-    context->options.enclave = rcutils_strdup(init_options->enclave, init_options->allocator);
+    context->options.enclave = rcutils_strdup(rmw_init_options->enclave, rmw_init_options->allocator);
 
     auto ptr = allocate<rmw_context_impl_s>();
     if (ptr.has_error()) {
@@ -104,34 +104,34 @@ rmw_ret_t rmw_init(const rmw_init_options_t* init_options, rmw_context_t* contex
     return RMW_RET_OK;
 }
 
-rmw_ret_t rmw_shutdown(rmw_context_t* context) {
+rmw_ret_t rmw_shutdown(rmw_context_t* rmw_context) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(context, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_NOT_ZERO_INITIALIZED(context, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(context->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_context, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_ZERO_INITIALIZED(rmw_context, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_context->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
 
-    if (context->impl != nullptr) {
-        destruct<rmw_context_impl_s>(context->impl);
-        deallocate(context->impl);
-        context->impl = nullptr;
+    if (rmw_context->impl != nullptr) {
+        destruct<rmw_context_impl_s>(rmw_context->impl);
+        deallocate(rmw_context->impl);
+        rmw_context->impl = nullptr;
     }
 
     return RMW_RET_OK;
 }
 
-rmw_ret_t rmw_context_fini(rmw_context_t* context) {
+rmw_ret_t rmw_context_fini(rmw_context_t* rmw_context) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(context, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_NOT_ZERO_INITIALIZED(context, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(context->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    RMW_IOX2_ENSURE_NOT_INITIALIZED(context, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_context, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_ZERO_INITIALIZED(rmw_context, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_context->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_INITIALIZED(rmw_context, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    *context = rmw_get_zero_initialized_context();
+    *rmw_context = rmw_get_zero_initialized_context();
 
     return RMW_RET_OK;
 }
