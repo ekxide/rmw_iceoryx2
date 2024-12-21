@@ -59,7 +59,7 @@ protected:
         auto listener = service.listener_builder().create().expect("failed to create test listener");
 
         return listener;
-    };
+    }
 
 private:
     iox::optional<::rmw::iox2::Iceoryx2> m_iox2;

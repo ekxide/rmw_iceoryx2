@@ -17,18 +17,6 @@ namespace
 
 using namespace rmw::iox2::testing;
 
-class DummyClass
-{
-public:
-    DummyClass()
-        : value(42) {
-    }
-    ~DummyClass() {
-        value = 0;
-    }
-    int value;
-};
-
 class AllocatorHelpersTest : public TestBase
 {
 protected:
@@ -113,21 +101,37 @@ TEST_F(AllocatorHelpersTest, deallocate_nullptr) {
     ASSERT_NO_THROW(rmw::iox2::deallocate(ptr));
 }
 
+class DummyClass
+{
+public:
+    DummyClass() {
+        ++constructor_calls;
+    }
+    ~DummyClass() {
+        ++destructor_calls;
+    }
+
+    static size_t constructor_calls;
+    static size_t destructor_calls;
+};
+size_t DummyClass::constructor_calls = 0;
+size_t DummyClass::destructor_calls = 0;
+
 TEST_F(AllocatorHelpersTest, construct_and_destruct) {
     auto allocation = rmw::iox2::allocate<DummyClass>();
     ASSERT_TRUE(allocation.has_value());
 
     auto ptr = allocation.value();
     auto constructed = rmw::iox2::construct(ptr);
-    ASSERT_TRUE(constructed.has_value());
+    ASSERT_FALSE(constructed.has_error());
+    ASSERT_EQ(DummyClass::constructor_calls, 1u);
+    ASSERT_EQ(DummyClass::destructor_calls, 0u);
 
-    auto obj = constructed.value();
-    ASSERT_EQ(obj->value, 42);
+    rmw::iox2::destruct<DummyClass>(ptr);
+    ASSERT_EQ(DummyClass::constructor_calls, 1u);
+    ASSERT_EQ(DummyClass::destructor_calls, 1u);
 
-    rmw::iox2::destruct<DummyClass>(obj);
-    ASSERT_EQ(obj->value, 0);
-
-    rmw::iox2::deallocate(obj);
+    rmw::iox2::deallocate(ptr);
 }
 
 TEST_F(AllocatorHelpersTest, destruct_nullptr) {

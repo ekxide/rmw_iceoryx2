@@ -18,7 +18,7 @@ jobs:
       source-code: ${{ steps.filter.outputs.source-code }}
       markdown: ${{ steps.filter.outputs.markdown }}
     steps:
-      - name: Checkout sources
+      - name: Check out sources
         uses: actions/checkout@v4
 
       - name: Check for changed file types
@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Check out sources
         uses: actions/checkout@v4
 
       - name: Check format of all commit messages
@@ -52,7 +52,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Check out sources
         uses: actions/checkout@v4
 
       - name: Install clang toolchain
@@ -71,95 +71,118 @@ jobs:
 #         git fetch origin main
 #         ./scripts/check-clang-tidy.sh warning-as-error diff-to-main
 
-  colcon-build-test-clang:
+  colcon-build-test:
     needs: [preflight-check, static-code-analysis]
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [clang, gcc]
+        include:
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
     runs-on: ubuntu-latest
     container:
       image: ros:rolling
     steps:
-    - name: Install ros build dependencies
-      run: |
-        apt-get update
-        apt-get install -y \
-          python3-colcon-common-extensions \
-          python3-colcon-mixin \
-          python3-vcstool \
-          python3-rosdep \
-          libacl1-dev \
-          software-properties-common \
-          curl \
-          wget
+      - name: Install common build dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            python3-colcon-common-extensions \
+            python3-colcon-mixin \
+            python3-vcstool \
+            python3-rosdep \
+            libacl1-dev \
+            software-properties-common \
+            curl \
+            wget
 
-    - name: Install rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Create workspace
-      run: |
-        mkdir -p $WORKSPACE_DIR/src/rmw_iceoryx2
-        mkdir -p $WORKSPACE_DIR/src/test_interface_files
+      - name: Setup workspace
+        run: |
+          mkdir -p $WORKSPACE_DIR/src/rmw_iceoryx2
+          mkdir -p $WORKSPACE_DIR/src/test_interface_files
 
-    - name: Checkout test_interface_files
-      uses: actions/checkout@v4
-      with:
-        repository: ros2/test_interface_files
-        path: src/test_interface_files
-        ref: rolling
+      - name: Check out test message interfaces
+        uses: actions/checkout@v4
+        with:
+          repository: ros2/test_interface_files
+          path: src/test_interface_files
+          ref: rolling
 
-    - name: Checkout current ref
-      uses: actions/checkout@v4
-      with:
-        path: src/rmw_iceoryx2
+      - name: Check out current ref
+        uses: actions/checkout@v4
+        with:
+          path: src/rmw_iceoryx2
 
-    - name: Install clang toolchain
-      uses: ./src/rmw_iceoryx2/.github/actions/install-clang
+      # this is also required for all builds as iceoryx2 depends on libclang
+      - name: Install clang toolchain
+        uses: ./src/rmw_iceoryx2/.github/actions/install-clang
 
-    - name: Import dependencies with VCS
-      run: |
-        cd $WORKSPACE_DIR
-        sed 's|git@github.com:|https://github.com/|g' src/rmw_iceoryx2/iceoryx.repos > _deps.repos
-        vcs import src < _deps.repos
+      - name: Install gcc toolchain
+        if: matrix.compiler == 'gcc'
+        uses: ./src/rmw_iceoryx2/.github/actions/install-gcc
 
-    - name: Build with colcon
-      run: |
-        cd $WORKSPACE_DIR
-        . /opt/ros/rolling/setup.sh
-        colcon build \
-          --cmake-args \
-            -DCMAKE_C_COMPILER=clang \
-            -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DBUILD_TESTING=On \
-          --symlink-install \
-          --packages-select \
-            test_interface_files \
-            iceoryx_platform\
-            iceoryx_hoofs \
-            iceoryx2_cxx \
-            rmw_iceoryx2_cxx_test_msgs \
-            rmw_iceoryx2_cxx
+      - name: Import iceoryx
+        run: |
+          cd $WORKSPACE_DIR
 
-    - name: Run tests
-      run: |
-        cd $WORKSPACE_DIR
-        . /opt/ros/rolling/setup.sh
-        . install/setup.sh
-        colcon test \
-          --packages-select \
-            rmw_iceoryx2_cxx \
-          --event-handlers console_direct+ \
-          --return-code-on-test-failure
+          # need to switch to https in ci
+          sed 's|git@github.com:|https://github.com/|g' src/rmw_iceoryx2/iceoryx.repos > _deps.repos
+          vcs import src < _deps.repos
 
-    - name: Generate test reports
-      if: always()
-      run: |
-        cd $WORKSPACE_DIR
-        colcon test-result --verbose
+      - name: Check compiler versions
+        run: |
+          echo "C compiler version:"
+          ${{ matrix.cc }} --version
+          echo "C++ compiler version:"
+          ${{ matrix.cxx }} --version
 
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: |
-          ${{ env.WORKSPACE_DIR }}/build/*/test_results/*/*.xml
-          ${{ env.WORKSPACE_DIR }}/log/**/test*.log
+      - name: Build workspace
+        run: |
+          cd $WORKSPACE_DIR
+          . /opt/ros/rolling/setup.sh
+          colcon build \
+            --cmake-args \
+              -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+              -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              -DBUILD_TESTING=On \
+            --symlink-install \
+            --packages-select \
+              test_interface_files \
+              iceoryx_platform \
+              iceoryx_hoofs \
+              iceoryx2_cxx \
+              rmw_iceoryx2_cxx_test_msgs \
+              rmw_iceoryx2_cxx
+
+      - name: Run tests
+        run: |
+          cd $WORKSPACE_DIR
+          . /opt/ros/rolling/setup.sh
+          . install/setup.sh
+          colcon test \
+            --packages-select rmw_iceoryx2_cxx \
+            --return-code-on-test-failure
+
+      - name: Generate test reports
+        if: always()
+        run: |
+          cd $WORKSPACE_DIR
+          colcon test-result --verbose
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.compiler }}
+          path: |
+            ${{ env.WORKSPACE_DIR }}/build/*/test_results/*/*.xml
+            ${{ env.WORKSPACE_DIR }}/log/**/test*.log
