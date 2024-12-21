@@ -10,9 +10,9 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/basic_types.hpp"
 
-class StringsListenerNode : public rclcpp::Node {
+class BasicTypesListenerNode : public rclcpp::Node {
 public:
-  StringsListenerNode(
+  BasicTypesListenerNode(
       const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
       : Node("listener_basic_types", options) {
 
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
   options.enable_rosout(false);
 
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<StringsListenerNode>(options));
+  rclcpp::spin(std::make_shared<BasicTypesListenerNode>(options));
   rclcpp::shutdown();
   return 0;
 }

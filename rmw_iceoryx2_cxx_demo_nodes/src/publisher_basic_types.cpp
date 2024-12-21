@@ -12,9 +12,10 @@
 
 using namespace std::chrono_literals;
 
-class StringsTalkerNode : public rclcpp::Node {
+class BasicTypesTalkerNode : public rclcpp::Node {
 public:
-  StringsTalkerNode(const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
+  BasicTypesTalkerNode(
+      const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
       : Node("talker_basic_types", options), m_count(0) {
 
     m_publisher =
@@ -85,7 +86,7 @@ int main(int argc, char *argv[]) {
   options.enable_rosout(false);
 
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<StringsTalkerNode>(options));
+  rclcpp::spin(std::make_shared<BasicTypesTalkerNode>(options));
   rclcpp::shutdown();
   return 0;
 }
