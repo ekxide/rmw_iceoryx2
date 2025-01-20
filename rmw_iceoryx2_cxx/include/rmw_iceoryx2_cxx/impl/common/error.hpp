@@ -61,6 +61,8 @@ enum class WaitSetError : uint8_t {
     LISTENER_FAILURE,
     WAIT_FAILURE
 };
+enum class SerializationError : uint8_t { TYPESUPPORT_FAILURE, SERIALIZATION_FAILURE };
+enum class DeserializationError : uint8_t { TYPESUPPORT_FAILURE, DESERIALIZATION_FAILURE };
 
 /**
  * @brief Trait to determine the error type of a given type T

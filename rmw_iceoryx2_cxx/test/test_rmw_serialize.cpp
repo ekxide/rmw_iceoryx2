@@ -20,6 +20,7 @@ namespace
 
 using namespace rmw::iox2::testing;
 
+// TODO: REMOVE - use own serialization functions
 class RmwSerializeTest : public TestBase
 {
 protected:

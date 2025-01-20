@@ -6,3 +6,22 @@
 // which is available at https://opensource.org/licenses/MIT.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
+
+#include "iox/expected.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error.hpp"
+#include "rosidl_typesupport_cpp/message_type_support.hpp"
+
+namespace rmw::iox2
+{
+
+auto serialize(const void* ros_message,
+               const rosidl_message_type_support_t* type_support,
+               void* buffer,
+               size_t buffer_size) -> iox::expected<void, SerializationError>;
+
+auto deserialize(const void* serialized_message,
+                 const size_t serialized_size,
+                 const rosidl_message_type_support_t* typesupport,
+                 void* ros_message) -> iox::expected<void, DeserializationError>;
+
+} // namespace rmw::iox2

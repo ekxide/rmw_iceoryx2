@@ -20,6 +20,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/serialization.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 
 extern "C" {
@@ -141,6 +142,8 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
     // Implementation -------------------------------------------------------------------------------
     using PublisherImpl = ::rmw::iox2::Publisher;
     using ::rmw::iox2::message_size;
+    using ::rmw::iox2::serialize;
+    using ::rmw::iox2::serialized_message_size;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("Publishing copy to '%s'", rmw_publisher->topic_name);
@@ -150,6 +153,7 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
+    auto type_support = publisher_impl.value()->typesupport();
 
     if (rmw_publisher->can_loan_messages) {
         // Publishers with loanable message types can be simply copied into shared-memory.
@@ -160,14 +164,20 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
             return RMW_RET_ERROR;
         }
     } else {
-        // Non-loanable message types must be serialized
-        RMW_IOX2_LOG_WARN("skipping publish to topic '%s'", rmw_publisher->topic_name);
-        RMW_IOX2_LOG_WARN("non-self-contained message types are not yet supported");
-
-        // Get serialized size
-        // Loan iceoryx2 payload
-        // Serialize into payload
-        // Send serialized payload
+        auto serialized_size = serialized_message_size(ros_message, type_support);
+        auto loan = publisher_impl.value()->loan(serialized_size);
+        if (loan.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to loan bytes required for serialization");
+            return RMW_RET_ERROR;
+        }
+        if (auto result = serialize(ros_message, type_support, loan.value(), serialized_size); result.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
+            return RMW_RET_ERROR;
+        }
+        if (auto result = publisher_impl.value()->publish_loan(loan.value()); result.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to publish serialized payload");
+            return RMW_RET_ERROR;
+        }
     }
 
     return RMW_RET_OK;

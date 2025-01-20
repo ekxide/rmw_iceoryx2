@@ -7,12 +7,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw/dynamic_message_type_support.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rosidl_typesupport_cpp/message_type_support.hpp"
 
 const char* const rmw_iox2_serialization_format = "iceoryx2";
 
