@@ -18,6 +18,7 @@
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
+#include "rosidl_typesupport_cpp/message_type_support.hpp"
 
 namespace rmw::iox2
 {
@@ -32,7 +33,6 @@ struct Error<Publisher>
 
 /// @brief Implementation of the RMW publisher for iceoryx2
 ///
-/// @details The publisher supports both zero-copy loans and copy-based publishing mechanisms.
 /// @details The implementation supports both copy and loan-based publishing mechanisms,
 ///          allowing for efficient zero-copy communication when possible.
 ///
@@ -65,8 +65,7 @@ public:
               iox::optional<ErrorType>& error,
               Node& node,
               const char* topic,
-              const char* type,
-              const uint64_t size);
+              const rosidl_message_type_support_t* type_support);
 
     /// @brief Get the unique identifier of this publisher
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
@@ -76,21 +75,17 @@ public:
     /// @return The topic name as string
     auto topic() const -> const std::string&;
 
-    /// @brief Get the message type name
-    /// @return The message type name as string
-    auto type() const -> const std::string&;
+    /// @brief Get the typesupport used by the publisher
+    /// @return Pointer to the typesupport stored in the loaded typesupport library
+    auto typesupport() const -> const rosidl_message_type_support_t*;
 
     /// @brief Get the service name used internally, required for matching via iceoryx2
     /// @return The service name as string
     auto service_name() const -> const std::string&;
 
-    /// @brief Get the maximum payload size
-    /// @return The maximum payload size in bytes
-    auto payload_size() const -> uint64_t;
-
     /// @brief Loan memory for zero-copy publishing
     /// @return Expected containing pointer to loaned memory or error
-    auto loan() -> iox::expected<void*, ErrorType>;
+    auto loan(uint64_t num_bytes) -> iox::expected<void*, ErrorType>;
 
     /// @brief Return previously loaned memory without publishing
     /// @param[in] loaned_memory Pointer to the loaned memory to return
@@ -111,9 +106,8 @@ public:
 
 private:
     const std::string m_topic;
-    const std::string m_type;
+    const rosidl_message_type_support_t* m_typesupport;
     const std::string m_service_name;
-    const uint64_t m_payload_size;
 
     iox::optional<IdType> m_iox_unique_id;
     iox::optional<IceoryxNotifier> m_iox2_notifier;

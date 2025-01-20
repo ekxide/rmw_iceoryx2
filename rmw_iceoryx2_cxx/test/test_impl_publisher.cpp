@@ -13,6 +13,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -36,6 +37,7 @@ TEST_F(PublisherTest, construction) {
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::Node;
     using ::rmw::iox2::Publisher;
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     iox::optional<Context> context_storage;
     create_in_place(context_storage, test_id()).expect("failed to create context for publisher creation");
@@ -47,7 +49,7 @@ TEST_F(PublisherTest, construction) {
     auto& node = node_storage.value();
 
     iox::optional<Publisher> publisher_storage;
-    ASSERT_FALSE(create_in_place(publisher_storage, node, "Topic", "Type", 8).has_error());
+    ASSERT_FALSE(create_in_place(publisher_storage, node, "Topic", test_type_support<Defaults>()).has_error());
 }
 
 } // namespace

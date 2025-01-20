@@ -11,6 +11,7 @@
 
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 
 namespace rmw::iox2
@@ -20,12 +21,10 @@ Publisher::Publisher(CreationLock,
                      iox::optional<ErrorType>& error,
                      Node& node,
                      const char* topic,
-                     const char* type,
-                     const uint64_t payload_size)
+                     const rosidl_message_type_support_t* type_support)
     : m_topic{topic}
-    , m_type{type}
-    , m_service_name{::rmw::iox2::names::topic(topic)}
-    , m_payload_size{payload_size} {
+    , m_typesupport{type_support}
+    , m_service_name{::rmw::iox2::names::topic(topic)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
     if (iox2_service_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_service_name.error()));
@@ -49,7 +48,10 @@ Publisher::Publisher(CreationLock,
         return;
     }
 
-    auto publisher = iox2_pubsub_service.value().publisher_builder().initial_max_slice_len(m_payload_size).create();
+    auto publisher = iox2_pubsub_service.value()
+                         .publisher_builder()
+                         .initial_max_slice_len(::rmw::iox2::message_size(m_typesupport))
+                         .create();
     if (publisher.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(publisher.error()));
         error.emplace(ErrorType::PUBLISHER_CREATION_FAILURE);
@@ -84,23 +86,19 @@ auto Publisher::topic() const -> const std::string& {
     return m_topic;
 }
 
-auto Publisher::type() const -> const std::string& {
-    return m_type;
+auto Publisher::typesupport() const -> const rosidl_message_type_support_t* {
+    return m_typesupport;
 }
 
 auto Publisher::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto Publisher::payload_size() const -> uint64_t {
-    return m_payload_size;
-}
-
-auto Publisher::loan() -> iox::expected<void*, ErrorType> {
+auto Publisher::loan(uint64_t num_bytes) -> iox::expected<void*, ErrorType> {
     using iox::err;
     using iox::ok;
 
-    auto sample = m_iox2_publisher->loan_slice_uninit(m_payload_size);
+    auto sample = m_iox2_publisher->loan_slice_uninit(num_bytes);
     if (sample.has_error()) {
         return err(ErrorType::LOAN_FAILURE);
     }
