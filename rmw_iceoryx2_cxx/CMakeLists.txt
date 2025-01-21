@@ -45,7 +45,7 @@ set(AMENT_PACKAGES
     rosidl_typesupport_introspection_cpp
     rosidl_typesupport_fastrtps_c
     rosidl_typesupport_fastrtps_cpp
-    fastrtps
+    fastcdr
 )
 foreach(package ${AMENT_PACKAGES})
     find_package(${package} REQUIRED)
@@ -58,7 +58,6 @@ endforeach()
 add_library(${PROJECT_NAME} SHARED
   src/impl/common/names.cpp
   src/impl/message/introspection.cpp
-  src/impl/message/serialization.cpp
   src/impl/middleware/iceoryx2.cpp
   src/impl/runtime/context.cpp
   src/impl/runtime/guard_condition.cpp

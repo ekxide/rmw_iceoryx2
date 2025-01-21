@@ -88,7 +88,7 @@ public:
 
     /// @brief Loan memory for zero-copy publishing
     /// @return Expected containing pointer to loaned memory or error
-    auto loan(uint64_t num_bytes) -> iox::expected<void*, ErrorType>;
+    auto loan(uint64_t number_of_bytes) -> iox::expected<void*, ErrorType>;
 
     /// @brief Return previously loaned memory without publishing
     /// @param[in] loaned_memory Pointer to the loaned memory to return
@@ -105,7 +105,7 @@ public:
     /// @param[in] msg Pointer to the message data to copy
     /// @param[in] size Size of the message data in bytes
     /// @return Expected containing void or error if publish failed
-    auto publish_copy(const void* msg, uint64_t size) -> iox::expected<void, ErrorType>;
+    auto publish_copy(const void* data, uint64_t number_of_bytes) -> iox::expected<void, ErrorType>;
 
 private:
     const std::string m_topic;

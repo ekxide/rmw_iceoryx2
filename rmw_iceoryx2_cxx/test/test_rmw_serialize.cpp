@@ -20,7 +20,6 @@ namespace
 
 using namespace rmw::iox2::testing;
 
-// TODO: REMOVE - use own serialization functions
 class RmwSerializeTest : public TestBase
 {
 protected:
@@ -32,52 +31,34 @@ protected:
     }
 };
 
-TEST_F(RmwSerializeTest, serialize_pod_type_succeeds) {
+TEST_F(RmwSerializeTest, serialize_deserialize_pod_type) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    Defaults msg{};
-    rmw_serialized_message_t serialized_msg{};
+    Defaults input{};
+    input.int64_value = 777;
 
-    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Defaults), &test_allocator()));
-    ASSERT_RMW_OK(rmw_serialize(&msg, test_type_support<Defaults>(), &serialized_msg));
-    ASSERT_EQ(msg, *reinterpret_cast<Defaults*>(serialized_msg.buffer));
-}
-
-TEST_F(RmwSerializeTest, deserialize_pod_type_succeeds) {
-    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
-
-    Defaults msg{};
-    msg.int64_value = 777;
     rmw_serialized_message_t serialized_msg{};
     ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Defaults), &test_allocator()));
-    new (serialized_msg.buffer) Defaults{};
-    serialized_msg.buffer_length = sizeof(Defaults);
+    ASSERT_RMW_OK(rmw_serialize(&input, test_type_support<Defaults>(), &serialized_msg));
 
-    ASSERT_RMW_OK(rmw_deserialize(&serialized_msg, test_type_support<Defaults>(), &msg));
-
-    ASSERT_EQ(msg, *reinterpret_cast<Defaults*>(serialized_msg.buffer));
+    Defaults output{};
+    ASSERT_RMW_OK(rmw_deserialize(&serialized_msg, test_type_support<Defaults>(), &output));
+    ASSERT_EQ(input, output);
 }
 
-TEST_F(RmwSerializeTest, serialize_non_pod_type_fails) {
+TEST_F(RmwSerializeTest, serialize_deserialize_non_pod_type) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
 
-    Strings msg{};
-    rmw_serialized_message_t serialized_msg{};
+    Strings input{};
+    input.string_value = "GloryToHypnoToad";
 
-    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Strings), &test_allocator()));
-    ASSERT_RMW_ERR(RMW_RET_UNSUPPORTED, rmw_serialize(&msg, test_type_support<Strings>(), &serialized_msg));
-}
-
-TEST_F(RmwSerializeTest, deserialize_non_pod_type_fails) {
-    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
-
-    Strings msg{};
     rmw_serialized_message_t serialized_msg{};
     ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Strings), &test_allocator()));
-    new (serialized_msg.buffer) Strings{};
-    serialized_msg.buffer_length = sizeof(Strings);
+    ASSERT_RMW_OK(rmw_serialize(&input, test_type_support<Strings>(), &serialized_msg));
 
-    ASSERT_RMW_ERR(RMW_RET_UNSUPPORTED, rmw_deserialize(&serialized_msg, test_type_support<Strings>(), &msg));
+    Strings output{};
+    ASSERT_RMW_OK(rmw_deserialize(&serialized_msg, test_type_support<Strings>(), &output));
+    ASSERT_EQ(input, output);
 }
 
 } // namespace

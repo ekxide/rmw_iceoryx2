@@ -100,11 +100,12 @@ auto Publisher::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto Publisher::loan(uint64_t num_bytes) -> iox::expected<void*, ErrorType> {
+// TODO: Make return uint8_t
+auto Publisher::loan(uint64_t number_of_bytes) -> iox::expected<void*, ErrorType> {
     using iox::err;
     using iox::ok;
 
-    auto sample = m_iox2_publisher->loan_slice_uninit(num_bytes);
+    auto sample = m_iox2_publisher->loan_slice_uninit(number_of_bytes);
     if (sample.has_error()) {
         return err(ErrorType::LOAN_FAILURE);
     }
@@ -152,13 +153,13 @@ auto Publisher::publish_loan(void* loaned_memory) -> iox::expected<void, ErrorTy
     return ok();
 }
 
-auto Publisher::publish_copy(const void* msg, uint64_t size) -> iox::expected<void, ErrorType> {
+auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> iox::expected<void, ErrorType> {
     using ::iox::err;
     using ::iox::ImmutableSlice;
     using ::iox::ok;
 
     // Send
-    auto payload = ImmutableSlice<uint8_t>{static_cast<const uint8_t*>(msg), size};
+    auto payload = ImmutableSlice<uint8_t>{static_cast<const uint8_t*>(data), number_of_bytes};
 
     if (auto result = m_iox2_publisher->send_slice_copy(payload); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));

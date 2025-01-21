@@ -79,19 +79,19 @@ auto Subscriber::take_copy(void* dest) -> iox::expected<bool, ErrorType> {
     using iox::ok;
     using iox::optional;
 
-    auto result = m_iox2_subscriber->receive();
-    if (result.has_error()) {
+    if (auto result = m_iox2_subscriber->receive(); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);
-    }
-    auto sample = std::move(result.value());
-
-    if (sample.has_value()) {
-        auto payload = sample.value().payload();
-        std::memcpy(dest, payload.data(), payload.number_of_bytes());
-        return ok(true);
     } else {
-        return ok(false);
+        auto sample = std::move(result.value());
+
+        if (sample.has_value()) {
+            auto payload = sample.value().payload();
+            auto number_of_bytes = payload.number_of_bytes();
+            std::memcpy(dest, payload.data(), number_of_bytes);
+        }
+
+        return ok(sample.has_value());
     }
 }
 
@@ -112,7 +112,9 @@ auto Subscriber::take_loan() -> iox::expected<iox::optional<SubscriberLoan>, Err
         auto data = sample->payload().data();
         auto number_of_bytes = sample->payload().number_of_bytes();
         m_registry.store(std::move(sample.value()));
-        return ok(optional<SubscriberLoan>({data, number_of_bytes}));
+
+        // Const cast required because of RMW API
+        return ok(optional<SubscriberLoan>({const_cast<uint8_t*>(data), number_of_bytes}));
     } else {
         return ok(optional<SubscriberLoan>{nullopt});
     }

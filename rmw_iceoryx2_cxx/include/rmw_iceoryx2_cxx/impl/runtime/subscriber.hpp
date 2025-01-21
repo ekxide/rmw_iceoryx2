@@ -32,8 +32,8 @@ struct Error<Subscriber>
 
 struct SubscriberLoan
 {
-    const uint8_t* data;
-    const size_t number_of_bytes;
+    uint8_t* data;
+    size_t number_of_bytes;
 };
 
 /// @brief Implementation of the RMW subscriber for iceoryx2

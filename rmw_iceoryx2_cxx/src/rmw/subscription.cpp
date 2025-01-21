@@ -147,27 +147,45 @@ rmw_ret_t rmw_take(const rmw_subscription_t* rmw_subscription,
 
     RMW_IOX2_LOG_DEBUG("Retrieving copy from '%s'", rmw_subscription->topic_name);
 
-    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
-    if (subscriber_impl.has_error()) {
+    if (auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
         return RMW_RET_ERROR;
-    }
-
-    if (rmw_subscription->can_loan_messages) {
-        // Subscriptions with loanable messages can be used as-is
-        auto result = subscriber_impl.value()->take_copy(ros_message);
-        if (result.has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
-            return RMW_RET_ERROR;
-        }
-
-        *taken = result.value();
     } else {
-        // Subscriptions with non-loanable messages need to be deserialized beforehand
-        // Where to store this though, so that it can be automatically cleaned up ..?
-        // - use rmw_serialize directly with source=loan target=ros_message
-        RMW_IOX2_LOG_WARN("skipping take from topic '%s'", rmw_subscription->topic_name);
-        RMW_IOX2_LOG_WARN("non-self-contained message types are not yet supported");
+        auto subscriber_impl = result.value();
+
+        if (rmw_subscription->can_loan_messages) {
+            // Self-contained. Copy payload into message.
+            auto take_result = subscriber_impl->take_copy(ros_message);
+            if (take_result.has_error()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to take copy from subscriber");
+                return RMW_RET_ERROR;
+            }
+            *taken = take_result.value();
+        } else {
+            // Non-self-contained. Deserialize payload into message
+            auto loan_result = subscriber_impl->take_loan();
+            if (loan_result.has_error()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to take loan from subscriber");
+                return RMW_RET_ERROR;
+            } else {
+                auto sample = std::move(loan_result.value());
+                *taken = sample.has_value();
+
+                if (sample.has_value()) {
+                    auto typesupport = subscriber_impl->typesupport();
+                    auto loan = std::move(sample.value());
+
+                    auto serialized_message = rmw_serialized_message_t{
+                        loan.data, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
+
+                    if (auto result = rmw_deserialize(&serialized_message, typesupport, ros_message);
+                        result != RMW_RET_OK) {
+                        RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received message");
+                        return RMW_RET_ERROR;
+                    }
+                }
+            }
+        }
     }
 
     return RMW_RET_OK;
