@@ -35,9 +35,8 @@ bindings to the Rust core.
 | Node                             | :white_check_mark: |
 | Guard Condition                  | :white_check_mark: |
 | Event                            | :construction:     |
-| Publish-Subscribe (Copy)         | :white_check_mark: |
-| Publish-Subscribe (Loan)         | :white_check_mark: |
-| Publish-Subscribe (Serialized)   | :construction:     |
+| Publish-Subscribe                | :white_check_mark: |
+| Message Serialization            | :white_check_mark: |
 | Server-Client                    | :construction:     |
 | Waitset                          | :white_check_mark: |
 | Graph                            | :construction:     |
