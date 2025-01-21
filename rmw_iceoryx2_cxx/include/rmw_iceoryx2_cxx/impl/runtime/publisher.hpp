@@ -59,8 +59,7 @@ public:
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] node The node that owns this publisher
     /// @param[in] topic The topic name to publish to
-    /// @param[in] type The message type name
-    /// @param[in] size The maximum message payload size
+    /// @param[in] typesupport The message typesupport
     Publisher(CreationLock,
               iox::optional<ErrorType>& error,
               Node& node,

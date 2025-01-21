@@ -17,6 +17,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
+#include "rosidl_typesupport_cpp/message_type_support.hpp"
 
 namespace rmw::iox2
 {
@@ -54,8 +55,12 @@ public:
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] node The node that owns this subscriber
     /// @param[in] topic The topic name to subscribe to
-    /// @param[in] type The message type name
-    Subscriber(CreationLock, iox::optional<ErrorType>& error, Node& node, const char* topic, const char* type);
+    /// @param[in] typesupport The message typesupport
+    Subscriber(CreationLock,
+               iox::optional<ErrorType>& error,
+               Node& node,
+               const char* topic,
+               const rosidl_message_type_support_t* type_support);
 
     /// @brief Get the unique identifier of the subscriber
     /// @return Optional containing the raw ID of the subscriber
@@ -65,9 +70,9 @@ public:
     /// @return The topic name as string reference
     auto topic() const -> const std::string&;
 
-    /// @brief Get the message type name
-    /// @return The type name as string reference
-    auto type() const -> const std::string&;
+    /// @brief Get the typesupport used by the publisher
+    /// @return Pointer to the typesupport stored in the loaded typesupport library
+    auto typesupport() const -> const rosidl_message_type_support_t*;
 
     /// @brief Get the service name used internally, required for matching via iceoryx2
     /// @return The service name as string
@@ -89,7 +94,7 @@ public:
 
 private:
     const std::string m_topic;
-    const std::string m_type;
+    const rosidl_message_type_support_t* m_typesupport;
     const std::string m_service_name;
 
     iox::optional<IdType> m_iox2_unique_id;

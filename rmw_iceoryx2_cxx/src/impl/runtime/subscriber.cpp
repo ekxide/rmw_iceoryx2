@@ -16,9 +16,13 @@
 namespace rmw::iox2
 {
 
-Subscriber::Subscriber(CreationLock, iox::optional<ErrorType>& error, Node& node, const char* topic, const char* type)
+Subscriber::Subscriber(CreationLock,
+                       iox::optional<ErrorType>& error,
+                       Node& node,
+                       const char* topic,
+                       const rosidl_message_type_support_t* type_support)
     : m_topic{topic}
-    , m_type{type}
+    , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::topic(topic)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
     if (iox2_service_name.has_error()) {
@@ -61,8 +65,8 @@ auto Subscriber::topic() const -> const std::string& {
     return m_topic;
 }
 
-auto Subscriber::type() const -> const std::string& {
-    return m_type;
+auto Subscriber::typesupport() const -> const rosidl_message_type_support_t* {
+    return m_typesupport;
 }
 
 auto Subscriber::service_name() const -> const std::string& {
