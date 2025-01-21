@@ -78,6 +78,10 @@ public:
     /// @return Pointer to the typesupport stored in the loaded typesupport library
     auto typesupport() const -> const rosidl_message_type_support_t*;
 
+    /// @brief Get the (unserialized) size of the message struct.
+    /// @return Size of the message
+    auto unserialized_size() const -> uint64_t;
+
     /// @brief Get the service name used internally, required for matching via iceoryx2
     /// @return The service name as string
     auto service_name() const -> const std::string&;
@@ -106,6 +110,7 @@ public:
 private:
     const std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
+    const uint64_t m_unserialized_size;
     const std::string m_service_name;
 
     iox::optional<IdType> m_iox_unique_id;

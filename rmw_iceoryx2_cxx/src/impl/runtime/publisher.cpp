@@ -24,6 +24,7 @@ Publisher::Publisher(CreationLock,
                      const rosidl_message_type_support_t* type_support)
     : m_topic{topic}
     , m_typesupport{type_support}
+    , m_unserialized_size{::rmw::iox2::message_size(type_support)}
     , m_service_name{::rmw::iox2::names::topic(topic)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
     if (iox2_service_name.has_error()) {
@@ -88,6 +89,11 @@ auto Publisher::topic() const -> const std::string& {
 
 auto Publisher::typesupport() const -> const rosidl_message_type_support_t* {
     return m_typesupport;
+}
+
+
+auto Publisher::unserialized_size() const -> uint64_t {
+    return m_unserialized_size;
 }
 
 auto Publisher::service_name() const -> const std::string& {

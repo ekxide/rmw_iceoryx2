@@ -153,18 +153,21 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
-    auto type_support = publisher_impl.value()->typesupport();
 
     if (rmw_publisher->can_loan_messages) {
         // Publishers with loanable message types can be simply copied into shared-memory.
         if (auto result =
-                publisher_impl.value()->publish_copy(ros_message, message_size(publisher_impl.value()->typesupport()));
+                publisher_impl.value()->publish_copy(ros_message, publisher_impl.value()->unserialized_size());
             result.has_error()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to publish copy");
             return RMW_RET_ERROR;
         }
     } else {
+        auto type_support = publisher_impl.value()->typesupport();
+
+        // The serialized size of THIS specific message
         auto serialized_size = serialized_message_size(ros_message, type_support);
+
         auto loan = publisher_impl.value()->loan(serialized_size);
         if (loan.has_error()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to loan bytes required for serialization");
