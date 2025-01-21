@@ -225,9 +225,10 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* rmw_subscription,
         return RMW_RET_ERROR;
     }
 
-    auto sample = std::move(loan.value());
-    if (sample.has_value()) {
-        *loaned_message = const_cast<void*>(sample.value()); // const cast forced by RMW API
+    auto payload = std::move(loan.value());
+    if (payload.has_value()) {
+        *loaned_message = static_cast<void*>(
+            const_cast<uint8_t*>(static_cast<const uint8_t*>(payload->data))); // const cast forced by RMW API
         *taken = true;
     } else {
         *taken = false;

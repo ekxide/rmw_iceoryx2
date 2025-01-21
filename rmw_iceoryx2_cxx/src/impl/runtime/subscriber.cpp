@@ -95,7 +95,7 @@ auto Subscriber::take_copy(void* dest) -> iox::expected<bool, ErrorType> {
     }
 }
 
-auto Subscriber::take_loan() -> iox::expected<iox::optional<const void*>, ErrorType> {
+auto Subscriber::take_loan() -> iox::expected<iox::optional<SubscriberLoan>, ErrorType> {
     using iox::err;
     using iox::nullopt;
     using iox::ok;
@@ -109,11 +109,12 @@ auto Subscriber::take_loan() -> iox::expected<iox::optional<const void*>, ErrorT
     auto sample = std::move(result.value());
 
     if (sample.has_value()) {
-        auto ptr = sample.value().payload().data();
+        auto data = sample->payload().data();
+        auto number_of_bytes = sample->payload().number_of_bytes();
         m_registry.store(std::move(sample.value()));
-        return ok(optional<const void*>(ptr));
+        return ok(optional<SubscriberLoan>({data, number_of_bytes}));
     } else {
-        return ok(optional<const void*>{nullopt});
+        return ok(optional<SubscriberLoan>{nullopt});
     }
 }
 

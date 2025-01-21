@@ -30,6 +30,12 @@ struct Error<Subscriber>
     using Type = SubscriberError;
 };
 
+struct SubscriberLoan
+{
+    const uint8_t* data;
+    const size_t number_of_bytes;
+};
+
 /// @brief Implementation of the RMW subscriber for iceoryx2
 /// @details The implementation supports both copy and loan-based data access patterns,
 ///          allowing for efficient zero-copy communication when possible.
@@ -85,12 +91,12 @@ public:
 
     /// @brief Take a loaned message without copying
     /// @return Expected containing optional pointer to the loaned message memory
-    auto take_loan() -> iox::expected<iox::optional<const void*>, ErrorType>;
+    auto take_loan() -> iox::expected<iox::optional<SubscriberLoan>, ErrorType>;
 
     /// @brief Return previously loaned message memory
     /// @param[in] loaned_memory Pointer to the loaned memory to return
     /// @return Expected containing void if successful
-    auto return_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
+    auto return_loan(void* loan) -> iox::expected<void, ErrorType>;
 
 private:
     const std::string m_topic;

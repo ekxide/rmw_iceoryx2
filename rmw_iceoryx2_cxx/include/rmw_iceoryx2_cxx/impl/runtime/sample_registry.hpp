@@ -70,7 +70,7 @@ public:
     /// @brief Remove and return a stored sample
     /// @param[in] loaned_memory Pointer to the payload data
     /// @return Expected containing the removed sample if found, error otherwise
-    auto release(uint8_t* loaned_memory) -> iox::expected<SampleType, ErrorType> {
+    auto release(const uint8_t* loaned_memory) -> iox::expected<SampleType, ErrorType> {
         using iox::err;
         using iox::ok;
         using iox::optional;
@@ -85,7 +85,7 @@ public:
     }
 
 private:
-    std::unordered_map<uint8_t*, SampleType> m_samples;
+    std::unordered_map<const uint8_t*, SampleType> m_samples;
 };
 
 } // namespace rmw::iox2
