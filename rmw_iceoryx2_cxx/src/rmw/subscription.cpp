@@ -176,11 +176,16 @@ rmw_ret_t rmw_take(const rmw_subscription_t* rmw_subscription,
                     auto loan = std::move(sample.value());
 
                     auto serialized_message = rmw_serialized_message_t{
-                        loan.data, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
+                        loan.bytes, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
 
                     if (auto result = rmw_deserialize(&serialized_message, typesupport, ros_message);
                         result != RMW_RET_OK) {
                         RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received message");
+                        return RMW_RET_ERROR;
+                    }
+
+                    if (auto result = subscriber_impl->return_loan(loan.bytes); result.has_error()) {
+                        RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned serialized payload");
                         return RMW_RET_ERROR;
                     }
                 }
@@ -246,7 +251,7 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* rmw_subscription,
     auto payload = std::move(loan.value());
     if (payload.has_value()) {
         *loaned_message = static_cast<void*>(
-            const_cast<uint8_t*>(static_cast<const uint8_t*>(payload->data))); // const cast forced by RMW API
+            const_cast<uint8_t*>(static_cast<const uint8_t*>(payload->bytes))); // const cast forced by RMW API
         *taken = true;
     } else {
         *taken = false;

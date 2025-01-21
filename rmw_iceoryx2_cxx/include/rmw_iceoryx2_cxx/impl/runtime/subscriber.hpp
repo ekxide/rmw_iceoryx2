@@ -32,7 +32,7 @@ struct Error<Subscriber>
 
 struct SubscriberLoan
 {
-    uint8_t* data;
+    uint8_t* bytes;
     size_t number_of_bytes;
 };
 
