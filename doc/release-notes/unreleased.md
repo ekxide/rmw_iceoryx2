@@ -11,6 +11,8 @@
     conflicts when merging.
 -->
 
+* Serialize/deserialized non-self-contained messages into `iceoryx2` payloads [#2](https://github.com/ekxide/rmw_iceoryx2/issues/2)
+
 ### Bugfixes
 
 <!--
