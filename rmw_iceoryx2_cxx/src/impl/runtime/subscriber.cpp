@@ -38,6 +38,8 @@ Subscriber::Subscriber(CreationLock,
                                    // TODO: make configurable
                                    .max_publishers(64)
                                    .max_subscribers(64)
+                                   .history_size(10)
+                                   .subscriber_max_buffer_size(10)
                                    .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                    .open_or_create();    // TODO: set attribute for ROS typename
     if (iox2_pubsub_service.has_error()) {

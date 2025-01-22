@@ -145,7 +145,7 @@ rmw_ret_t rmw_take(const rmw_subscription_t* rmw_subscription,
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
 
-    RMW_IOX2_LOG_DEBUG("Retrieving copy from '%s'", rmw_subscription->topic_name);
+    RMW_IOX2_LOG_DEBUG("Taking from '%s'", rmw_subscription->topic_name);
 
     if (auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
@@ -234,7 +234,7 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* rmw_subscription,
         return RMW_RET_UNSUPPORTED;
     }
 
-    RMW_IOX2_LOG_DEBUG("Retrieving loan from from '%s'", rmw_subscription->topic_name);
+    RMW_IOX2_LOG_DEBUG("Taking loan from from '%s'", rmw_subscription->topic_name);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
     if (subscriber_impl.has_error()) {
@@ -307,6 +307,60 @@ rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* 
     IOX_TODO();
 }
 
+rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* rmw_subscription,
+                                      rmw_serialized_message_t* serialized_message,
+                                      bool* taken,
+                                      rmw_subscription_allocation_t* allocation) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+
+    // Implementation -------------------------------------------------------------------------------
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
+    using ::rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_LOG_DEBUG("Taking serialized message from '%s'", rmw_subscription->topic_name);
+
+    // Copy serialized payload into serialized message.
+    // WARNING: This take variant is usable if ONLY serialized payloads are published on this topic.
+    if (auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data); result.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
+        return RMW_RET_ERROR;
+    } else {
+        auto subscriber_impl = result.value();
+
+        auto loan_result = subscriber_impl->take_loan();
+        if (loan_result.has_error()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to take loan from subscriber");
+            return RMW_RET_ERROR;
+        } else {
+            auto sample = std::move(loan_result.value());
+            *taken = sample.has_value();
+
+            if (sample.has_value()) {
+                auto loan = std::move(sample.value());
+
+                if (auto result = rmw_serialized_message_resize(serialized_message, loan.number_of_bytes);
+                    result != RMW_RET_OK) {
+                    RMW_IOX2_CHAIN_ERROR_MSG("failed to resize serialized message to store received payload");
+                    return RMW_RET_ERROR;
+                }
+
+                memcpy(serialized_message->buffer, loan.bytes, loan.number_of_bytes);
+
+                if (auto result = subscriber_impl->return_loan(loan.bytes); result.has_error()) {
+                    RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned serialized payload");
+                    return RMW_RET_ERROR;
+                }
+            }
+        }
+    }
+
+    return RMW_RET_OK;
+}
+
 rmw_ret_t rmw_take_sequence(const rmw_subscription_t* rmw_subscription,
                             size_t count,
                             rmw_message_sequence_t* message_sequence,
@@ -322,20 +376,6 @@ rmw_ret_t rmw_take_sequence(const rmw_subscription_t* rmw_subscription,
     if (count == 0 || message_sequence->capacity < count || message_info_sequence->capacity < count) {
         return RMW_RET_INVALID_ARGUMENT;
     }
-
-    // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
-}
-
-rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* rmw_subscription,
-                                      rmw_serialized_message_t* serialized_message,
-                                      bool* taken,
-                                      rmw_subscription_allocation_t* allocation) {
-    // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(rmw_subscription, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;

@@ -39,7 +39,11 @@ TEST_F(RmwSerializeTest, serialize_deserialize_pod_type) {
 
     rmw_serialized_message_t serialized_msg{};
     ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Defaults), &test_allocator()));
+
     ASSERT_RMW_OK(rmw_serialize(&input, test_type_support<Defaults>(), &serialized_msg));
+    ASSERT_NE(serialized_msg.buffer, nullptr);
+    ASSERT_NE(serialized_msg.buffer_length, 0);
+    ASSERT_NE(serialized_msg.buffer_capacity, 0);
 
     Defaults output{};
     ASSERT_RMW_OK(rmw_deserialize(&serialized_msg, test_type_support<Defaults>(), &output));
@@ -54,7 +58,11 @@ TEST_F(RmwSerializeTest, serialize_deserialize_non_pod_type) {
 
     rmw_serialized_message_t serialized_msg{};
     ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, sizeof(Strings), &test_allocator()));
+
     ASSERT_RMW_OK(rmw_serialize(&input, test_type_support<Strings>(), &serialized_msg));
+    ASSERT_NE(serialized_msg.buffer, nullptr);
+    ASSERT_NE(serialized_msg.buffer_length, 0);
+    ASSERT_NE(serialized_msg.buffer_capacity, 0);
 
     Strings output{};
     ASSERT_RMW_OK(rmw_deserialize(&serialized_msg, test_type_support<Strings>(), &output));

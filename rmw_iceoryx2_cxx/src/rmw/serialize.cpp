@@ -72,6 +72,8 @@ rmw_ret_t rmw_serialize(const void* ros_message,
         return RMW_RET_ERROR;
     }
 
+    serialized_message->buffer_length = serializer.get_serialized_data_length();
+
     return RMW_RET_OK;
 }
 
