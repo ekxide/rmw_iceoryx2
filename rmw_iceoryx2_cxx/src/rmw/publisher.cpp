@@ -201,7 +201,10 @@ rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* rmw_publisher,
     RMW_IOX2_ENSURE_NOT_NULL(ros_message, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NULL(*ros_message, RMW_RET_INVALID_ARGUMENT);
 
-    // TODO: ENSURE PUBLISHER CAN LOAN
+    if (!rmw_publisher->can_loan_messages) {
+        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained messages do not support loaning");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
     using PublisherImpl = ::rmw::iox2::Publisher;
@@ -232,7 +235,10 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* rmw_pu
     RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    // TODO: ENSURE PUBLISHER CAN LOAN
+    if (!rmw_publisher->can_loan_messages) {
+        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained messages do not support loaning");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
     using PublisherImpl = ::rmw::iox2::Publisher;

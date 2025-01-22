@@ -106,6 +106,68 @@ TEST_F(RmwPublishSubscribeTest, take_non_self_contained_one_new_message) {
     free(recv_payload);
 }
 
+// ----- Loan API ----- //
+
+TEST_F(RmwPublishSubscribeTest, take_loan_self_contained_no_new_messages) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    void* subscriber_loan = nullptr;
+    bool taken{false};
+    ASSERT_RMW_OK(rmw_take_loaned_message(subscription, &subscriber_loan, &taken, nullptr));
+    ASSERT_FALSE(taken);
+}
+
+TEST_F(RmwPublishSubscribeTest, borrow_loan_non_self_contained_no_new_messages_unsupported) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+
+    void* publisher_loan = nullptr;
+    ASSERT_RMW_ERR(RMW_RET_INVALID_ARGUMENT,
+                   rmw_borrow_loaned_message(publisher, test_type_support<Strings>(), &publisher_loan));
+}
+
+TEST_F(RmwPublishSubscribeTest, take_loan_non_self_contained_no_new_messages_unsupported) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    void* subscriber_loan = nullptr;
+    bool taken{false};
+    ASSERT_RMW_ERR(RMW_RET_UNSUPPORTED, rmw_take_loaned_message(subscription, &subscriber_loan, &taken, nullptr));
+}
+
+TEST_F(RmwPublishSubscribeTest, take_loan_self_contained_one_new_message) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    void* publisher_loan = nullptr;
+    ASSERT_RMW_OK(rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &publisher_loan));
+    new (publisher_loan) Defaults{};
+    ASSERT_RMW_OK(rmw_publish_loaned_message(publisher, publisher_loan, nullptr));
+
+    void* subscriber_loan = nullptr;
+    bool taken{false};
+    ASSERT_RMW_OK(rmw_take_loaned_message(subscription, &subscriber_loan, &taken, nullptr));
+    ASSERT_NE(subscriber_loan, nullptr);
+    ASSERT_TRUE(taken);
+
+    ASSERT_EQ(*reinterpret_cast<Defaults*>(subscriber_loan), Defaults{});
+
+    ASSERT_RMW_OK(rmw_return_loaned_message_from_subscription(subscription, subscriber_loan));
+}
+
+// ----- Serialized Message API ----- //
+
 TEST_F(RmwPublishSubscribeTest, take_serialized_no_new_messages) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
 
@@ -194,55 +256,6 @@ TEST_F(RmwPublishSubscribeTest, take_serialized_many_new_messages) {
         // Verify
         ASSERT_EQ(input, output);
     }
-}
-
-// ----- Loan API ----- //
-
-TEST_F(RmwPublishSubscribeTest, loan_self_contained_no_new_messages) {
-    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
-
-    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
-    ASSERT_NE(subscription, nullptr);
-
-    void* subscriber_loan = nullptr;
-    bool taken{false};
-    ASSERT_RMW_OK(rmw_take_loaned_message(subscription, &subscriber_loan, &taken, nullptr));
-    ASSERT_FALSE(taken);
-}
-
-TEST_F(RmwPublishSubscribeTest, loan_non_self_contained_no_new_messages_unsupported) {
-    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
-
-    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
-    ASSERT_NE(subscription, nullptr);
-
-    void* subscriber_loan = nullptr;
-    bool taken{false};
-    ASSERT_RMW_ERR(RMW_RET_UNSUPPORTED, rmw_take_loaned_message(subscription, &subscriber_loan, &taken, nullptr));
-}
-
-TEST_F(RmwPublishSubscribeTest, loan_self_contained_one_new_message) {
-    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
-
-    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
-    ASSERT_NE(publisher, nullptr);
-    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
-    ASSERT_NE(subscription, nullptr);
-
-    void* publisher_loan = nullptr;
-    ASSERT_RMW_OK(rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &publisher_loan));
-    new (publisher_loan) Defaults{};
-    ASSERT_RMW_OK(rmw_publish_loaned_message(publisher, publisher_loan, nullptr));
-
-    void* subscriber_loan = nullptr;
-    bool taken{false};
-    ASSERT_RMW_OK(rmw_take_loaned_message(subscription, &subscriber_loan, &taken, nullptr));
-    ASSERT_NE(subscriber_loan, nullptr);
-    ASSERT_TRUE(taken);
-
-    ASSERT_EQ(*reinterpret_cast<Defaults*>(subscriber_loan), Defaults{});
-
-    ASSERT_RMW_OK(rmw_return_loaned_message_from_subscription(subscription, subscriber_loan));
 }
 
 } // namespace

@@ -224,6 +224,11 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* rmw_subscription,
     RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NULL(*loaned_message, RMW_RET_INVALID_ARGUMENT);
 
+    if (!rmw_subscription->can_loan_messages) {
+        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained messages do not support loaning");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
+
     // Implementation -------------------------------------------------------------------------------
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
@@ -285,6 +290,11 @@ rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* 
     RMW_IOX2_ENSURE_CAN_LOAN(rmw_subscription, RMW_RET_UNSUPPORTED);
     RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
 
+    if (!rmw_subscription->can_loan_messages) {
+        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained messages do not support loaning");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
+
     // Implementation -------------------------------------------------------------------------------
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
@@ -303,8 +313,6 @@ rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* 
     }
 
     return RMW_RET_OK;
-
-    IOX_TODO();
 }
 
 rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* rmw_subscription,
