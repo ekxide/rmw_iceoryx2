@@ -7,12 +7,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw/dynamic_message_type_support.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
-#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rosidl_typesupport_cpp/message_type_support.hpp"
+#include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
+#include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
 
 const char* const rmw_iox2_serialization_format = "iceoryx2";
 
@@ -20,6 +21,14 @@ extern "C" {
 
 const char* rmw_get_serialization_format(void) {
     return rmw_iox2_serialization_format;
+}
+
+rmw_ret_t
+rmw_serialization_support_init(const char* serialization_lib_name,
+                               rcutils_allocator_t* allocator,
+                               rosidl_dynamic_typesupport_serialization_support_t* serialization_support) // OUT
+{
+    return RMW_RET_UNSUPPORTED;
 }
 
 rmw_ret_t rmw_serialize(const void* ros_message,
@@ -31,22 +40,39 @@ rmw_ret_t rmw_serialize(const void* ros_message,
     RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    using rmw::iox2::is_pod;
-    using rmw::iox2::message_size;
 
-    if (!is_pod(type_support)) {
-        RMW_IOX2_CHAIN_ERROR_MSG("serialization of non-self-contained-types is currently not supported");
-        return RMW_RET_UNSUPPORTED;
+    // Handle for fastrtps typesupport
+    const rosidl_message_type_support_t* handle =
+        get_message_typesupport_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
+    if (!handle) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get typesupport handle");
+        return RMW_RET_ERROR;
     }
 
-    auto size = message_size(type_support);
-    if (auto result = rmw_serialized_message_resize(serialized_message, size) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to resize serialized message");
-        return result;
+    // FastRTPS-specific callbacks
+    const message_type_support_callbacks_t* callbacks =
+        static_cast<const message_type_support_callbacks_t*>(handle->data);
+    if (!callbacks) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get typesupport callbacks");
+        return RMW_RET_ERROR;
     }
 
-    serialized_message->buffer_length = size;
-    memcpy(serialized_message->buffer, ros_message, serialized_message->buffer_length);
+    // Prepare the buffer
+    auto fast_buffer = eprosima::fastcdr::FastBuffer(reinterpret_cast<char*>(serialized_message->buffer),
+                                                     serialized_message->buffer_capacity);
+    auto serializer = eprosima::fastcdr::Cdr(
+        fast_buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::CdrVersion::DDS_CDR);
+
+    // Serialize ros message into target buffer
+    try {
+        callbacks->cdr_serialize(ros_message, serializer);
+    }
+    catch (std::exception& e) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize");
+        return RMW_RET_ERROR;
+    }
+
+    serialized_message->buffer_length = serializer.get_serialized_data_length();
 
     return RMW_RET_OK;
 }
@@ -60,23 +86,38 @@ rmw_ret_t rmw_deserialize(const rmw_serialized_message_t* serialized_message,
     RMW_IOX2_ENSURE_NOT_NULL(serialized_message, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    using rmw::iox2::is_pod;
 
-    if (!is_pod(type_support)) {
-        RMW_IOX2_CHAIN_ERROR_MSG("serialization of non-self-contained-types is currently not supported");
-        return RMW_RET_UNSUPPORTED;
+    // Handle for fastrtps typesupport
+    const rosidl_message_type_support_t* handle =
+        get_message_typesupport_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
+    if (!handle) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get typesupport handle");
+        return RMW_RET_ERROR;
     }
 
-    memcpy(ros_message, serialized_message->buffer, serialized_message->buffer_length);
+    // FastRTPS-specific callbacks
+    const message_type_support_callbacks_t* callbacks =
+        static_cast<const message_type_support_callbacks_t*>(handle->data);
+    if (!callbacks) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get typesupport callbacks");
+        return RMW_RET_ERROR;
+    }
+
+    // Prepare the buffer
+    eprosima::fastcdr::FastBuffer buffer(const_cast<char*>(reinterpret_cast<const char*>(serialized_message->buffer)),
+                                         serialized_message->buffer_capacity);
+    eprosima::fastcdr::Cdr deserializer(
+        buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::CdrVersion::DDS_CDR);
+
+    // Deserialize ros message into target buffer
+    try {
+        callbacks->cdr_deserialize(deserializer, ros_message);
+    }
+    catch (std::exception& e) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize");
+        return RMW_RET_ERROR;
+    }
 
     return RMW_RET_OK;
-}
-
-rmw_ret_t
-rmw_serialization_support_init(const char* serialization_lib_name,
-                               rcutils_allocator_t* allocator,
-                               rosidl_dynamic_typesupport_serialization_support_t* serialization_support) // OUT
-{
-    return RMW_RET_UNSUPPORTED;
 }
 }

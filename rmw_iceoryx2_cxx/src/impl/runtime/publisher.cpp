@@ -11,6 +11,7 @@
 
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 
 namespace rmw::iox2
@@ -20,12 +21,11 @@ Publisher::Publisher(CreationLock,
                      iox::optional<ErrorType>& error,
                      Node& node,
                      const char* topic,
-                     const char* type,
-                     const uint64_t payload_size)
+                     const rosidl_message_type_support_t* type_support)
     : m_topic{topic}
-    , m_type{type}
-    , m_service_name{::rmw::iox2::names::topic(topic)}
-    , m_payload_size{payload_size} {
+    , m_typesupport{type_support}
+    , m_unserialized_size{::rmw::iox2::message_size(type_support)}
+    , m_service_name{::rmw::iox2::names::topic(topic)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
     if (iox2_service_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_service_name.error()));
@@ -40,6 +40,8 @@ Publisher::Publisher(CreationLock,
                                    // TODO: make configurable
                                    .max_publishers(64)
                                    .max_subscribers(64)
+                                   .history_size(10)
+                                   .subscriber_max_buffer_size(10)
                                    .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                    .open_or_create();    // TODO: set attribute for ROS typename
 
@@ -49,7 +51,10 @@ Publisher::Publisher(CreationLock,
         return;
     }
 
-    auto publisher = iox2_pubsub_service.value().publisher_builder().initial_max_slice_len(m_payload_size).create();
+    auto publisher = iox2_pubsub_service.value()
+                         .publisher_builder()
+                         .initial_max_slice_len(::rmw::iox2::message_size(m_typesupport))
+                         .create();
     if (publisher.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(publisher.error()));
         error.emplace(ErrorType::PUBLISHER_CREATION_FAILURE);
@@ -84,23 +89,25 @@ auto Publisher::topic() const -> const std::string& {
     return m_topic;
 }
 
-auto Publisher::type() const -> const std::string& {
-    return m_type;
+auto Publisher::typesupport() const -> const rosidl_message_type_support_t* {
+    return m_typesupport;
+}
+
+
+auto Publisher::unserialized_size() const -> uint64_t {
+    return m_unserialized_size;
 }
 
 auto Publisher::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto Publisher::payload_size() const -> uint64_t {
-    return m_payload_size;
-}
-
-auto Publisher::loan() -> iox::expected<void*, ErrorType> {
+// TODO: Make return uint8_t
+auto Publisher::loan(uint64_t number_of_bytes) -> iox::expected<void*, ErrorType> {
     using iox::err;
     using iox::ok;
 
-    auto sample = m_iox2_publisher->loan_slice_uninit(m_payload_size);
+    auto sample = m_iox2_publisher->loan_slice_uninit(number_of_bytes);
     if (sample.has_error()) {
         return err(ErrorType::LOAN_FAILURE);
     }
@@ -148,13 +155,13 @@ auto Publisher::publish_loan(void* loaned_memory) -> iox::expected<void, ErrorTy
     return ok();
 }
 
-auto Publisher::publish_copy(const void* msg, uint64_t size) -> iox::expected<void, ErrorType> {
+auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> iox::expected<void, ErrorType> {
     using ::iox::err;
     using ::iox::ImmutableSlice;
     using ::iox::ok;
 
     // Send
-    auto payload = ImmutableSlice<uint8_t>{static_cast<const uint8_t*>(msg), size};
+    auto payload = ImmutableSlice<uint8_t>{static_cast<const uint8_t*>(data), number_of_bytes};
 
     if (auto result = m_iox2_publisher->send_slice_copy(payload); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));

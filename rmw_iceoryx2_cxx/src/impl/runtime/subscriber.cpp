@@ -16,9 +16,13 @@
 namespace rmw::iox2
 {
 
-Subscriber::Subscriber(CreationLock, iox::optional<ErrorType>& error, Node& node, const char* topic, const char* type)
+Subscriber::Subscriber(CreationLock,
+                       iox::optional<ErrorType>& error,
+                       Node& node,
+                       const char* topic,
+                       const rosidl_message_type_support_t* type_support)
     : m_topic{topic}
-    , m_type{type}
+    , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::topic(topic)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
     if (iox2_service_name.has_error()) {
@@ -34,6 +38,8 @@ Subscriber::Subscriber(CreationLock, iox::optional<ErrorType>& error, Node& node
                                    // TODO: make configurable
                                    .max_publishers(64)
                                    .max_subscribers(64)
+                                   .history_size(10)
+                                   .subscriber_max_buffer_size(10)
                                    .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                    .open_or_create();    // TODO: set attribute for ROS typename
     if (iox2_pubsub_service.has_error()) {
@@ -61,8 +67,8 @@ auto Subscriber::topic() const -> const std::string& {
     return m_topic;
 }
 
-auto Subscriber::type() const -> const std::string& {
-    return m_type;
+auto Subscriber::typesupport() const -> const rosidl_message_type_support_t* {
+    return m_typesupport;
 }
 
 auto Subscriber::service_name() const -> const std::string& {
@@ -75,23 +81,23 @@ auto Subscriber::take_copy(void* dest) -> iox::expected<bool, ErrorType> {
     using iox::ok;
     using iox::optional;
 
-    auto result = m_iox2_subscriber->receive();
-    if (result.has_error()) {
+    if (auto result = m_iox2_subscriber->receive(); result.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);
-    }
-    auto sample = std::move(result.value());
-
-    if (sample.has_value()) {
-        auto payload = sample.value().payload();
-        std::memcpy(dest, payload.data(), payload.number_of_bytes());
-        return ok(true);
     } else {
-        return ok(false);
+        auto sample = std::move(result.value());
+
+        if (sample.has_value()) {
+            auto payload = sample.value().payload();
+            auto number_of_bytes = payload.number_of_bytes();
+            std::memcpy(dest, payload.data(), number_of_bytes);
+        }
+
+        return ok(sample.has_value());
     }
 }
 
-auto Subscriber::take_loan() -> iox::expected<iox::optional<const void*>, ErrorType> {
+auto Subscriber::take_loan() -> iox::expected<iox::optional<SubscriberLoan>, ErrorType> {
     using iox::err;
     using iox::nullopt;
     using iox::ok;
@@ -105,11 +111,14 @@ auto Subscriber::take_loan() -> iox::expected<iox::optional<const void*>, ErrorT
     auto sample = std::move(result.value());
 
     if (sample.has_value()) {
-        auto ptr = sample.value().payload().data();
+        auto data = sample->payload().data();
+        auto number_of_bytes = sample->payload().number_of_bytes();
         m_registry.store(std::move(sample.value()));
-        return ok(optional<const void*>(ptr));
+
+        // Const cast required because of RMW API
+        return ok(optional<SubscriberLoan>({const_cast<uint8_t*>(data), number_of_bytes}));
     } else {
-        return ok(optional<const void*>{nullopt});
+        return ok(optional<SubscriberLoan>{nullopt});
     }
 }
 

@@ -23,6 +23,7 @@ public:
 
     auto publish = [this]() -> void {
       auto loan = m_publisher->borrow_loaned_message();
+      loan.get().string_value = "Hello " + std::to_string(m_count);
       m_publisher->publish(std::move(loan));
       m_count++;
     };
