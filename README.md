@@ -18,10 +18,6 @@
 > If encountering problems, please create an issue so we can converge to
 > stability :).
 
-> [!IMPORTANT]
-> Currently only supports self-contained messages as message serialization is
-> not yet implemented.
-
 ROS 2 [`rmw`](https://github.com/ros2/rmw) implementation for [`iceoryx2`](https://github.com/eclipse-iceoryx/iceoryx2).
 
 `iceoryx2` is a shared memory IPC middleware written in Rust for improved memory
@@ -36,8 +32,8 @@ bindings to the Rust core.
 | Guard Condition                  | :white_check_mark: |
 | Event                            | :construction:     |
 | Publish-Subscribe                | :white_check_mark: |
-| Message Serialization            | :white_check_mark: |
 | Server-Client                    | :construction:     |
+| Message Serialization            | :white_check_mark: |
 | Waitset                          | :white_check_mark: |
 | Graph                            | :construction:     |
 | QoS                              | :construction:     |
