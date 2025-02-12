@@ -54,6 +54,7 @@ Publisher::Publisher(CreationLock,
     auto publisher = iox2_pubsub_service.value()
                          .publisher_builder()
                          .initial_max_slice_len(::rmw::iox2::message_size(m_typesupport))
+                         .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
                          .create();
     if (publisher.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(publisher.error()));
