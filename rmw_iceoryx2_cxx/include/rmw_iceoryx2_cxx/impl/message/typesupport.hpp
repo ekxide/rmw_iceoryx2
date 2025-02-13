@@ -19,14 +19,10 @@
 #define RMW_ICEORYX2_CXX_TYPESUPPORT_CPP rosidl_typesupport_fastrtps_cpp::typesupport_identifier
 
 
-/// @brief Retrieves a handle for the desired typesupport to use, if supported by the ros message typesupport provided
+/// @brief Retrieves a handle for the desired typesupport
 /// @param type_support The typesupport of a ROS message
 /// @param identifier Identifier for the desired typesupport to use
 /// @return Pointer to the desired type support structure if found, nullptr if not supported
-///
-/// This function traverses the type support structure to find the matching identifier.
-/// If the ros message's type support doesn't match the identifier, it continues searching
-/// through the type support hierarchy until a match is found or the end is reached.
 RMW_PUBLIC const rosidl_message_type_support_t* get_handle(const rosidl_message_type_support_t* type_support,
                                                            const char* identifier);
 

@@ -39,7 +39,8 @@ Publisher::Publisher(CreationLock,
                                    .ipc()
                                    .service_builder(iox2_service_name.value())
                                    .publish_subscribe<Payload>()
-                                   // TODO: make configurable
+                                   // TODO: replace hard-coded values with values from
+                                   //       `rmw_qos_profile_t`
                                    .max_publishers(64)
                                    .max_subscribers(64)
                                    .history_size(10)

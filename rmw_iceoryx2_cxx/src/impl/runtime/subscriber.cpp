@@ -37,7 +37,8 @@ Subscriber::Subscriber(CreationLock,
                                    .ipc()
                                    .service_builder(iox2_service_name.value())
                                    .publish_subscribe<Payload>()
-                                   // TODO: make configurable
+                                   // TODO: Replace hard-coded values with values from
+                                   //       `rmw_qos_profile_t`
                                    .max_publishers(64)
                                    .max_subscribers(64)
                                    .history_size(10)
@@ -51,7 +52,8 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
-    auto iox2_subscriber = iox2_pubsub_service.value().subscriber_builder().create();
+    // TODO: Determine buffer_size from `rmw_qos_profile_t::depth`
+    auto iox2_subscriber = iox2_pubsub_service.value().subscriber_builder().buffer_size(10).create();
 
     if (!iox2_subscriber.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_subscriber.error()));
