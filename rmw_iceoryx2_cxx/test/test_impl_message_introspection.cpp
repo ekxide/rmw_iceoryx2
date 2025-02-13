@@ -10,8 +10,11 @@
 #include <gtest/gtest.h>
 
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/arrays.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/bounded_sequences.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/unbounded_sequences.hpp"
 #include "testing/base.hpp"
 
 namespace
@@ -46,6 +49,22 @@ TEST_F(MessageIntrospectionTest, sizes) {
               << std::endl;
     std::cout << "serialized_size(Strings): " << serialized_message_size(&strings_msg, test_type_support<Strings>())
               << std::endl;
+}
+
+TEST_F(MessageIntrospectionTest, self_contained) {
+    using rmw::iox2::is_self_contained;
+    using rmw_iceoryx2_cxx_test_msgs::msg::Arrays;
+    using rmw_iceoryx2_cxx_test_msgs::msg::BoundedSequences;
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+    using rmw_iceoryx2_cxx_test_msgs::msg::UnboundedSequences;
+
+    ASSERT_TRUE(is_self_contained(test_type_support<Defaults>()));
+    ASSERT_TRUE(is_self_contained(test_type_support<Arrays>()));
+
+    ASSERT_FALSE(is_self_contained(test_type_support<Strings>()));
+    ASSERT_FALSE(is_self_contained(test_type_support<BoundedSequences>()));
+    ASSERT_FALSE(is_self_contained(test_type_support<UnboundedSequences>()));
 }
 
 } // namespace

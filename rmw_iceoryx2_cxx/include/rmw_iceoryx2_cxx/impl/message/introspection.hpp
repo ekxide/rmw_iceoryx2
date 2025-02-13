@@ -24,15 +24,15 @@ bool is_message(const rosidl_typesupport_introspection_c__MessageMember* member)
 bool is_fixed_array(const rosidl_typesupport_introspection_c__MessageMember* member);
 bool is_dynamic_array(const rosidl_typesupport_introspection_c__MessageMember* member);
 bool is_dynamic_string(const rosidl_typesupport_introspection_c__MessageMember* member);
-bool is_pod(const rosidl_typesupport_introspection_c__MessageMembers* members);
+bool is_self_contained(const rosidl_typesupport_introspection_c__MessageMembers* members);
 
 bool is_message(const rosidl_typesupport_introspection_cpp::MessageMember* member);
 bool is_fixed_array(const rosidl_typesupport_introspection_cpp::MessageMember* member);
 bool is_dynamic_array(const rosidl_typesupport_introspection_cpp::MessageMember* member);
 bool is_dynamic_string(const rosidl_typesupport_introspection_cpp::MessageMember* member);
-bool is_pod(const rosidl_typesupport_introspection_cpp::MessageMembers* members);
+bool is_self_contained(const rosidl_typesupport_introspection_cpp::MessageMembers* members);
 
-bool is_pod(const rosidl_message_type_support_t* type_support);
+bool is_self_contained(const rosidl_message_type_support_t* type_support);
 RMW_PUBLIC size_t message_size(const rosidl_message_type_support_t* type_support);
 RMW_PUBLIC size_t serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support);
 

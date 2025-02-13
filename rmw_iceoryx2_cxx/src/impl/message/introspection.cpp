@@ -9,6 +9,7 @@
 
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 
+#include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
@@ -32,10 +33,11 @@ bool is_dynamic_array(const rosidl_typesupport_introspection_c__MessageMember* m
 }
 
 bool is_dynamic_string(const rosidl_typesupport_introspection_c__MessageMember* member) {
-    return member->type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_STRING;
+    return member->type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_STRING
+           && (!member->is_array_ || is_dynamic_array(member));
 }
 
-bool is_pod(const rosidl_typesupport_introspection_c__MessageMembers* members) {
+bool is_self_contained(const rosidl_typesupport_introspection_c__MessageMembers* members) {
     if (members == nullptr) {
         return false;
     }
@@ -43,14 +45,17 @@ bool is_pod(const rosidl_typesupport_introspection_c__MessageMembers* members) {
     for (uint32_t i = 0; i < members->member_count_; ++i) {
         const auto* member = members->members_ + i;
 
-        if (is_dynamic_array(member) || is_dynamic_string(member)) {
+        if (is_dynamic_array(member)) {
+            return false;
+        }
+        if (is_dynamic_string(member)) {
             return false;
         }
         if (is_message(member)) {
             if (!member->members_ || !member->members_->data) {
                 return false;
             }
-            if (!is_pod(
+            if (!is_self_contained(
                     static_cast<const rosidl_typesupport_introspection_c__MessageMembers*>(member->members_->data))) {
                 return false;
             }
@@ -72,36 +77,40 @@ bool is_dynamic_array(const rosidl_typesupport_introspection_cpp::MessageMember*
 }
 
 bool is_dynamic_string(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
-    return member->type_id_ == ::rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING;
+    return member->type_id_ == ::rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING
+           && (!member->is_array_ || is_dynamic_array(member));
 }
 
-bool is_pod(const rosidl_typesupport_introspection_cpp::MessageMembers* members) {
-    if (members == nullptr)
+bool is_self_contained(const rosidl_typesupport_introspection_cpp::MessageMembers* members) {
+    if (members == nullptr) {
         return false;
+    }
 
     for (uint32_t i = 0; i < members->member_count_; ++i) {
         const auto* member = members->members_ + i;
 
-        if (is_dynamic_array(member) || is_dynamic_string(member)) {
+        if (is_dynamic_array(member)) {
+            return false;
+        }
+        if (is_dynamic_string(member)) {
             return false;
         }
         if (is_message(member)) {
-            if (!member->members_ || !member->members_->data)
+            if (!member->members_ || !member->members_->data) {
                 return false;
-            if (!is_pod(
-                    static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(member->members_->data))) {
-                return false;
-            };
+            }
+            return is_self_contained(
+                static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(member->members_->data));
         }
     }
     return true;
 }
 
-bool is_pod(const rosidl_message_type_support_t* type_support) {
+RMW_PUBLIC bool is_self_contained(const rosidl_message_type_support_t* type_support) {
     if (auto handle = get_message_typesupport_handle(type_support,
                                                      rosidl_typesupport_introspection_cpp::typesupport_identifier)) {
         auto members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(handle->data);
-        return is_pod(members);
+        return is_self_contained(members);
     }
     return false;
 }
