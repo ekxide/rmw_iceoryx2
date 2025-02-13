@@ -113,7 +113,7 @@ private:
     const uint64_t m_unserialized_size;
     const std::string m_service_name;
 
-    iox::optional<IdType> m_iox_unique_id;
+    iox::optional<IdType> m_iox2_unique_id;
     iox::optional<IceoryxNotifier> m_iox2_notifier;
     iox::optional<IceoryxPublisher> m_iox2_publisher;
     IceoryxSampleRegistry m_registry;

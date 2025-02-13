@@ -51,18 +51,20 @@ Publisher::Publisher(CreationLock,
         return;
     }
 
-    auto publisher = iox2_pubsub_service.value()
-                         .publisher_builder()
-                         .initial_max_slice_len(::rmw::iox2::message_size(m_typesupport))
-                         .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
-                         .create();
-    if (publisher.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(publisher.error()));
+    auto iox2_publisher = iox2_pubsub_service.value()
+                              .publisher_builder()
+                              .initial_max_slice_len(::rmw::iox2::message_size(m_typesupport))
+                              .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
+                              .create();
+
+    if (iox2_publisher.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_publisher.error()));
         error.emplace(ErrorType::PUBLISHER_CREATION_FAILURE);
         return;
     }
-    m_iox_unique_id.emplace(publisher->id());
-    m_iox2_publisher.emplace(std::move(publisher.value()));
+
+    m_iox2_unique_id.emplace(iox2_publisher->id());
+    m_iox2_publisher.emplace(std::move(iox2_publisher.value()));
 
     auto iox2_event_service = node.iox2().ipc().service_builder(iox2_service_name.value()).event().open_or_create();
     if (iox2_event_service.has_error()) {
@@ -71,18 +73,18 @@ Publisher::Publisher(CreationLock,
         return;
     }
 
-    auto notifier = iox2_event_service.value().notifier_builder().create();
-    if (notifier.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(notifier.error()));
+    auto iox2_notifier = iox2_event_service.value().notifier_builder().create();
+    if (iox2_notifier.has_error()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_notifier.error()));
         error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
         return;
     }
-    m_iox2_notifier.emplace(std::move(notifier.value()));
+
+    m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
 }
 
-
 auto Publisher::unique_id() -> const iox::optional<RawIdType>& {
-    auto& bytes = m_iox_unique_id->bytes();
+    auto& bytes = m_iox2_unique_id->bytes();
     return bytes;
 }
 
@@ -93,7 +95,6 @@ auto Publisher::topic() const -> const std::string& {
 auto Publisher::typesupport() const -> const rosidl_message_type_support_t* {
     return m_typesupport;
 }
-
 
 auto Publisher::unserialized_size() const -> uint64_t {
     return m_unserialized_size;

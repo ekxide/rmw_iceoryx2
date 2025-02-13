@@ -59,6 +59,7 @@ endforeach()
 add_library(${PROJECT_NAME} SHARED
   src/impl/common/names.cpp
   src/impl/message/introspection.cpp
+  src/impl/message/typesupport.cpp
   src/impl/middleware/iceoryx2.cpp
   src/impl/runtime/context.cpp
   src/impl/runtime/guard_condition.cpp

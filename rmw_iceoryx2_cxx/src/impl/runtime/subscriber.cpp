@@ -25,6 +25,7 @@ Subscriber::Subscriber(CreationLock,
     , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::topic(topic)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
+
     if (iox2_service_name.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_service_name.error()));
         error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
@@ -42,6 +43,7 @@ Subscriber::Subscriber(CreationLock,
                                    .subscriber_max_buffer_size(10)
                                    .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                    .open_or_create();    // TODO: set attribute for ROS typename
+
     if (iox2_pubsub_service.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_pubsub_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
@@ -49,11 +51,13 @@ Subscriber::Subscriber(CreationLock,
     }
 
     auto iox2_subscriber = iox2_pubsub_service.value().subscriber_builder().create();
+
     if (iox2_subscriber.has_error()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_subscriber.error()));
         error.emplace(ErrorType::SUBSCRIBER_CREATION_FAILURE);
         return;
     }
+
     m_iox2_unique_id.emplace(iox2_subscriber->id());
     m_iox2_subscriber.emplace(std::move(iox2_subscriber.value()));
 }
