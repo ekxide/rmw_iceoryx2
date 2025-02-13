@@ -11,9 +11,10 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
-#include "rosidl_typesupport_cpp/message_type_support.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/typesupport.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
-#include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
+#include "rosidl_typesupport_introspection_cpp/identifier.hpp"
+#include <iostream>
 
 const char* const rmw_iox2_serialization_format = "iceoryx2";
 
@@ -41,15 +42,17 @@ rmw_ret_t rmw_serialize(const void* ros_message,
 
     // Implementation -------------------------------------------------------------------------------
 
-    // Handle for fastrtps typesupport
+    // Get typesupport
     const rosidl_message_type_support_t* handle =
-        get_message_typesupport_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
+        get_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
+    if (!handle) {
+        handle = get_handle(type_support, rosidl_typesupport_introspection_cpp::typesupport_identifier);
+    }
     if (!handle) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get typesupport handle");
         return RMW_RET_ERROR;
     }
 
-    // FastRTPS-specific callbacks
     const message_type_support_callbacks_t* callbacks =
         static_cast<const message_type_support_callbacks_t*>(handle->data);
     if (!callbacks) {
@@ -87,15 +90,17 @@ rmw_ret_t rmw_deserialize(const rmw_serialized_message_t* serialized_message,
 
     // Implementation -------------------------------------------------------------------------------
 
-    // Handle for fastrtps typesupport
+    // Get typesupport
     const rosidl_message_type_support_t* handle =
-        get_message_typesupport_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
+        get_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
+    if (!handle) {
+        handle = get_handle(type_support, rosidl_typesupport_introspection_cpp::typesupport_identifier);
+    }
     if (!handle) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get typesupport handle");
         return RMW_RET_ERROR;
     }
 
-    // FastRTPS-specific callbacks
     const message_type_support_callbacks_t* callbacks =
         static_cast<const message_type_support_callbacks_t*>(handle->data);
     if (!callbacks) {

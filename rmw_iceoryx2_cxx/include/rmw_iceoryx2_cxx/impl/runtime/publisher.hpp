@@ -117,7 +117,7 @@ private:
     uint64_t m_unserialized_size;
     std::string m_service_name;
 
-    ::iox2::bb::Optional<IdType> m_iox_unique_id;
+    ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
     ::iox2::bb::Optional<IceoryxPublisher> m_iox2_publisher;
     IceoryxSampleRegistry m_registry;
