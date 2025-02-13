@@ -50,7 +50,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using ::rmw::iox2::is_pod;
+    using ::rmw::iox2::is_self_contained;
     using ::rmw::iox2::message_size;
     using NodeImpl = ::rmw::iox2::Node;
     using PublisherImpl = ::rmw::iox2::Publisher;
@@ -65,7 +65,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
     }
     rmw_publisher->implementation_identifier = rmw_get_implementation_identifier();
 
-    if (is_pod(type_support)) {
+    if (is_self_contained(type_support)) {
         rmw_publisher->can_loan_messages = true;
     } else {
         rmw_publisher->can_loan_messages = false;

@@ -51,7 +51,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using ::rmw::iox2::is_pod;
+    using ::rmw::iox2::is_self_contained;
     using NodeImpl = ::rmw::iox2::Node;
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
@@ -65,7 +65,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
     }
     rmw_subscription->implementation_identifier = rmw_get_implementation_identifier();
 
-    if (is_pod(type_support)) {
+    if (is_self_contained(type_support)) {
         rmw_subscription->can_loan_messages = true;
     } else {
         rmw_subscription->can_loan_messages = false;
