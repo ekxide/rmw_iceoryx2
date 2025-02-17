@@ -48,7 +48,7 @@ bindings to the Rust core.
 >   the ROS 2 stack, which naturally introduces some overhead compared to pure `iceoryx2`
 > * The minimal possible latency achievable with `iceoryx2` is [in the nanosecond range](https://github.com/eclipse-iceoryx/iceoryx2/tree/main?tab=readme-ov-file#comparision-of-mechanisms)
 
-![Latency vs. Message Size v0.1.0](benchmark/figure/v0.1.0.png)
+![Latency vs. Message Size v0.2.0](benchmark/figure/v0.2.0.png)
 
 ## Setup
 
@@ -152,14 +152,32 @@ However, instead of using an intermediary middleware like  `zenoh`, a `Tunnel` w
 For example, a `Tunnel` using [`smoltcp`](https://github.com/smoltcp-rs/smoltcp) would handle TCP/IP communication directly,
 offering lower latency but requiring more careful handling of network communication details.
 
+### How can I achieve the lowest possible latency with `rmw_iceoryx2`?
+
+To achieve the best latency:
+
+1. Utilize the loaning APIs provided by ROS 2
+1. Utilize self-contained messages
+
+This allows for true zero-copy communication to be achieved between publishers and subscribers
+within a host.
+
 ### What is a self-contained message?
 
-A message definition that does not contain any pointers or references to addresses in a process's virtual 
-address space i.e. satisfy [`TriviallyCopyable` named requirement](https://en.cppreference.com/w/cpp/named_req/TriviallyCopyable).
+A message definition that does not contain any pointers or references to addresses in a process's 
+virtual address space i.e. satisfy [`TriviallyCopyable` named requirement](https://en.cppreference.com/w/cpp/named_req/TriviallyCopyable).
 
-Self-contained messages can be stored in shared memory without any serialization and subsequently read by
-any other process on the host system. Binaries should be compiled with the same compiler flags to ensure
-consistent memory representation.
+Self-contained messages can be stored in shared memory without any serialization and subsequently
+read directly by any other process within the same host, assuming binaries are compiled with the 
+same compiler flags to ensure consistent memory representation.
+
+### What impact do non-self-contained messages have on communication latency?
+
+Messages that are not self-contained must be serialized/deserialized when crossing process
+boundaries, which introduces an overheard that increases with message size per 
+publisher-subscriber pair.
+
+![Latency vs. Message Size (serialized vs zero-copy) v0.2.0](benchmark/figure/v0.2.0-zero-copy-vs-serialized.png)
 
 ### How can I verify that `iceoryx2` is being used by my ROS 2 application?
 
