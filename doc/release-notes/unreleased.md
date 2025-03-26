@@ -30,6 +30,7 @@
 -->
 
 * Organize code base to separate rmw api and implementation details [#16](https://github.com/ekxide/rmw_iceoryx2/issues/16)
+* Use https based url for git repos [#27](https://github.com/ekxide/rmw_iceoryx2/issues/27)
 
 ### Workflow
 
