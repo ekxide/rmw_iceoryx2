@@ -7,7 +7,7 @@ Scripts for gathering and plotting benchmark data.
 1. Set up the environment for `rmw_iceoryx2` as per [these instructions](../README.md#Setup)
 1. Clone `performance_test`
     ```console
-    git clone -b 2.3.0 git@gitlab.com:ApexAI/performance_test.git ~/workspace/src/performance_test
+    git clone -b 2.3.0 https://gitlab.com/ApexAI/performance_test.git ~/workspace/src/performance_test
     ```
 1. Patch `performance_test` to recognize `rmw_iceoryx2_cxx` as zero-copy-capable
     1. NOTE: This shall soon be merged upstream to `performance_test` for convenience

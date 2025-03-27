@@ -76,7 +76,7 @@ bindings to the Rust core.
     1. Either `main` or a specific version tag e.g. `v0.1.0`
 
     ```console
-    git clone -b main git@github.com:ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2/
+    git clone -b main https://github.com/ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2/
     ```
 
 1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes:
