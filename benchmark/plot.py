@@ -16,12 +16,12 @@ from bokeh.plotting import figure, show, save
 from bokeh.layouts import column
 from bokeh.io import output_file
 from bokeh.models import ColumnDataSource, Legend, CustomJSTickFormatter, Range1d
-from bokeh.palettes import Category10
+from bokeh.palettes import Category10, Spectral6
 
-def extract_msg_size(data):
-    """Extract message size from msg_name field."""
-    pattern = r'Array(\d+(?:[km])?)'
-    match = re.search(pattern, data.get('msg_name', ''))
+def extract_msg_size(filename):
+    """Extract message size from filename."""
+    pattern = r'array(\d+(?:[km])?)'
+    match = re.search(pattern, filename.lower())
     if match:
         size_str = match.group(1)
         if size_str.endswith('k'):
@@ -32,7 +32,7 @@ def extract_msg_size(data):
             return int(size_str)
     return None
 
-def parse_performance_file(filepath):
+def parse_performance_file(filepath, config_type):
     """Parse a performance test JSON file and return relevant metrics."""
     try:
         with open(filepath, 'r') as f:
@@ -40,37 +40,47 @@ def parse_performance_file(filepath):
         
         results_df = pd.DataFrame(data['analysis_results'])
         avg_latency = results_df['latency_mean'].mean()
+        throughput = results_df['num_samples_received'].mean()
         
         return {
             'rmw_implementation': data.get('rmw_implementation', ''),
+            'config_type': config_type,
             'avg_latency': avg_latency,
-            'msg_size': extract_msg_size(data)
+            'throughput': throughput,
+            'is_zero_copy': data.get('is_zero_copy_transfer', False),
+            'unbounded': data.get('msg_name', '') == 'UnboundedSequence'
         }
     except Exception as e:
         print(f"Error processing {filepath}: {str(e)}")
         raise
 
-def create_performance_plots(data_directory, output_file_path=None):
+def create_performance_plots(config_dirs, output_file_path=None):
     """Create performance comparison plots."""
-    if not os.path.exists(data_directory):
-        raise FileNotFoundError(f"Directory not found: {data_directory}")
-
     results = []
-    for filename in os.listdir(data_directory):
-        if filename.endswith('.json'):
-            filepath = os.path.join(data_directory, filename)
-            try:
-                result = parse_performance_file(filepath)
-                if result['msg_size'] is not None:
-                    results.append(result)
-                    print(f"Successfully processed {filename}")
-                else:
-                    print(f"Skipped {filename} - couldn't determine message size")
-            except Exception as e:
-                print(f"Error processing {filename}: {str(e)}")
+    
+    # Process each configuration directory
+    for config_name, directory in config_dirs.items():
+        if not os.path.exists(directory):
+            print(f"Warning: Directory not found: {directory}")
+            continue
+            
+        for filename in os.listdir(directory):
+            if filename.endswith('.json'):
+                filepath = os.path.join(directory, filename)
+                try:
+                    result = parse_performance_file(filepath, config_name)
+                    msg_size = extract_msg_size(filename)
+                    if msg_size is not None:
+                        result['msg_size'] = msg_size
+                        results.append(result)
+                        print(f"Successfully processed {filename} from {config_name}")
+                    else:
+                        print(f"Skipped {filename} - couldn't determine message size")
+                except Exception as e:
+                    print(f"Error processing {filename}: {str(e)}")
     
     if not results:
-        raise ValueError(f"No valid JSON files found in {data_directory}")
+        raise ValueError(f"No valid JSON files found in any of the provided directories")
 
     df = pd.DataFrame(results)
     
@@ -85,37 +95,12 @@ def create_performance_plots(data_directory, output_file_path=None):
     )
     
     x_ticks = [
-        32,             # 32 B
-        64,             # 64 B
-        128,            # 128 B
-        256,            # 256 B
-        512,            # 512 B
-        1024,           # 1 KB
-        2*1024,         # 2 KB
-        4*1024,         # 4 KB
-        8*1024,         # 8 KB
-        16*1024,        # 16 KB
-        32*1024,        # 32 KB
-        64*1024,        # 64 KB
-        128*1024,       # 128 KB
-        256*1024,       # 256 KB
-        512*1024,       # 512 KB
-        1024*1024,      # 1 MB
-        2*1024*1024,    # 2 MB
-        4*1024*1024     # 4 MB
+        32, 64, 128, 256, 512,                          # Bytes
+        1024, 2*1024, 4*1024, 8*1024, 16*1024,         # KB range
+        32*1024, 64*1024, 128*1024, 256*1024, 512*1024, # Larger KB
+        1024*1024, 2*1024*1024, 4*1024*1024            # MB range
     ]
-    y_ticks = [
-        1e-9,        # 1 ns
-        1e-8,        # 10 ns
-        1e-7,        # 100 ns
-        1e-6,        # 1 µs
-        1e-5,        # 10 µs
-        1e-4,        # 100 µs
-        1e-3,        # 1 ms
-        1e-2,        # 10 ms
-        1e-1,        # 100 ms
-        1.0          # 1 s
-    ]
+    y_ticks = [1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0]
     
     x_formatter = CustomJSTickFormatter(code="""
         if (tick < 1024) {
@@ -154,19 +139,34 @@ def create_performance_plots(data_directory, output_file_path=None):
     p.outline_line_color = None
     p.toolbar.autohide = True
     
-    # Construct plot
-    colors = Category10[10]
+    # Create a different color for each RMW implementation and configuration combination
+    colors = {}
+    color_palettes = [Category10[10], Spectral6]
+    all_colors = [color for palette in color_palettes for color in palette]
     
+    # Create unique combinations of RMW and config type
+    combinations = df.groupby(['rmw_implementation', 'config_type'])
+    
+    # Assign colors to each combination
+    for i, ((rmw, config), _) in enumerate(combinations):
+        colors[(rmw, config)] = all_colors[i % len(all_colors)]
+    
+    # Construct plot
     legend_items = []
-    for i, (rmw, group) in enumerate(df.groupby('rmw_implementation')):
-        color = colors[i % len(colors)]
+    
+    # Sort the DataFrame by msg_size within each group
+    for (rmw, config), group in combinations:
         group = group.sort_values('msg_size')
+        color = colors[(rmw, config)]
+        
+        # Create label
+        label = f"{rmw} ({config})"
         
         source = ColumnDataSource(group)
         line = p.line('msg_size', 'avg_latency', line_color=color, line_width=2, source=source)
         scatter = p.scatter('msg_size', 'avg_latency', size=8, color=color, source=source)
         
-        legend_items.append((rmw, [line, scatter]))
+        legend_items.append((label, [line, scatter]))
     
     # Add legend
     legend = Legend(
@@ -180,25 +180,29 @@ def create_performance_plots(data_directory, output_file_path=None):
     # Configure hover tool
     p.hover.tooltips = [
         ('RMW', '@rmw_implementation'),
+        ('Configuration', '@config_type'),
         ('Message Size', '@msg_size{0,0} bytes'),
         ('Average Latency', '@avg_latency{0.0000} ms')
     ]
     
     if output_file_path is None:
-        output_file_path = os.path.join(data_directory, 'performance_comparison.html')
+        output_file_path = 'performance_comparison.html'
     
     output_file(output_file_path)
     show(p)
 
 def main():
     parser = argparse.ArgumentParser(description='Generate performance comparison plots from ROS 2 performance test results.')
-    parser.add_argument('data_dir', help='Directory containing the performance test JSON files')
-    parser.add_argument('--output', '-o', help='Output HTML file path (default: <data_dir>/performance_comparison.html)')
+    parser.add_argument('directories', nargs='+', help='Directories containing test results. Directory names will be used as labels.')
+    parser.add_argument('--output', '-o', help='Output HTML file path (default: performance_comparison.html)')
     
     args = parser.parse_args()
     
+    # Create dictionary of directories using their base names as labels
+    config_dirs = {os.path.basename(d): d for d in args.directories}
+    
     try:
-        create_performance_plots(args.data_dir, args.output)
+        create_performance_plots(config_dirs, args.output)
     except Exception as e:
         print(f"Error: {str(e)}")
         return 1
