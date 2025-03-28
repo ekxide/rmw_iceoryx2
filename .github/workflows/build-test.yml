@@ -76,6 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
         compiler: [clang, gcc]
         include:
           - compiler: clang
@@ -84,7 +85,7 @@ jobs:
           - compiler: gcc
             cc: gcc
             cxx: g++
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     container:
       image: ros:rolling
     steps:
@@ -179,7 +180,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.compiler }}
+          name: test-results-${{ matrix.os }}-${{ matrix.compiler }}
           path: |
             ${{ env.WORKSPACE_DIR }}/build/*/test_results/*/*.xml
             ${{ env.WORKSPACE_DIR }}/log/**/test*.log
