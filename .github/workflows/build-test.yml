@@ -132,10 +132,7 @@ jobs:
       - name: Import iceoryx
         run: |
           cd $WORKSPACE_DIR
-
-          # need to switch to https in ci
-          sed 's|git@github.com:|https://github.com/|g' src/rmw_iceoryx2/iceoryx.repos > _deps.repos
-          vcs import src < _deps.repos
+          vcs import src < src/rmw_iceoryx2/iceoryx.repos
 
       - name: Check compiler versions
         run: |
