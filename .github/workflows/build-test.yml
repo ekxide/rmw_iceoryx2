@@ -76,6 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
         compiler: [clang, gcc]
         include:
           - compiler: clang
@@ -84,7 +85,13 @@ jobs:
           - compiler: gcc
             cc: gcc
             cxx: g++
-    runs-on: ubuntu-latest
+          - os: ubuntu-22.04
+            clang-version: 14
+            gcc-version: 11
+          - os: ubuntu-24.04
+            clang-version: 18
+            gcc-version: 13
+    runs-on: ${{ matrix.os }}
     container:
       image: ros:rolling
     steps:
@@ -124,18 +131,19 @@ jobs:
       # this is also required for all builds as iceoryx2 depends on libclang
       - name: Install clang toolchain
         uses: ./src/rmw_iceoryx2/.github/actions/install-clang
+        with:
+          version: ${{ matrix.clang-version }}
 
       - name: Install gcc toolchain
         if: matrix.compiler == 'gcc'
         uses: ./src/rmw_iceoryx2/.github/actions/install-gcc
+        with:
+          version: ${{ matrix.gcc-version }}
 
       - name: Import iceoryx
         run: |
           cd $WORKSPACE_DIR
-
-          # need to switch to https in ci
-          sed 's|git@github.com:|https://github.com/|g' src/rmw_iceoryx2/iceoryx.repos > _deps.repos
-          vcs import src < _deps.repos
+          vcs import src < src/rmw_iceoryx2/iceoryx.repos
 
       - name: Check compiler versions
         run: |
@@ -182,7 +190,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.compiler }}
+          name: test-results-${{ matrix.os }}-${{ matrix.compiler }}
           path: |
             ${{ env.WORKSPACE_DIR }}/build/*/test_results/*/*.xml
             ${{ env.WORKSPACE_DIR }}/log/**/test*.log
