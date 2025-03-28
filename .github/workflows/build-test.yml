@@ -85,6 +85,12 @@ jobs:
           - compiler: gcc
             cc: gcc
             cxx: g++
+          - os: ubuntu-22.04
+            clang-version: 14
+            gcc-version: 11
+          - os: ubuntu-24.04
+            clang-version: 18
+            gcc-version: 13
     runs-on: ${{ matrix.os }}
     container:
       image: ros:rolling
@@ -125,10 +131,14 @@ jobs:
       # this is also required for all builds as iceoryx2 depends on libclang
       - name: Install clang toolchain
         uses: ./src/rmw_iceoryx2/.github/actions/install-clang
+        with:
+          version: ${{ matrix.clang-version }}
 
       - name: Install gcc toolchain
         if: matrix.compiler == 'gcc'
         uses: ./src/rmw_iceoryx2/.github/actions/install-gcc
+        with:
+          version: ${{ matrix.gcc-version }}
 
       - name: Import iceoryx
         run: |

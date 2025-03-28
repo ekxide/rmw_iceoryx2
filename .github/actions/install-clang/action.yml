@@ -1,4 +1,9 @@
 name: 'Install clang'
+inputs:
+  version:
+    description: 'The clang version, e.g. 18'
+    required: false
+    default: 18
 runs:
   using: "composite"
   steps:
@@ -6,14 +11,14 @@ runs:
       shell: bash
       run: |
         sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main"
+        sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${{ inputs.version }} main"
         sudo apt-get update
-        sudo apt-get install -y clang-format-18 clang-tidy-18 clang-tools-18 clang-18 lld
+        sudo apt-get install -y clang-format-${{ inputs.version }} clang-tidy-${{ inputs.version }} clang-tools-${{ inputs.version }} clang-${{ inputs.version }} lld
         sudo rm -f /usr/bin/clang
         sudo rm -f /usr/bin/clang++
         sudo rm -f /usr/bin/clang-tidy
         sudo rm -f /usr/bin/clang-format
-        sudo ln -s /usr/bin/clang-18 /usr/bin/clang
-        sudo ln -s /usr/bin/clang++-18 /usr/bin/clang++
-        sudo ln -s /usr/bin/clang-tidy-18 /usr/bin/clang-tidy
-        sudo ln -s /usr/bin/clang-format-18 /usr/bin/clang-format
+        sudo ln -s /usr/bin/clang-${{ inputs.version }} /usr/bin/clang
+        sudo ln -s /usr/bin/clang++-${{ inputs.version }} /usr/bin/clang++
+        sudo ln -s /usr/bin/clang-tidy-${{ inputs.version }} /usr/bin/clang-tidy
+        sudo ln -s /usr/bin/clang-format-${{ inputs.version }} /usr/bin/clang-format
