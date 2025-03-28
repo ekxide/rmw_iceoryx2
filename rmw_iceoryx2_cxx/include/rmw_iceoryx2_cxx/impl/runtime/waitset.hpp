@@ -12,6 +12,7 @@
 
 #include "iox/duration.hpp"
 #include "iox/optional.hpp"
+#include "iox/type_traits.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -68,7 +69,7 @@ class RMW_PUBLIC WaitSet
         } else if constexpr (std::is_same_v<ListenerType, SubscriberListener>) {
             return Iceoryx2::ServiceType::Ipc;
         } else {
-            static_assert(std::false_type::value, "Unsupported listener type");
+            static_assert(iox::always_false_v<ListenerType>, "Unsupported listener type");
         }
     }();
 

@@ -15,6 +15,7 @@ if(NOT CMAKE_C_STANDARD)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # NOTE: Remove -Wno-unused-parameter after implementation

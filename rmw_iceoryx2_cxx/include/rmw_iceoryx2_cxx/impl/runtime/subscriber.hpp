@@ -53,7 +53,7 @@ private:
     using IdType = ::iox2::UniqueSubscriberId;
     using IceoryxSubscriber = Iceoryx2::InterProcess::Subscriber<Payload>;
     using IceoryxSample = Iceoryx2::InterProcess::Sample<Payload>;
-    using SampleRegistry = SampleRegistry<IceoryxSample>;
+    using IceoryxSampleRegistry = SampleRegistry<IceoryxSample>;
 
 public:
     /// @brief Constructor for SubscriberImpl
@@ -105,7 +105,7 @@ private:
 
     iox::optional<IdType> m_iox2_unique_id;
     iox::optional<IceoryxSubscriber> m_iox2_subscriber;
-    SampleRegistry m_registry;
+    IceoryxSampleRegistry m_registry;
 };
 
 } // namespace rmw::iox2

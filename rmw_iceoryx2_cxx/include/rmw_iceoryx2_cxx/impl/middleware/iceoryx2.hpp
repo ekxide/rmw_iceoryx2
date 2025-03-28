@@ -10,6 +10,7 @@
 #ifndef RMW_IOX2_MIDDLEWARE_ICEORYX2_HPP_
 #define RMW_IOX2_MIDDLEWARE_ICEORYX2_HPP_
 
+#include "iox/type_traits.hpp"
 #include "iox2/listener.hpp"
 #include "iox2/node.hpp"
 #include "iox2/notifier.hpp"
@@ -157,7 +158,7 @@ auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::Servi
     } else if constexpr (S == ::iox2::ServiceType::Ipc) {
         return ipc().service_builder(name.value());
     } else {
-        static_assert(std::false_type::value, "Attempted to build a service of unknown type");
+        static_assert(iox::always_false_v<decltype(S)>, "Attempted to build a service of unknown type");
     }
 }
 

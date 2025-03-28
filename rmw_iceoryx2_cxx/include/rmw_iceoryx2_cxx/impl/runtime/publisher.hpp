@@ -51,7 +51,7 @@ private:
     using IceoryxNotifier = Iceoryx2::InterProcess::Notifier;
     using IceoryxPublisher = Iceoryx2::InterProcess::Publisher<Payload>;
     using IceoryxSample = Iceoryx2::InterProcess::SampleMutUninit<Payload>;
-    using SampleRegistry = SampleRegistry<IceoryxSample>;
+    using IceoryxSampleRegistry = SampleRegistry<IceoryxSample>;
 
 public:
     /// @brief Constructor for PublisherImpl
@@ -116,7 +116,7 @@ private:
     iox::optional<IdType> m_iox_unique_id;
     iox::optional<IceoryxNotifier> m_iox2_notifier;
     iox::optional<IceoryxPublisher> m_iox2_publisher;
-    SampleRegistry m_registry;
+    IceoryxSampleRegistry m_registry;
 };
 
 } // namespace rmw::iox2
