@@ -73,7 +73,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
     rmw_node->implementation_identifier = rmw_get_implementation_identifier();
 
     auto name_ptr = allocate_copy(name);
-    if (name_ptr.has_error()) {
+    if (!name_ptr.has_value()) {
         cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node name");
         return nullptr;
@@ -81,7 +81,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
     rmw_node->name = name_ptr.value();
 
     auto namespace_ptr = allocate_copy(namespace_);
-    if (namespace_ptr.has_error()) {
+    if (!namespace_ptr.has_value()) {
         cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node namespace");
         return nullptr;
@@ -89,7 +89,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
     rmw_node->namespace_ = namespace_ptr.value();
 
     auto node_impl = allocate<NodeImpl>();
-    if (node_impl.has_error()) {
+    if (!node_impl.has_value()) {
         cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Node");
         return nullptr;
@@ -97,7 +97,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
 
     if (auto construction =
             create_in_place<NodeImpl>(node_impl.value(), *rmw_context->impl, rmw_node->name, rmw_node->namespace_);
-        construction.has_error()) {
+        !construction.has_value()) {
         destruct<NodeImpl>(node_impl.value());
         deallocate<NodeImpl>(node_impl.value());
         cleanup_node(rmw_node);
@@ -143,7 +143,7 @@ const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t
     rmw_guard_condition->context = rmw_node->context;
 
     auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (node_impl.has_error()) {
+    if (!node_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }

@@ -10,7 +10,7 @@
 #ifndef RMW_IOX2_COMMON_ALLOCATOR_HPP_
 #define RMW_IOX2_COMMON_ALLOCATOR_HPP_
 
-#include "iox/expected.hpp"
+#include "iox2/bb/expected.hpp"
 #include "rmw/allocators.h"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -22,9 +22,8 @@ namespace rmw::iox2
 {
 
 template <typename T>
-RMW_PUBLIC inline auto allocate(size_t num = 1) -> iox::expected<T*, MemoryError> {
-    using iox::err;
-    using iox::ok;
+RMW_PUBLIC inline auto allocate(size_t num = 1) -> ::iox2::bb::Expected<T*, MemoryError> {
+    using ::iox2::bb::err;
     using rmw::iox2::MemoryError;
 
     if (num == 0) {
@@ -37,12 +36,11 @@ RMW_PUBLIC inline auto allocate(size_t num = 1) -> iox::expected<T*, MemoryError
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate");
         return err(MemoryError::ALLOCATION);
     }
-    return ok(ptr);
+    return ptr;
 }
 
-RMW_PUBLIC inline auto allocate_copy(const char* cstr) -> iox::expected<char*, MemoryError> {
-    using iox::err;
-    using iox::ok;
+RMW_PUBLIC inline auto allocate_copy(const char* cstr) -> ::iox2::bb::Expected<char*, MemoryError> {
+    using ::iox2::bb::err;
     using rmw::iox2::MemoryError;
 
     auto length = strlen(cstr);
@@ -52,7 +50,7 @@ RMW_PUBLIC inline auto allocate_copy(const char* cstr) -> iox::expected<char*, M
         return err(MemoryError::ALLOCATION);
     }
     memcpy(ptr, cstr, length + 1);
-    return ok(ptr);
+    return ptr;
 }
 
 template <typename T>
@@ -78,9 +76,8 @@ RMW_PUBLIC inline auto deallocate(const char*& ptr) -> void {
 }
 
 template <typename T, typename... Args>
-RMW_PUBLIC inline auto construct(T* ptr, Args&&... args) -> iox::expected<T*, MemoryError> {
-    using iox::err;
-    using iox::ok;
+RMW_PUBLIC inline auto construct(T* ptr, Args&&... args) -> ::iox2::bb::Expected<T*, MemoryError> {
+    using ::iox2::bb::err;
     using rmw::iox2::MemoryError;
 
     if (ptr == nullptr) {
@@ -88,7 +85,7 @@ RMW_PUBLIC inline auto construct(T* ptr, Args&&... args) -> iox::expected<T*, Me
         return err(MemoryError::CONSTRUCTION);
     }
     new (ptr) T(std::forward<Args>(args)...);
-    return ok(ptr);
+    return ptr;
 }
 
 template <typename T>
@@ -100,16 +97,15 @@ RMW_PUBLIC inline auto destruct(void* ptr) -> void {
 }
 
 template <typename T>
-auto unsafe_cast(void* ptr) -> iox::expected<T, MemoryError> {
-    using iox::err;
-    using iox::ok;
+auto unsafe_cast(void* ptr) -> ::iox2::bb::Expected<T, MemoryError> {
+    using ::iox2::bb::err;
     using rmw::iox2::MemoryError;
 
     if (!ptr) {
         RMW_IOX2_CHAIN_ERROR_MSG("attempted to cast nullptr");
         return err(MemoryError::CAST);
     }
-    return ok(reinterpret_cast<T>(ptr));
+    return reinterpret_cast<T>(ptr);
 };
 
 } // namespace rmw::iox2

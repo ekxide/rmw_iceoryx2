@@ -7,7 +7,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "iox/assertions_addendum.hpp"
 #include "rmw/allocators.h"
 #include "rmw/dynamic_message_type_support.h"
 #include "rmw/get_network_flow_endpoints.h"
@@ -73,7 +72,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
                            type_support->get_type_description_func(type_support)->type_description.type_name.data);
     }
 
-    if (auto ptr = allocate_copy(topic_name); ptr.has_error()) {
+    if (auto ptr = allocate_copy(topic_name); !ptr.has_value()) {
         rmw_subscription_free(rmw_subscription);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
         return nullptr;
@@ -82,19 +81,19 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
     }
 
     auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (node_impl.has_error()) {
+    if (!node_impl.has_value()) {
         rmw_subscription_free(rmw_subscription);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
-    if (auto subscriber_impl = allocate<SubscriberImpl>(); subscriber_impl.has_error()) {
+    if (auto subscriber_impl = allocate<SubscriberImpl>(); !subscriber_impl.has_value()) {
         rmw_subscription_free(rmw_subscription);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Subscriber");
         return nullptr;
     } else {
-        if (create_in_place<SubscriberImpl>(subscriber_impl.value(), *node_impl.value(), topic_name, type_support)
-                .has_error()) {
+        if (!create_in_place<SubscriberImpl>(subscriber_impl.value(), *node_impl.value(), topic_name, type_support)
+                 .has_value()) {
             destruct<SubscriberImpl>(subscriber_impl.value());
             deallocate<SubscriberImpl>(subscriber_impl.value());
             rmw_subscription_free(rmw_subscription);
@@ -147,7 +146,7 @@ rmw_ret_t rmw_take(const rmw_subscription_t* rmw_subscription,
 
     RMW_IOX2_LOG_DEBUG("Taking from '%s'", rmw_subscription->topic_name);
 
-    if (auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data); result.has_error()) {
+    if (auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
         return RMW_RET_ERROR;
     } else {
@@ -156,7 +155,7 @@ rmw_ret_t rmw_take(const rmw_subscription_t* rmw_subscription,
         if (rmw_subscription->can_loan_messages) {
             // Self-contained. Copy payload into message.
             auto take_result = subscriber_impl->take_copy(ros_message);
-            if (take_result.has_error()) {
+            if (!take_result.has_value()) {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to take copy from subscriber");
                 return RMW_RET_ERROR;
             }
@@ -164,7 +163,7 @@ rmw_ret_t rmw_take(const rmw_subscription_t* rmw_subscription,
         } else {
             // Non-self-contained. Deserialize payload into message
             auto loan_result = subscriber_impl->take_loan();
-            if (loan_result.has_error()) {
+            if (!loan_result.has_value()) {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to take loan from subscriber");
                 return RMW_RET_ERROR;
             } else {
@@ -184,7 +183,7 @@ rmw_ret_t rmw_take(const rmw_subscription_t* rmw_subscription,
                         return RMW_RET_ERROR;
                     }
 
-                    if (auto result = subscriber_impl->return_loan(loan.bytes); result.has_error()) {
+                    if (auto result = subscriber_impl->return_loan(loan.bytes); !result.has_value()) {
                         RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned serialized payload");
                         return RMW_RET_ERROR;
                     }
@@ -242,13 +241,13 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* rmw_subscription,
     RMW_IOX2_LOG_DEBUG("Taking loan from from '%s'", rmw_subscription->topic_name);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
-    if (subscriber_impl.has_error()) {
+    if (!subscriber_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
         return RMW_RET_ERROR;
     }
 
     auto loan = subscriber_impl.value()->take_loan();
-    if (loan.has_error()) {
+    if (!loan.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
         return RMW_RET_ERROR;
     }
@@ -302,12 +301,12 @@ rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* 
     RMW_IOX2_LOG_DEBUG("Releasing loan to '%s'", rmw_subscription->topic_name);
 
     auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
-    if (subscriber_impl.has_error()) {
+    if (!subscriber_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
         return RMW_RET_ERROR;
     }
 
-    if (auto result = subscriber_impl.value()->return_loan(loaned_message); result.has_error()) {
+    if (auto result = subscriber_impl.value()->return_loan(loaned_message); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned message to publisher");
         return RMW_RET_ERROR;
     }
@@ -333,14 +332,14 @@ rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* rmw_subscription
 
     // Copy serialized payload into serialized message.
     // WARNING: This take variant is usable if ONLY serialized payloads are published on this topic.
-    if (auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data); result.has_error()) {
+    if (auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
         return RMW_RET_ERROR;
     } else {
         auto subscriber_impl = result.value();
 
         auto loan_result = subscriber_impl->take_loan();
-        if (loan_result.has_error()) {
+        if (!loan_result.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to take loan from subscriber");
             return RMW_RET_ERROR;
         } else {
@@ -358,7 +357,7 @@ rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* rmw_subscription
 
                 memcpy(serialized_message->buffer, loan.bytes, loan.number_of_bytes);
 
-                if (auto result = subscriber_impl->return_loan(loan.bytes); result.has_error()) {
+                if (auto result = subscriber_impl->return_loan(loan.bytes); !result.has_value()) {
                     RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned serialized payload");
                     return RMW_RET_ERROR;
                 }

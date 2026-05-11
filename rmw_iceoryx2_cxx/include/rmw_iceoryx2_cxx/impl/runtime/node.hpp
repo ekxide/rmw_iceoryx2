@@ -10,7 +10,7 @@
 #ifndef RMW_IOX2_RUNTIME_NODE_HPP_
 #define RMW_IOX2_RUNTIME_NODE_HPP_
 
-#include "iox/optional.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -48,7 +48,7 @@ public:
     /// @param[in] context The context which this node will belong to
     /// @param[in] name The name of the node
     /// @param[in] ns The namespace of the node
-    Node(CreationLock, iox::optional<ErrorType>& error, Context& context, const char* name, const char* ns);
+    Node(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context, const char* name, const char* ns);
 
     /// @brief Get the name of the node
     /// @return The name of the node
@@ -63,9 +63,9 @@ public:
     auto graph_guard_condition() -> GuardCondition&;
 
 private:
-    const std::string m_name;
-    iox::optional<Iceoryx2> m_iox2;
-    iox::optional<GuardCondition> m_graph_guard_condition;
+    std::string m_name;
+    ::iox2::bb::Optional<Iceoryx2> m_iox2;
+    ::iox2::bb::Optional<GuardCondition> m_graph_guard_condition;
 };
 
 } // namespace rmw::iox2

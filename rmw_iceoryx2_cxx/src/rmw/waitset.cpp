@@ -8,6 +8,8 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/impl/runtime/waitset.hpp"
+#include "iox2/bb/duration.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -44,12 +46,12 @@ rmw_wait_set_t* rmw_create_wait_set(rmw_context_t* rmw_context, size_t max_condi
     }
     rmw_wait_set->implementation_identifier = rmw_get_implementation_identifier();
 
-    if (auto waitset_impl = allocate<WaitSetImpl>(); waitset_impl.has_error()) {
+    if (auto waitset_impl = allocate<WaitSetImpl>(); !waitset_impl.has_value()) {
         rmw_wait_set_free(rmw_wait_set);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for WaitSet");
         return nullptr;
     } else {
-        if (create_in_place<WaitSetImpl>(waitset_impl.value(), *rmw_context->impl).has_error()) {
+        if (!create_in_place<WaitSetImpl>(waitset_impl.value(), *rmw_context->impl).has_value()) {
             destruct<WaitSetImpl>(waitset_impl.value());
             deallocate<WaitSetImpl>(waitset_impl.value());
             rmw_wait_set_free(rmw_wait_set);
@@ -111,20 +113,20 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    using ::iox::units::Duration;
+    using Duration = ::iox2::bb::Duration;
     using GuardConditionImpl = ::rmw::iox2::GuardCondition;
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
     using ::rmw::iox2::WaitableEntity;
     using WaitSetImpl = ::rmw::iox2::WaitSet;
 
-    iox::optional<Duration> timeout;
+    ::iox2::bb::Optional<Duration> timeout;
     if (wait_timeout) {
-        timeout.emplace(Duration::fromSeconds(wait_timeout->sec) + Duration::fromNanoseconds(wait_timeout->nsec));
+        timeout.emplace(Duration::from_secs(wait_timeout->sec) + Duration::from_nanos(wait_timeout->nsec));
     }
 
     auto ptr = unsafe_cast<WaitSetImpl*>(rmw_wait_set->data);
-    if (ptr.has_error()) {
+    if (!ptr.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve WaitSet");
         return RMW_RET_ERROR;
     }
@@ -134,11 +136,11 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
     if (rmw_guard_conditions) {
         for (size_t index = 0; index < rmw_guard_conditions->guard_condition_count; index++) {
             auto guard_condition = unsafe_cast<GuardConditionImpl*>(rmw_guard_conditions->guard_conditions[index]);
-            if (guard_condition.has_error()) {
+            if (!guard_condition.has_value()) {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardCondition");
                 return RMW_RET_ERROR;
             }
-            if (auto result = waitset_impl->map(index, *guard_condition.value()); result.has_error()) {
+            if (auto result = waitset_impl->map(index, *guard_condition.value()); !result.has_value()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to attach GuardCondition to WaitSet");
                 return RMW_RET_ERROR;
@@ -150,11 +152,11 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
     if (rmw_subscriptions) {
         for (size_t index = 0; index < rmw_subscriptions->subscriber_count; index++) {
             auto subscriber = unsafe_cast<SubscriberImpl*>(rmw_subscriptions->subscribers[index]);
-            if (subscriber.has_error()) {
+            if (!subscriber.has_value()) {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
                 return RMW_RET_ERROR;
             }
-            if (auto result = waitset_impl->map(index, *subscriber.value()); result.has_error()) {
+            if (auto result = waitset_impl->map(index, *subscriber.value()); !result.has_value()) {
                 // TODO: maybe detach previously attached elements? Detach all?
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to attach Subscriber to WaitSet");
                 return RMW_RET_ERROR;
@@ -164,12 +166,12 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
 
     // Wait and process
     if (timeout.has_value()) {
-        RMW_IOX2_LOG_DEBUG("Waiting on waitset (timeout=%lu)", timeout->toNanoseconds());
+        RMW_IOX2_LOG_DEBUG("Waiting on waitset (timeout=%lu)", timeout->as_nanos());
     } else {
         RMW_IOX2_LOG_DEBUG("Waiting on waitset (no timeout)");
     }
     auto wait_result = waitset_impl->wait(timeout);
-    if (wait_result.has_error()) {
+    if (!wait_result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("waiting on waitset failed");
         return RMW_RET_ERROR;
     }

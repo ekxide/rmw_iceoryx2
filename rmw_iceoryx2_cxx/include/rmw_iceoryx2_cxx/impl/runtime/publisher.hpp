@@ -10,8 +10,9 @@
 #ifndef RMW_IOX2_RUNTIME_PUBLISHER_HPP_
 #define RMW_IOX2_RUNTIME_PUBLISHER_HPP_
 
-#include "iox/optional.hpp"
-#include "iox/slice.hpp"
+#include "iox2/bb/expected.hpp"
+#include "iox2/bb/optional.hpp"
+#include "iox2/bb/slice.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -41,7 +42,7 @@ struct Error<Publisher>
 class RMW_PUBLIC Publisher
 {
 public:
-    using Payload = ::iox::Slice<uint8_t>;
+    using Payload = ::iox2::bb::Slice<uint8_t>;
     using ErrorType = Error<Publisher>::Type;
 
 private:
@@ -61,14 +62,14 @@ public:
     /// @param[in] topic The topic name to publish to
     /// @param[in] typesupport The message typesupport
     Publisher(CreationLock,
-              iox::optional<ErrorType>& error,
+              ::iox2::bb::Optional<ErrorType>& error,
               Node& node,
               const char* topic,
               const rosidl_message_type_support_t* type_support);
 
     /// @brief Get the unique identifier of this publisher
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
-    auto unique_id() -> const iox::optional<RawIdType>&;
+    auto unique_id() -> const ::iox2::bb::Optional<RawIdType>&;
 
     /// @brief Get the topic name
     /// @return The topic name as string
@@ -88,34 +89,34 @@ public:
 
     /// @brief Loan memory for zero-copy publishing
     /// @return Expected containing pointer to loaned memory or error
-    auto loan(uint64_t number_of_bytes) -> iox::expected<void*, ErrorType>;
+    auto loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType>;
 
     /// @brief Return previously loaned memory without publishing
     /// @param[in] loaned_memory Pointer to the loaned memory to return
     /// @return Expected containing void or error if return failed
-    auto return_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
+    auto return_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Publish previously loaned memory
     /// @param[in] loaned_memory Pointer to the loaned memory to publish
     /// @note The memory must be initialized before publishing
     /// @return Expected containing void or error if publish failed
-    auto publish_loan(void* loaned_memory) -> iox::expected<void, ErrorType>;
+    auto publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Publish data by copying
     /// @param[in] msg Pointer to the message data to copy
     /// @param[in] size Size of the message data in bytes
     /// @return Expected containing void or error if publish failed
-    auto publish_copy(const void* data, uint64_t number_of_bytes) -> iox::expected<void, ErrorType>;
+    auto publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
-    const std::string m_topic;
+    std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
-    const uint64_t m_unserialized_size;
-    const std::string m_service_name;
+    uint64_t m_unserialized_size;
+    std::string m_service_name;
 
-    iox::optional<IdType> m_iox_unique_id;
-    iox::optional<IceoryxNotifier> m_iox2_notifier;
-    iox::optional<IceoryxPublisher> m_iox2_publisher;
+    ::iox2::bb::Optional<IdType> m_iox_unique_id;
+    ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
+    ::iox2::bb::Optional<IceoryxPublisher> m_iox2_publisher;
     IceoryxSampleRegistry m_registry;
 };
 

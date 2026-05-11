@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "iox/optional.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
@@ -31,17 +31,18 @@ protected:
 };
 
 TEST_F(NodeTest, construction) {
-    using ::iox::optional;
+    using ::iox2::bb::Optional;
     using ::rmw::iox2::Context;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::Node;
 
-    iox::optional<Context> context_storage;
-    create_in_place(context_storage, test_id()).expect("failed to create context for publisher creation");
+    Optional<Context> context_storage;
+    ASSERT_TRUE(create_in_place(context_storage, test_id()).has_value())
+        << "failed to create context for publisher creation";
     auto& context = context_storage.value();
 
-    iox::optional<Node> node_storage;
-    ASSERT_FALSE(create_in_place(node_storage, context, "MyNode", "RmwNodeTest").has_error());
+    Optional<Node> node_storage;
+    ASSERT_TRUE(create_in_place(node_storage, context, "MyNode", "RmwNodeTest").has_value());
 }
 
 } // namespace

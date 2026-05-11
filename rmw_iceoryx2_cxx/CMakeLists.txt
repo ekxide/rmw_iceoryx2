@@ -36,7 +36,6 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(iceoryx2-cxx REQUIRED)
-find_package(iceoryx_hoofs REQUIRED)
 
 set(AMENT_PACKAGES
     rcutils
@@ -92,10 +91,9 @@ target_include_directories(${PROJECT_NAME}
     $<INSTALL_INTERFACE:include>
 )
 
-# Manual linking required as iceoryx and iceoryx2 are not ament packages
+# Manual linking required as iceoryx2 is not an ament package
 target_link_libraries(${PROJECT_NAME} PUBLIC
   iceoryx2-cxx::static-lib-cxx
-  iceoryx_hoofs::iceoryx_hoofs
 )
 
 # ----------------------------------------------------------------------------

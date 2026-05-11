@@ -42,13 +42,13 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* rmw_context) {
     rmw_guard_condition->implementation_identifier = rmw_get_implementation_identifier();
 
     auto guard_condition_impl = allocate<GuardConditionImpl>();
-    if (guard_condition_impl.has_error()) {
+    if (!guard_condition_impl.has_value()) {
         rmw_guard_condition_free(rmw_guard_condition);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for GuardCondition");
         return nullptr;
     }
 
-    if (create_in_place<GuardConditionImpl>(guard_condition_impl.value(), *rmw_context->impl).has_error()) {
+    if (!create_in_place<GuardConditionImpl>(guard_condition_impl.value(), *rmw_context->impl).has_value()) {
         destruct<GuardConditionImpl>(guard_condition_impl.value());
         deallocate<GuardConditionImpl>(guard_condition_impl.value());
         rmw_guard_condition_free(rmw_guard_condition);
@@ -90,14 +90,15 @@ rmw_ret_t rmw_trigger_guard_condition(const rmw_guard_condition_t* rmw_guard_con
     using GuardConditionImpl = rmw::iox2::GuardCondition;
     using rmw::iox2::unsafe_cast;
 
-    auto result = RMW_RET_OK;
-    unsafe_cast<GuardConditionImpl*>(rmw_guard_condition->data).and_then([&result](auto impl) {
-        if (impl->trigger().has_error()) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to trigger guard condition");
-            result = RMW_RET_ERROR;
-        }
-    });
-
-    return result;
+    auto guard_condition_impl = unsafe_cast<GuardConditionImpl*>(rmw_guard_condition->data);
+    if (!guard_condition_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve GuardCondition");
+        return RMW_RET_ERROR;
+    }
+    if (!guard_condition_impl.value()->trigger().has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to trigger guard condition");
+        return RMW_RET_ERROR;
+    }
+    return RMW_RET_OK;
 }
 }

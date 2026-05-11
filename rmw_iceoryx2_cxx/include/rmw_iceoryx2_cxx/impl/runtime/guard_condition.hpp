@@ -10,7 +10,8 @@
 #ifndef RMW_IOX2_RUNTIME_GUARD_CONDITION_HPP_
 #define RMW_IOX2_RUNTIME_GUARD_CONDITION_HPP_
 
-#include "iox/optional.hpp"
+#include "iox2/bb/expected.hpp"
+#include "iox2/bb/optional.hpp"
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
@@ -49,11 +50,11 @@ public:
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] context The context to associate the guard condition with
-    GuardCondition(CreationLock, iox::optional<ErrorType>& error, Context& context);
+    GuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context);
 
     /// @brief Get the unique id of the guard condition
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
-    auto unique_id() -> const iox::optional<RawIdType>&;
+    auto unique_id() -> const ::iox2::bb::Optional<RawIdType>&;
 
     /// @brief Get the trigger id of the guard condition
     /// @return The trigger id
@@ -65,14 +66,14 @@ public:
 
     /// @brief Triggers the guard condition
     /// @return Error if trigger via iceoryx2 failed
-    auto trigger() -> iox::expected<void, ErrorType>;
+    auto trigger() -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
-    const uint32_t m_trigger_id;
-    const std::string m_service_name;
+    uint32_t m_trigger_id;
+    std::string m_service_name;
 
-    iox::optional<IdType> m_iox2_unique_id;
-    iox::optional<IceoryxNotifier> m_iox2_notifier;
+    ::iox2::bb::Optional<IdType> m_iox2_unique_id;
+    ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
 };
 
 } // namespace rmw::iox2

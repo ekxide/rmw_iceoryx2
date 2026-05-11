@@ -123,7 +123,7 @@ TEST_F(AllocatorHelpersTest, construct_and_destruct) {
 
     auto ptr = allocation.value();
     auto constructed = rmw::iox2::construct(ptr);
-    ASSERT_FALSE(constructed.has_error());
+    ASSERT_TRUE(constructed.has_value());
     ASSERT_EQ(DummyClass::constructor_calls, 1u);
     ASSERT_EQ(DummyClass::destructor_calls, 0u);
 

@@ -39,8 +39,10 @@ TEST_F(RmwGidTest, can_retrieve_publisher_gid) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto* publisher = create_default_publisher<Defaults>(create_test_topic());
-    auto gid = allocate<rmw_gid_t>().expect("unable to allocate for rmw_gid_t");
-    construct<rmw_gid_t>(gid).expect("unable to construct rmw_gid_t");
+    auto gid_alloc = allocate<rmw_gid_t>();
+    ASSERT_TRUE(gid_alloc.has_value()) << "unable to allocate for rmw_gid_t";
+    auto gid = gid_alloc.value();
+    ASSERT_TRUE(construct<rmw_gid_t>(gid).has_value()) << "unable to construct rmw_gid_t";
     memset(gid->data, 0, RMW_GID_STORAGE_SIZE);
 
     ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher, gid));
@@ -57,13 +59,17 @@ TEST_F(RmwGidTest, can_compare_publisher_gids) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto* publisher_1 = create_default_publisher<Defaults>(create_test_topic());
-    auto gid_1 = allocate<rmw_gid_t>().expect("unable to allocate for rmw_gid_t");
-    construct<rmw_gid_t>(gid_1).expect("unable to construct rmw_gid_t");
+    auto gid_1_alloc = allocate<rmw_gid_t>();
+    ASSERT_TRUE(gid_1_alloc.has_value()) << "unable to allocate for rmw_gid_t";
+    auto gid_1 = gid_1_alloc.value();
+    ASSERT_TRUE(construct<rmw_gid_t>(gid_1).has_value()) << "unable to construct rmw_gid_t";
     memset(gid_1->data, 0, RMW_GID_STORAGE_SIZE);
 
     auto* publisher_2 = create_default_publisher<Defaults>(create_test_topic());
-    auto gid_2 = allocate<rmw_gid_t>().expect("unable to allocate for rmw_gid_t");
-    construct<rmw_gid_t>(gid_1).expect("unable to construct rmw_gid_t");
+    auto gid_2_alloc = allocate<rmw_gid_t>();
+    ASSERT_TRUE(gid_2_alloc.has_value()) << "unable to allocate for rmw_gid_t";
+    auto gid_2 = gid_2_alloc.value();
+    ASSERT_TRUE(construct<rmw_gid_t>(gid_1).has_value()) << "unable to construct rmw_gid_t";
     memset(gid_1->data, 0, RMW_GID_STORAGE_SIZE);
 
     ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher_1, gid_1));

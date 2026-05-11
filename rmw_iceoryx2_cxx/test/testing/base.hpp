@@ -23,7 +23,7 @@ class TestBase : public ::testing::Test
 {
 protected:
     static void SetUpTestSuite() {
-        ::iox2::set_log_level(::iox2::LogLevel::Debug);
+        ::iox2::set_log_level(::iox2::LogLevel::Info);
     }
 
     TestBase() {

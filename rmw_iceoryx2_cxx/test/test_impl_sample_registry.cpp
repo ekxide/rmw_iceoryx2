@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "iox/slice.hpp"
+#include "iox2/bb/slice.hpp"
 #include "iox2/node.hpp"
 #include "iox2/sample_mut_uninit.hpp"
 #include "iox2/service_name.hpp"
@@ -33,33 +33,35 @@ protected:
 };
 
 TEST_F(RmwSampleRegistryTest, store_and_retrieve_loaned_publisher_sample) {
-    using Payload = ::iox::Slice<uint8_t>;
+    using Payload = ::iox2::bb::Slice<uint8_t>;
     using Sample = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, void>;
     using ::rmw::iox2::Iceoryx2;
     using ::rmw::iox2::SampleRegistry;
 
     SampleRegistry<Sample> sut{};
 
-    auto iox2 = Iceoryx2::InstanceBuilder()
-                    .name(Iceoryx2::InstanceName::create("rmw_sample_registry_test::store_loaned_sample")
-                              .expect("failed to create node name"))
-                    .create<Iceoryx2::ServiceType::Ipc>()
-                    .expect("");
+    auto node_name = Iceoryx2::InstanceName::create("rmw_sample_registry_test::store_loaned_sample");
+    ASSERT_TRUE(node_name.has_value()) << "failed to create node name";
+
+    auto iox2 = Iceoryx2::InstanceBuilder().name(node_name.value()).create<Iceoryx2::ServiceType::Ipc>();
+    ASSERT_TRUE(iox2.has_value()) << "failed to create iceoryx2 node";
 
     auto payload_size = 64;
-    auto service_name = Iceoryx2::ServiceName::create("rmw_sample_registry_test::store_loaned_sample::topic")
-                            .expect("failed to create service name");
-    auto service = iox2.service_builder(service_name)
-                       .publish_subscribe<Payload>()
-                       .open_or_create()
-                       .expect("failed to create service");
-    auto publisher =
-        service.publisher_builder().initial_max_slice_len(payload_size).create().expect("failed to create publisher");
-    auto sample = publisher.loan_slice_uninit(payload_size).expect("failed to loan");
-    auto sample_ptr = sample.payload().data();
+    auto service_name = Iceoryx2::ServiceName::create("rmw_sample_registry_test::store_loaned_sample::topic");
+    ASSERT_TRUE(service_name.has_value()) << "failed to create service name";
+
+    auto service = iox2.value().service_builder(service_name.value()).publish_subscribe<Payload>().open_or_create();
+    ASSERT_TRUE(service.has_value()) << "failed to create service";
+
+    auto publisher = service.value().publisher_builder().initial_max_slice_len(payload_size).create();
+    ASSERT_TRUE(publisher.has_value()) << "failed to create publisher";
+
+    auto sample = publisher.value().loan_slice_uninit(payload_size);
+    ASSERT_TRUE(sample.has_value()) << "failed to loan";
+    auto sample_ptr = sample.value().payload().data();
     ASSERT_NE(sample_ptr, nullptr);
 
-    auto stored_ptr = sut.store(std::move(sample));
+    auto stored_ptr = sut.store(std::move(sample.value()));
     ASSERT_NE(stored_ptr, nullptr);
 
     ASSERT_EQ(sample_ptr, stored_ptr);

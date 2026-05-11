@@ -7,7 +7,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "iox/assertions_addendum.hpp"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
@@ -21,19 +20,21 @@ rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t* rmw_publisher, rmw_gi
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(rmw_gid, RMW_RET_INVALID_ARGUMENT);
 
-    // ementation -------------------------------------------------------------------------------
+    // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
 
     auto publisher_impl = unsafe_cast<Publisher*>(rmw_publisher->data);
-    if (publisher_impl.has_error()) {
+    if (!publisher_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
     if (auto id = publisher_impl.value()->unique_id(); id.has_value()) {
         rmw_gid->implementation_identifier = rmw_get_implementation_identifier();
-        std::copy(id.value().data(), id.value().data() + RMW_GID_STORAGE_SIZE, rmw_gid->data);
+        std::copy(id.value().unchecked_access().data(),
+                  id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
+                  rmw_gid->data);
         return RMW_RET_OK;
     }
 
@@ -47,7 +48,7 @@ rmw_ret_t rmw_get_gid_for_client(const rmw_client_t* rmw_client, rmw_gid_t* rmw_
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_client->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(rmw_gid, RMW_RET_INVALID_ARGUMENT);
 
-    // ementation -------------------------------------------------------------------------------
+    // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -59,7 +60,7 @@ rmw_ret_t rmw_compare_gids_equal(const rmw_gid_t* lhs, const rmw_gid_t* rhs, boo
     RMW_IOX2_ENSURE_IMPLEMENTATION(lhs->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rhs->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
-    // ementation -------------------------------------------------------------------------------
+    // Implementation -------------------------------------------------------------------------------
     // NOTE: In iceoryx2, GIDs for different entities (Publishers, Notifiers, etc.) have unique types.
     //       Thus, these IDs may have the same value but the type system prevents them from being considered equal.
     //       In C, only the raw value is worked with. This might cause problems.

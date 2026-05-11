@@ -10,7 +10,7 @@
 #ifndef RMW_IOX2_RUNTIME_CONTEXT_HPP_
 #define RMW_IOX2_RUNTIME_CONTEXT_HPP_
 
-#include "iox/optional.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -56,7 +56,12 @@ public:
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] id ID to use for this context
-    rmw_context_impl_s(CreationLock lock, iox::optional<ErrorType>& error, const uint32_t id);
+    rmw_context_impl_s(CreationLock lock, ::iox2::bb::Optional<ErrorType>& error, const uint32_t id);
+
+    rmw_context_impl_s(rmw_context_impl_s&& other) noexcept;
+    auto operator=(rmw_context_impl_s&& other) noexcept -> rmw_context_impl_s&;
+    rmw_context_impl_s(const rmw_context_impl_s&) = delete;
+    auto operator=(const rmw_context_impl_s&) -> rmw_context_impl_s& = delete;
 
     /// @brief Get the ID of this context
     /// @return The context ID
@@ -71,8 +76,8 @@ public:
     auto generate_guard_condition_id() -> uint32_t;
 
 private:
-    const uint32_t m_id;
-    iox::optional<Iceoryx2> m_iox2;
+    uint32_t m_id;
+    ::iox2::bb::Optional<Iceoryx2> m_iox2;
     std::atomic<uint32_t> m_guard_condition_counter{0};
 };
 }

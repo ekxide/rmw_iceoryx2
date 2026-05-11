@@ -41,7 +41,7 @@ rmw_client_t* rmw_create_client(const rmw_node_t* rmw_node,
     }
     rmw_client->implementation_identifier = rmw_get_implementation_identifier();
 
-    if (auto ptr = allocate_copy(service_name); ptr.has_error()) {
+    if (auto ptr = allocate_copy(service_name); !ptr.has_value()) {
         rmw_client_free(rmw_client);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
         return nullptr;

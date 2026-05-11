@@ -10,8 +10,8 @@
 #ifndef RMW_IOX2_SAMPLE_REGISTRY_HPP_
 #define RMW_IOX2_SAMPLE_REGISTRY_HPP_
 
-#include "iox/expected.hpp"
-#include "iox/optional.hpp"
+#include "iox2/bb/expected.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 
 #include <unordered_map>
@@ -57,23 +57,19 @@ public:
     /// @brief Retrieve a stored sample by its payload pointer without removing it
     /// @param[in] loaned_memory Pointer to the payload data
     /// @return Pointer to the stored sample if found, nullopt otherwise
-    auto retrieve(uint8_t* loaned_memory) -> iox::optional<SampleType*> {
-        using iox::nullopt;
-
+    auto retrieve(uint8_t* loaned_memory) -> ::iox2::bb::Optional<SampleType*> {
         auto it = m_samples.find(loaned_memory);
         if (it != m_samples.end()) {
             return &(it->second);
         }
-        return nullopt;
+        return ::iox2::bb::NULLOPT;
     }
 
     /// @brief Remove and return a stored sample
     /// @param[in] loaned_memory Pointer to the payload data
     /// @return Expected containing the removed sample if found, error otherwise
-    auto release(const uint8_t* loaned_memory) -> iox::expected<SampleType, ErrorType> {
-        using iox::err;
-        using iox::ok;
-        using iox::optional;
+    auto release(const uint8_t* loaned_memory) -> ::iox2::bb::Expected<SampleType, ErrorType> {
+        using ::iox2::bb::err;
 
         auto it = m_samples.find(loaned_memory);
         if (it == m_samples.end()) {
@@ -81,7 +77,7 @@ public:
         }
         auto sample = std::move(it->second);
         m_samples.erase(it);
-        return ok(std::move(sample));
+        return sample;
     }
 
 private:
