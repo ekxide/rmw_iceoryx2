@@ -19,6 +19,8 @@
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <thread>
 
 namespace
@@ -208,6 +210,66 @@ public:
         }).detach();
     }
 
+    struct TriggerResult
+    {
+        std::set<size_t> subscriptions;
+        std::set<size_t> guard_conditions;
+    };
+
+    /// @brief Loop `rmw_wait` until every expected index has been observed at least
+    ///        once. Times out after 2s.
+    auto wait_for_triggers(const std::set<size_t>& expected_subscriptions = {},
+                           const std::set<size_t>& expected_guard_conditions = {}) -> TriggerResult {
+        TriggerResult triggers{};
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+
+        auto received_all_triggers = [&] {
+            bool all_subscriptions_triggered = std::includes(triggers.subscriptions.begin(),
+                                                             triggers.subscriptions.end(),
+                                                             expected_subscriptions.begin(),
+                                                             expected_subscriptions.end());
+            bool all_guard_conditions_triggered = std::includes(triggers.guard_conditions.begin(),
+                                                                triggers.guard_conditions.end(),
+                                                                expected_guard_conditions.begin(),
+                                                                expected_guard_conditions.end());
+            return all_subscriptions_triggered && all_guard_conditions_triggered;
+        };
+
+        while (!received_all_triggers()) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                ADD_FAILURE() << "timed out waiting for triggers; got subs="
+                              << ::testing::PrintToString(triggers.subscriptions)
+                              << " guards=" << ::testing::PrintToString(triggers.guard_conditions);
+                return triggers;
+            }
+
+            auto* subscriptions = expected_subscriptions.empty() ? nullptr : subscriptions_array();
+            auto* guard_conditions = expected_guard_conditions.empty() ? nullptr : guard_conditions_array();
+
+            auto result = rmw_wait(subscriptions, guard_conditions, nullptr, nullptr, nullptr, m_waitset, &m_timeout);
+            if (!(result == RMW_RET_OK || result == RMW_RET_TIMEOUT)) {
+                ADD_FAILURE() << "rmw_wait failed";
+                return triggers;
+            }
+
+            if (subscriptions) {
+                for (size_t i = 0; i < subscriptions->subscriber_count; i++) {
+                    if (subscriptions->subscribers[i] != nullptr) {
+                        triggers.subscriptions.insert(i);
+                    }
+                }
+            }
+            if (guard_conditions) {
+                for (size_t i = 0; i < guard_conditions->guard_condition_count; i++) {
+                    if (guard_conditions->guard_conditions[i] != nullptr) {
+                        triggers.guard_conditions.insert(i);
+                    }
+                }
+            }
+        }
+        return triggers;
+    }
+
 private:
     rmw_context_t* m_rmw_context{nullptr};
     rmw_node_t* m_rmw_node{nullptr};
@@ -279,26 +341,11 @@ TEST_F(RmwWaitSetTest, can_be_triggered_by_guard_condition) {
 
     // ===== Test
     auto delay = std::chrono::milliseconds(10);
-    std::set<size_t> triggered_indices{0, 2};
-    ctx.trigger_guard_conditions_after(delay, triggered_indices);
+    const std::set<size_t> expected{0, 2};
+    ctx.trigger_guard_conditions_after(delay, expected);
 
-    std::set<size_t> received_indices;
-    size_t received_count = 0;
-    while (received_count < triggered_indices.size()) {
-        auto guard_conditions = ctx.guard_conditions_array();
-        if (auto result = rmw_wait(nullptr, guard_conditions, nullptr, nullptr, nullptr, ctx.waitset(), ctx.timeout());
-            !(result == RMW_RET_OK || result == RMW_RET_TIMEOUT)) {
-            FAIL() << "failed to wait";
-        }
-        for (size_t i = 0; i < guard_conditions->guard_condition_count; i++) {
-            if (guard_conditions->guard_conditions[i] != nullptr) {
-                received_indices.emplace(i);
-                received_count++;
-            }
-        }
-    }
-
-    ASSERT_EQ(triggered_indices.size(), received_count);
+    auto got = ctx.wait_for_triggers(/*expected_subs=*/{}, /*expected_guards=*/expected);
+    EXPECT_EQ(got.guard_conditions, expected);
 }
 
 TEST_F(RmwWaitSetTest, can_be_triggered_by_message_sent_to_subscriber) {
@@ -318,26 +365,11 @@ TEST_F(RmwWaitSetTest, can_be_triggered_by_message_sent_to_subscriber) {
 
     // ===== Test
     auto delay = std::chrono::milliseconds(10);
-    std::set<size_t> triggered_indices{0, 2};
-    ctx.trigger_subscriptions_after(delay, triggered_indices);
+    const std::set<size_t> expected{0, 2};
+    ctx.trigger_subscriptions_after(delay, expected);
 
-    std::set<size_t> received_indices;
-    size_t received_count = 0;
-    while (received_count < triggered_indices.size()) {
-        auto subscriptions = ctx.subscriptions_array();
-        if (auto result = rmw_wait(subscriptions, nullptr, nullptr, nullptr, nullptr, ctx.waitset(), ctx.timeout());
-            !(result == RMW_RET_OK || result == RMW_RET_TIMEOUT)) {
-            FAIL() << "failed to wait";
-        }
-        for (size_t i = 0; i < subscriptions->subscriber_count; i++) {
-            if (subscriptions->subscribers[i] != nullptr) {
-                received_indices.emplace(i);
-                received_count++;
-            }
-        }
-    }
-
-    ASSERT_EQ(triggered_indices.size(), received_count);
+    auto got = ctx.wait_for_triggers(/*expected_subs=*/expected);
+    EXPECT_EQ(got.subscriptions, expected);
 }
 
 TEST_F(RmwWaitSetTest, can_get_triggers_from_all_entity_types_in_single_wait) {
@@ -367,38 +399,18 @@ TEST_F(RmwWaitSetTest, can_get_triggers_from_all_entity_types_in_single_wait) {
     ctx.trigger_guard_conditions_after(delay);
     ctx.trigger_subscriptions_after(delay);
 
-    std::set<size_t> received_guard_indices;
-    std::set<size_t> received_sub_indices;
-    size_t total_received = 0;
-    size_t expected_total = NUM_GUARD_CONDITIONS + NUM_PUBLISH_SUBSCRIBERS;
-
-    while (total_received < expected_total) {
-        auto subscriptions = ctx.subscriptions_array();
-        auto guard_conditions = ctx.guard_conditions_array();
-
-        if (auto result =
-                rmw_wait(subscriptions, guard_conditions, nullptr, nullptr, nullptr, ctx.waitset(), ctx.timeout());
-            !(result == RMW_RET_OK || result == RMW_RET_TIMEOUT)) {
-            FAIL() << "failed to wait";
-        }
-
-        for (size_t i = 0; i < guard_conditions->guard_condition_count; i++) {
-            if (guard_conditions->guard_conditions[i] != nullptr) {
-                received_guard_indices.insert(i);
-                total_received++;
-            }
-        }
-
-        for (size_t i = 0; i < subscriptions->subscriber_count; i++) {
-            if (subscriptions->subscribers[i] != nullptr) {
-                received_sub_indices.insert(i);
-                total_received++;
-            }
-        }
+    std::set<size_t> expected_subscriptions;
+    for (size_t i = 0; i < NUM_PUBLISH_SUBSCRIBERS; i++) {
+        expected_subscriptions.insert(i);
+    }
+    std::set<size_t> expected_guard_conditions;
+    for (size_t i = 0; i < NUM_GUARD_CONDITIONS; i++) {
+        expected_guard_conditions.insert(i);
     }
 
-    ASSERT_EQ(received_guard_indices.size(), NUM_GUARD_CONDITIONS);
-    ASSERT_EQ(received_sub_indices.size(), NUM_PUBLISH_SUBSCRIBERS);
+    auto got = ctx.wait_for_triggers(expected_subscriptions, expected_guard_conditions);
+    EXPECT_EQ(got.subscriptions, expected_subscriptions);
+    EXPECT_EQ(got.guard_conditions, expected_guard_conditions);
 }
 
 } // namespace
