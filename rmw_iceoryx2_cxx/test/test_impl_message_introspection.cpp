@@ -37,25 +37,7 @@ protected:
     }
 };
 
-TEST_F(MessageIntrospectionTest, sizes) {
-    using rmw::iox2::message_size;
-    using rmw::iox2::serialized_message_size;
-    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
-    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
-
-    std::cout << "size(Defaults): " << message_size(test_type_support<Defaults>()) << std::endl;
-    std::cout << "size(Strings): " << message_size(test_type_support<Strings>()) << std::endl;
-
-    Defaults defaults_msg{};
-    Strings strings_msg{};
-
-    std::cout << "serialized_size(Defaults): " << serialized_message_size(&defaults_msg, test_type_support<Defaults>())
-              << std::endl;
-    std::cout << "serialized_size(Strings): " << serialized_message_size(&strings_msg, test_type_support<Strings>())
-              << std::endl;
-}
-
-TEST_F(MessageIntrospectionTest, self_contained) {
+TEST_F(MessageIntrospectionTest, self_containted_messages_properly_classified) {
     using rmw::iox2::is_self_contained;
     using rmw_iceoryx2_cxx_test_msgs::msg::Arrays;
     using rmw_iceoryx2_cxx_test_msgs::msg::BoundedSequences;
