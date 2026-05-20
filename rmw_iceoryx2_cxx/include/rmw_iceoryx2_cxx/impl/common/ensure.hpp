@@ -22,6 +22,9 @@
         return return_value;                                                                                           \
     }
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while) `do { ... } while (0)` is the
+// typical multi-statement macro idiom
+
 // Reimplemented to use RMW_IOX2_CHAIN_ERROR_MSG
 #define RMW_IOX2_CHECK_FOR_NULL_WITH_MSG(value, msg, error_statement)                                                  \
     do {                                                                                                               \
@@ -30,7 +33,10 @@
             error_statement;                                                                                           \
         }                                                                                                              \
     } while (0)
+// NOLINTEND(cppcoreguidelines-avoid-do-while)
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while) `do { ... } while (0)` is the
+// typical multi-statement macro idiom
 #define RMW_IOX2_CHECK_IS_NULL_WITH_MSG(value, msg, error_statement)                                                   \
     do {                                                                                                               \
         if (NULL != value) {                                                                                           \
@@ -38,6 +44,7 @@
             error_statement;                                                                                           \
         }                                                                                                              \
     } while (0)
+// NOLINTEND(cppcoreguidelines-avoid-do-while)
 
 // Single macro for checking that argument IS null
 #define RMW_IOX2_ENSURE_NULL(argument, return_value)                                                                   \
