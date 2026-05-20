@@ -10,7 +10,8 @@
 #ifndef RMW_IOX2_MIDDLEWARE_ICEORYX2_HPP_
 #define RMW_IOX2_MIDDLEWARE_ICEORYX2_HPP_
 
-#include "iox/type_traits.hpp"
+#include "iox2/bb/optional.hpp"
+#include "iox2/legacy/type_traits.hpp"
 #include "iox2/listener.hpp"
 #include "iox2/node.hpp"
 #include "iox2/notifier.hpp"
@@ -121,7 +122,7 @@ public:
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] instance_name Unique name of the instance, used for book-keeping in iceoryx2
-    Iceoryx2(CreationLock, iox::optional<ErrorType>& error, const std::string& instance_name);
+    Iceoryx2(CreationLock, ::iox2::bb::Optional<ErrorType>& error, const std::string& instance_name);
 
     /// @brief Access factory methods for creation of entities communicating locally.
     /// @return Factory to create IPC entities bound to the lifetime of this instance
@@ -141,8 +142,8 @@ public:
     auto service_builder(const std::string& service_name) -> ::iox2::ServiceBuilder<ServiceType>;
 
 private:
-    iox::optional<Local::Handle> m_local;
-    iox::optional<InterProcess::Handle> m_ipc;
+    ::iox2::bb::Optional<Local::Handle> m_local;
+    ::iox2::bb::Optional<InterProcess::Handle> m_ipc;
 };
 
 // ===================================================================================================================
@@ -150,7 +151,7 @@ private:
 template <::iox2::ServiceType S>
 auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::ServiceBuilder<S> {
     auto name = ::iox2::ServiceName::create(service_name.c_str());
-    if (name.has_error()) {
+    if (!name.has_value()) {
         // TODO: propagate error
     }
     if constexpr (S == ::iox2::ServiceType::Local) {
@@ -158,7 +159,7 @@ auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::Servi
     } else if constexpr (S == ::iox2::ServiceType::Ipc) {
         return ipc().service_builder(name.value());
     } else {
-        static_assert(iox::always_false_v<decltype(S)>, "Attempted to build a service of unknown type");
+        static_assert(::iox2::legacy::always_false_v<decltype(S)>, "Attempted to build a service of unknown type");
     }
 }
 

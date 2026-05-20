@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "iox/optional.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
@@ -39,17 +39,18 @@ TEST_F(SubscriberTest, construction) {
     using ::rmw::iox2::Subscriber;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    iox::optional<Context> context_storage;
-    create_in_place(context_storage, test_id()).expect("failed to create context for subscriber creation");
+    ::iox2::bb::Optional<Context> context_storage;
+    ASSERT_TRUE(create_in_place(context_storage, test_id()).has_value())
+        << "failed to create context for subscriber creation";
     auto& context = context_storage.value();
 
-    iox::optional<Node> node_storage;
-    create_in_place(node_storage, context, "Node", "RmwPublisherTest")
-        .expect("failed to create node for publisher creation");
+    ::iox2::bb::Optional<Node> node_storage;
+    ASSERT_TRUE(create_in_place(node_storage, context, "Node", "RmwPublisherTest").has_value())
+        << "failed to create node for publisher creation";
     auto& node = node_storage.value();
 
-    iox::optional<Subscriber> subscriber_storage;
-    ASSERT_FALSE(create_in_place(subscriber_storage, node, "Topic", test_type_support<Defaults>()).has_error());
+    ::iox2::bb::Optional<Subscriber> subscriber_storage;
+    ASSERT_TRUE(create_in_place(subscriber_storage, node, "Topic", test_type_support<Defaults>()).has_value());
 }
 
 } // namespace

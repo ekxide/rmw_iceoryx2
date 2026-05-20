@@ -7,6 +7,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "iox2/bb/optional.hpp"
+#include "iox2/service.hpp"
+#include "iox2/static_config.hpp"
 #include "rcutils/strdup.h"
 #include "rcutils/types/string_array.h"
 #include "rmw/convert_rcutils_ret_to_rmw_ret.h"
@@ -60,24 +63,24 @@ public:
         return m_name < other.m_name;
     }
 
-    static auto parse_name(std::string_view full_name) -> iox::optional<NodeName> {
+    static auto parse_name(std::string_view full_name) -> ::iox2::bb::Optional<NodeName> {
         // Check for prefix
         constexpr std::string_view ROS2_PREFIX = "ros2://context/";
         if (full_name.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
-            return iox::nullopt;
+            return ::iox2::bb::NULLOPT;
         }
 
         // Find the "/nodes/" part after the context ID
         constexpr std::string_view NODES_MARKER = "/nodes/";
         auto nodes_pos = full_name.find(NODES_MARKER);
         if (nodes_pos == std::string_view::npos) {
-            return iox::nullopt;
+            return ::iox2::bb::NULLOPT;
         }
 
         // Extract the part after "/nodes/"
         auto node_part = full_name.substr(nodes_pos + NODES_MARKER.length());
         if (node_part.empty()) {
-            return iox::nullopt;
+            return ::iox2::bb::NULLOPT;
         }
 
         // Split into namespace and name
@@ -117,18 +120,18 @@ public:
         return m_type < other.m_type;
     }
 
-    static auto parse_topic_name(const char* full_name) -> ::iox::optional<std::string> {
+    static auto parse_topic_name(const char* full_name) -> ::iox2::bb::Optional<std::string> {
         // Check for prefix
         constexpr std::string_view ROS2_PREFIX = "ros2://topics";
         std::string_view full_view(full_name);
         if (full_view.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
-            return iox::nullopt;
+            return ::iox2::bb::NULLOPT;
         }
 
         // Extract the topic part after "ros2://topics"
         auto topic_part = full_view.substr(ROS2_PREFIX.length());
         if (topic_part.empty()) {
-            return iox::nullopt;
+            return ::iox2::bb::NULLOPT;
         }
 
         return std::string(topic_part);
@@ -157,40 +160,41 @@ rmw_ret_t collect_node_names(std::set<NodeName>& names) {
     using ::iox2::CallbackProgression;
     using ::rmw::iox2::Iceoryx2;
 
-    rmw_ret_t result = RMW_RET_OK;
-
-    Iceoryx2::InterProcess::Handle::list(Iceoryx2::Config::global_config(), [&names](auto node) {
+    auto list_result = Iceoryx2::InterProcess::Handle::list(Iceoryx2::Config::global_config(), [&names](auto node) {
         node.alive([&names](const auto view) {
-            view.details().and_then([&names](const auto details) {
-                if (auto node_name = NodeName::parse_name(details.name().to_string().c_str())) {
-                    names.emplace(*node_name);
+            auto details = view.details();
+            if (details.has_value()) {
+                auto name_str = details.value().name().to_string();
+                if (auto node_name = NodeName::parse_name(name_str.unchecked_access().c_str()); node_name.has_value()) {
+                    names.emplace(node_name.value());
                 }
-            });
+            }
         });
         return CallbackProgression::Continue;
-    }).or_else([&result](auto) { result = RMW_RET_ERROR; });
+    });
 
-    return result;
+    return list_result.has_value() ? RMW_RET_OK : RMW_RET_ERROR;
 }
 
 
-rmw_ret_t collect_topic_names_and_types(
-    std::set<TopicDetails>& topics, std::function<bool(::iox2::StaticConfig&)> predicate = [](auto) { return true; }) {
+rmw_ret_t collect_topic_names_and_types(std::set<TopicDetails>& topics,
+                                        std::function<bool(::iox2::StaticConfig&)> predicate) {
     using ::iox2::CallbackProgression;
     using ::iox2::MessagingPattern;
     using ::rmw::iox2::Iceoryx2;
 
-    rmw_ret_t result = RMW_RET_OK;
+    auto list_result =
+        Iceoryx2::InterProcess::Service::list(Iceoryx2::Config::global_config(), [&topics, &predicate](auto service) {
+            if (predicate(service.static_details)) {
+                auto topic = TopicDetails::parse_topic_name(service.static_details.name());
+                if (topic.has_value()) {
+                    topics.emplace(topic.value(), "");
+                }
+            }
+            return CallbackProgression::Continue;
+        });
 
-    Iceoryx2::InterProcess::Service::list(Iceoryx2::Config::global_config(), [&topics, &predicate](auto service) {
-        if (predicate(service.static_details)) {
-            auto topic = TopicDetails::parse_topic_name(service.static_details.name());
-            topics.emplace(*topic, "");
-        }
-        return CallbackProgression::Continue;
-    }).or_else([&result](auto) { result = RMW_RET_ERROR; });
-
-    return result;
+    return list_result.has_value() ? RMW_RET_OK : RMW_RET_ERROR;
 }
 
 } // namespace
@@ -283,7 +287,7 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_nam
 
     // Implementation -------------------------------------------------------------------------------
     auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (node_impl_result.has_error()) {
+    if (!node_impl_result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return RMW_RET_ERROR;
     }
@@ -291,7 +295,7 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_nam
 
     auto service_name_string = names::topic(topic_name);
     auto iox2_service_name = Iceoryx2::ServiceName::create(service_name_string.c_str());
-    if (iox2_service_name.has_error()) {
+    if (!iox2_service_name.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create service name");
         return RMW_RET_ERROR;
     }
@@ -301,7 +305,7 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_nam
                               .service_builder(iox2_service_name.value())
                               .publish_subscribe<PublisherImpl::Payload>()
                               .open_or_create();
-    if (service_result.has_error()) {
+    if (!service_result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
         return RMW_RET_ERROR;
     }
@@ -378,7 +382,7 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_na
 
     // Implementation -------------------------------------------------------------------------------
     auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (node_impl_result.has_error()) {
+    if (!node_impl_result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return RMW_RET_ERROR;
     }
@@ -386,7 +390,7 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_na
 
     auto service_name_string = names::topic(topic_name);
     auto iox2_service_name = Iceoryx2::ServiceName::create(service_name_string.c_str());
-    if (iox2_service_name.has_error()) {
+    if (!iox2_service_name.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create service name");
         return RMW_RET_ERROR;
     }
@@ -396,7 +400,7 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_na
                               .service_builder(iox2_service_name.value())
                               .publish_subscribe<SubscriberImpl::Payload>()
                               .open_or_create();
-    if (service_result.has_error()) {
+    if (!service_result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
         return RMW_RET_ERROR;
     }

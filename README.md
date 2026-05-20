@@ -66,7 +66,7 @@ bindings to the Rust core.
     vcs import --input https://raw.githubusercontent.com/ros2/ros2/rolling/ros2.repos ~/workspace/src
     ```
 
-1. Clone `iceoryx` and `iceoryx2` source:
+1. Clone `iceoryx2` source:
 
     ```console
     vcs import --force --input https://raw.githubusercontent.com/ekxide/rmw_iceoryx2/refs/heads/main/iceoryx.repos ~/workspace/src

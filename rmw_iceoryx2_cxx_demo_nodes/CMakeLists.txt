@@ -24,16 +24,24 @@ find_package(rclcpp REQUIRED)
 find_package(rmw_iceoryx2_cxx_test_msgs REQUIRED)
 
 add_executable(talker_basic_types src/publisher_basic_types.cpp)
-ament_target_dependencies(talker_basic_types rclcpp rmw_iceoryx2_cxx_test_msgs)
+target_link_libraries(talker_basic_types PRIVATE
+  rclcpp::rclcpp
+  rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs)
 
 add_executable(listener_basic_types src/subscriber_basic_types.cpp)
-ament_target_dependencies(listener_basic_types rclcpp rmw_iceoryx2_cxx_test_msgs)
+target_link_libraries(listener_basic_types PRIVATE
+  rclcpp::rclcpp
+  rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs)
 
 add_executable(talker_strings src/publisher_strings.cpp)
-ament_target_dependencies(talker_strings rclcpp rmw_iceoryx2_cxx_test_msgs)
+target_link_libraries(talker_strings PRIVATE
+  rclcpp::rclcpp
+  rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs)
 
 add_executable(listener_strings src/subscriber_strings.cpp)
-ament_target_dependencies(listener_strings rclcpp rmw_iceoryx2_cxx_test_msgs)
+target_link_libraries(listener_strings PRIVATE
+  rclcpp::rclcpp
+  rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs)
 
 install(TARGETS
   talker_basic_types

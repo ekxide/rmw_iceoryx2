@@ -9,7 +9,8 @@
 
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 
-#include "iox/optional.hpp"
+#include "iox2/bb/into.hpp"
+#include "iox2/bb/optional.hpp"
 #include "iox2/event_id.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
@@ -18,26 +19,26 @@
 namespace rmw::iox2
 {
 
-GuardCondition::GuardCondition(CreationLock, iox::optional<ErrorType>& error, Context& context)
+GuardCondition::GuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context)
     : m_trigger_id{context.generate_guard_condition_id()}
     , m_service_name{names::guard_condition(context.id(), m_trigger_id)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
-    if (iox2_service_name.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_service_name.error()));
+    if (!iox2_service_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
         error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         return;
     }
 
     auto iox2_service = context.iox2().local().service_builder(iox2_service_name.value()).event().open_or_create();
-    if (iox2_service.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_service.error()));
+    if (!iox2_service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 
     auto iox2_notifier = iox2_service.value().notifier_builder().create();
-    if (iox2_notifier.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(iox2_notifier.error()));
+    if (!iox2_notifier.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_notifier.error()));
         error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
         return;
     }
@@ -49,7 +50,7 @@ auto GuardCondition::trigger_id() const -> uint32_t {
     return m_trigger_id;
 }
 
-auto GuardCondition::unique_id() -> const iox::optional<RawIdType>& {
+auto GuardCondition::unique_id() -> const ::iox2::bb::Optional<RawIdType>& {
     auto& bytes = m_iox2_unique_id->bytes();
     return bytes;
 }
@@ -59,17 +60,16 @@ auto GuardCondition::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto GuardCondition::trigger() -> iox::expected<void, ErrorType> {
-    using ::iox::err;
-    using ::iox::ok;
+auto GuardCondition::trigger() -> ::iox2::bb::Expected<void, ErrorType> {
+    using ::iox2::bb::err;
 
     if (auto result = m_iox2_notifier->notify_with_custom_event_id(Iceoryx2::EventId(trigger_id()));
-        result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
+        !result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::NOTIFICATION_FAILURE);
     };
 
-    return ok();
+    return {};
 }
 
 } // namespace rmw::iox2

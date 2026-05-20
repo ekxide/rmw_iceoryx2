@@ -10,7 +10,8 @@
 #ifndef RMW_IOX2_COMMON_CREATION_LOCK_HPP_
 #define RMW_IOX2_COMMON_CREATION_LOCK_HPP_
 
-#include "iox/expected.hpp"
+#include "iox2/bb/expected.hpp"
+#include "iox2/bb/optional.hpp"
 
 namespace rmw::iox2
 {
@@ -32,7 +33,7 @@ namespace rmw::iox2
  *
  * class MyType {
  *      using ErrorType = MyErrorType;
- *      MyType(CreationLock, iox::optional<ErrorType>&, ...);
+ *      MyType(CreationLock, ::iox2::bb::Optional<ErrorType>&, ...);
  * };
  * @endcode
  */
@@ -40,14 +41,14 @@ class CreationLock
 {
 private:
     template <typename T, typename... Args>
-    friend auto create(Args&&... args) -> iox::expected<T, typename T::ErrorType>;
+    friend auto create(Args&&... args) -> ::iox2::bb::Expected<T, typename T::ErrorType>;
 
     template <typename T, typename... Args>
-    friend auto create_in_place(T* ptr, Args&&... args) -> iox::expected<void, typename T::ErrorType>;
+    friend auto create_in_place(T* ptr, Args&&... args) -> ::iox2::bb::Expected<void, typename T::ErrorType>;
 
     template <typename T, typename... Args>
-    friend auto create_in_place(iox::optional<T>& storage,
-                                Args&&... args) -> iox::expected<void, typename T::ErrorType>;
+    friend auto create_in_place(::iox2::bb::Optional<T>& storage,
+                                Args&&... args) -> ::iox2::bb::Expected<void, typename T::ErrorType>;
 
     CreationLock() = default;
     static auto unlock() -> CreationLock {

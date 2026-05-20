@@ -92,7 +92,7 @@ target_include_directories(${PROJECT_NAME}
 )
 
 # Manual linking required as iceoryx2 is not an ament package
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME} PUBLIC
   iceoryx2-cxx::static-lib-cxx
 )
 
@@ -171,19 +171,26 @@ if(BUILD_TESTING)
     test/test_rmw_publish_subscribe.cpp
     test/test_rmw_waitset.cpp
   )
+  find_package(rmw_iceoryx2_cxx_test_msgs REQUIRED)
   target_link_libraries(test_rmw_iceoryx2_cxx
     ${PROJECT_NAME}
-  )
-  ament_target_dependencies(test_rmw_iceoryx2_cxx
-    rmw_iceoryx2_cxx_test_msgs
-    rosidl_typesupport_cpp
+    rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs__rosidl_typesupport_cpp
   )
 
 endif()
 
-ament_target_dependencies(${PROJECT_NAME}
-  ${AMENT_PACKAGES}
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  rcutils::rcutils
+  rcpputils::rcpputils
+  rmw::rmw
+  rosidl_runtime_cpp::rosidl_runtime_cpp
+  rosidl_typesupport_introspection_c::rosidl_typesupport_introspection_c
+  rosidl_typesupport_introspection_cpp::rosidl_typesupport_introspection_cpp
+  rosidl_typesupport_fastrtps_c::rosidl_typesupport_fastrtps_c
+  rosidl_typesupport_fastrtps_cpp::rosidl_typesupport_fastrtps_cpp
+  fastcdr
 )
+ament_export_dependencies(${AMENT_PACKAGES})
 ament_export_targets(${PROJECT_NAME}Targets)
 
 ament_package()

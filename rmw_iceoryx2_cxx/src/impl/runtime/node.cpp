@@ -16,18 +16,18 @@
 namespace rmw::iox2
 {
 
-Node::Node(CreationLock, iox::optional<ErrorType>& error, Context& context, const char* name, const char* ns)
+Node::Node(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context, const char* name, const char* ns)
     : m_name{name} {
     using ::rmw::iox2::create_in_place;
     namespace names = rmw::iox2::names;
 
-    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::node(context.id(), name, ns)); result.has_error()) {
+    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::node(context.id(), name, ns)); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create Handle");
         error.emplace(ErrorType::HANDLE_CREATION_FAILURE);
         return;
     }
 
-    if (auto result = create_in_place<GuardCondition>(m_graph_guard_condition, context); result.has_error()) {
+    if (auto result = create_in_place<GuardCondition>(m_graph_guard_condition, context); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create GuardCondition");
         error.emplace(ErrorType::GRAPH_GUARD_CONDITION_CREATION_FAILURE);
         return;

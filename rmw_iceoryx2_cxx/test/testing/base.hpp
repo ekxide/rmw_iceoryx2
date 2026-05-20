@@ -23,7 +23,7 @@ class TestBase : public ::testing::Test
 {
 protected:
     static void SetUpTestSuite() {
-        ::iox2::set_log_level(::iox2::LogLevel::Debug);
+        ::iox2::set_log_level(::iox2::LogLevel::Info);
     }
 
     TestBase() {
@@ -69,6 +69,7 @@ protected:
 
     void initialize_test_node() {
         m_test_node = rmw_create_node(&m_test_context, ("TestNode" + std::to_string(m_unique_id)).c_str(), "/RmwTest");
+        m_nodes.push_back(m_test_node);
     }
 
     std::string create_test_topic(const std::string& name = "") {
@@ -120,12 +121,19 @@ protected:
         EXPECT_RMW_OK(rmw_init_options_fini(&m_init_options));
     }
 
-    void cleanup_test_node() {
-        EXPECT_RMW_OK(rmw_destroy_node(m_test_node));
+    void cleanup_nodes() {
+        for (auto* node : m_nodes) {
+            EXPECT_RMW_OK(rmw_destroy_node(node));
+        }
+        m_nodes.clear();
+        m_test_node = nullptr;
     }
 
     void cleanup() {
-        cleanup_test_node();
+        // Endpoints first so their parent nodes aren't destroyed out from
+        // under them; nodes next; context last.
+        cleanup_endpoints();
+        cleanup_nodes();
         cleanup_test_context();
     }
 

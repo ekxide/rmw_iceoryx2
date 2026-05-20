@@ -10,8 +10,9 @@
 #ifndef RMW_IOX2_SUBSCRIBER_IMPL_HPP_
 #define RMW_IOX2_SUBSCRIBER_IMPL_HPP_
 
-#include "iox/optional.hpp"
-#include "iox/slice.hpp"
+#include "iox2/bb/expected.hpp"
+#include "iox2/bb/optional.hpp"
+#include "iox2/bb/slice.hpp"
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
@@ -46,7 +47,7 @@ class RMW_PUBLIC Subscriber
 {
 public:
     using ErrorType = Error<Subscriber>::Type;
-    using Payload = ::iox::Slice<uint8_t>;
+    using Payload = ::iox2::bb::Slice<uint8_t>;
 
 private:
     using RawIdType = ::iox2::RawIdType;
@@ -63,14 +64,14 @@ public:
     /// @param[in] topic The topic name to subscribe to
     /// @param[in] typesupport The message typesupport
     Subscriber(CreationLock,
-               iox::optional<ErrorType>& error,
+               ::iox2::bb::Optional<ErrorType>& error,
                Node& node,
                const char* topic,
                const rosidl_message_type_support_t* type_support);
 
     /// @brief Get the unique identifier of the subscriber
     /// @return Optional containing the raw ID of the subscriber
-    auto unique_id() -> const iox::optional<RawIdType>&;
+    auto unique_id() -> const ::iox2::bb::Optional<RawIdType>&;
 
     /// @brief Get the topic name
     /// @return The topic name as string reference
@@ -87,24 +88,27 @@ public:
     /// @brief Take a message by copying it to the destination buffer
     /// @param[out] dest Pointer to the destination buffer
     /// @return Expected containing true if a message was taken, false if no message available
-    auto take_copy(void* dest) -> iox::expected<bool, ErrorType>;
+    auto take_copy(void* dest) -> ::iox2::bb::Expected<bool, ErrorType>;
 
     /// @brief Take a loaned message without copying
     /// @return Expected containing optional pointer to the loaned message memory
-    auto take_loan() -> iox::expected<iox::optional<SubscriberLoan>, ErrorType>;
+    auto take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<SubscriberLoan>, ErrorType>;
 
     /// @brief Return previously loaned message memory
     /// @param[in] loaned_memory Pointer to the loaned memory to return
     /// @return Expected containing void if successful
-    auto return_loan(void* loan) -> iox::expected<void, ErrorType>;
+    auto return_loan(void* loan) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
-    const std::string m_topic;
+    // m_topic and m_service_name are logically const after construction. The `const`
+    // qualifier is omitted only because storing this class in `iox2::bb::Optional`
+    // requires it to be move-assignable. Do not mutate them.
+    std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
-    const std::string m_service_name;
+    std::string m_service_name;
 
-    iox::optional<IdType> m_iox2_unique_id;
-    iox::optional<IceoryxSubscriber> m_iox2_subscriber;
+    ::iox2::bb::Optional<IdType> m_iox2_unique_id;
+    ::iox2::bb::Optional<IceoryxSubscriber> m_iox2_subscriber;
     IceoryxSampleRegistry m_registry;
 };
 

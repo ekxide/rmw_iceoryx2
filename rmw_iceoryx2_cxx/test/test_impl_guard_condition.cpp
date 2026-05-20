@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "iox/optional.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
@@ -37,12 +37,13 @@ TEST_F(GuardConditionTest, construction) {
     using ::rmw::iox2::GuardCondition;
     using ::rmw::iox2::GuardConditionError;
 
-    iox::optional<Context> context_storage;
-    create_in_place(context_storage, test_id()).expect("failed to create context for guard condition creation");
+    ::iox2::bb::Optional<Context> context_storage;
+    ASSERT_TRUE(create_in_place(context_storage, test_id()).has_value())
+        << "failed to create context for guard condition creation";
     auto& context = context_storage.value();
 
-    iox::optional<GuardCondition> guard_condition_storage;
-    ASSERT_FALSE(create_in_place(guard_condition_storage, context).has_error());
+    ::iox2::bb::Optional<GuardCondition> guard_condition_storage;
+    ASSERT_TRUE(create_in_place(guard_condition_storage, context).has_value());
 }
 
 } // namespace

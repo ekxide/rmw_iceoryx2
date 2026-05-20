@@ -13,6 +13,8 @@
 #include "rmw/ret_types.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while) `do { ... } while (0)` is the
+// typical multi-statement macro idiom
 #define ASSERT_RMW_OK(expr)                                                                                            \
     do {                                                                                                               \
         rmw_ret_t result = expr;                                                                                       \
@@ -22,7 +24,10 @@
             FAIL() << msg;                                                                                             \
         }                                                                                                              \
     } while (0)
+// NOLINTEND(cppcoreguidelines-avoid-do-while)
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while) `do { ... } while (0)` is the
+// typical multi-statement macro idiom
 #define ASSERT_RMW_ERR(err, expr)                                                                                      \
     do {                                                                                                               \
         rmw_ret_t result = expr;                                                                                       \
@@ -31,7 +36,10 @@
         }                                                                                                              \
         rcutils_reset_error();                                                                                         \
     } while (0)
+// NOLINTEND(cppcoreguidelines-avoid-do-while)
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while) `do { ... } while (0)` is the
+// typical multi-statement macro idiom
 #define EXPECT_RMW_OK(expr)                                                                                            \
     do {                                                                                                               \
         rmw_ret_t result = (expr);                                                                                     \
@@ -41,7 +49,10 @@
             ADD_FAILURE() << msg;                                                                                      \
         }                                                                                                              \
     } while (0)
+// NOLINTEND(cppcoreguidelines-avoid-do-while)
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while) `do { ... } while (0)` is the
+// typical multi-statement macro idiom
 #define EXPECT_RMW_ERR(err, expr)                                                                                      \
     do {                                                                                                               \
         rmw_ret_t result = (expr);                                                                                     \
@@ -50,6 +61,7 @@
         }                                                                                                              \
         rcutils_reset_error();                                                                                         \
     } while (0)
+// NOLINTEND(cppcoreguidelines-avoid-do-while)
 
 #define EXPECT_NULLPTR_WITH_RMW_ERR(expr)                                                                              \
     [&]() -> decltype(expr) {                                                                                          \

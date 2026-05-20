@@ -8,7 +8,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
-#include "iox/assertions_addendum.hpp"
 #include "rmw/allocators.h"
 #include "rmw/get_network_flow_endpoints.h"
 #include "rmw/ret_types.h"
@@ -73,7 +72,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
                            type_support->get_type_description_func(type_support)->type_description.type_name.data);
     }
 
-    if (auto ptr = allocate_copy(topic_name); ptr.has_error()) {
+    if (auto ptr = allocate_copy(topic_name); !ptr.has_value()) {
         rmw_publisher_free(rmw_publisher);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
         return nullptr;
@@ -82,19 +81,19 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
     }
 
     auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (node_impl.has_error()) {
+    if (!node_impl.has_value()) {
         rmw_publisher_free(rmw_publisher);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
-    if (auto publisher_impl = allocate<PublisherImpl>(); publisher_impl.has_error()) {
+    if (auto publisher_impl = allocate<PublisherImpl>(); !publisher_impl.has_value()) {
         rmw_publisher_free(rmw_publisher);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Publisher");
         return nullptr;
     } else {
-        if (create_in_place<PublisherImpl>(publisher_impl.value(), *node_impl.value(), topic_name, type_support)
-                .has_error()) {
+        if (!create_in_place<PublisherImpl>(publisher_impl.value(), *node_impl.value(), topic_name, type_support)
+                 .has_value()) {
             destruct<PublisherImpl>(publisher_impl.value());
             deallocate<PublisherImpl>(publisher_impl.value());
             rmw_publisher_free(rmw_publisher);
@@ -146,7 +145,7 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
     RMW_IOX2_LOG_DEBUG("Publishing to '%s'", rmw_publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(rmw_publisher->data);
-    if (publisher_impl.has_error()) {
+    if (!publisher_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
@@ -155,7 +154,7 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
         // Self-contained. Copy message into payload.
         if (auto result =
                 publisher_impl.value()->publish_copy(ros_message, publisher_impl.value()->unserialized_size());
-            result.has_error()) {
+            !result.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to publish copy");
             return RMW_RET_ERROR;
         }
@@ -167,7 +166,7 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
         auto serialized_size = serialized_message_size(ros_message, type_support);
 
         auto loan = publisher_impl.value()->loan(serialized_size);
-        if (loan.has_error()) {
+        if (!loan.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to loan bytes required for serialization");
             return RMW_RET_ERROR;
         }
@@ -181,7 +180,7 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
             RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
             return RMW_RET_ERROR;
         }
-        if (auto result = publisher_impl.value()->publish_loan(loan.value()); result.has_error()) {
+        if (auto result = publisher_impl.value()->publish_loan(loan.value()); !result.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to publish serialized payload");
             return RMW_RET_ERROR;
         }
@@ -214,13 +213,13 @@ rmw_ret_t rmw_borrow_loaned_message(const rmw_publisher_t* rmw_publisher,
     RMW_IOX2_LOG_DEBUG("Borrowing loan from '%s'", rmw_publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(rmw_publisher->data);
-    if (publisher_impl.has_error()) {
+    if (!publisher_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
     auto loan = publisher_impl.value()->loan(message_size(publisher_impl.value()->typesupport()));
-    if (loan.has_error()) {
+    if (!loan.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to loan memory for publisher payload");
         return RMW_RET_ERROR;
     }
@@ -247,12 +246,12 @@ rmw_ret_t rmw_return_loaned_message_from_publisher(const rmw_publisher_t* rmw_pu
     RMW_IOX2_LOG_DEBUG("Returning loan to '%s'", rmw_publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(rmw_publisher->data);
-    if (publisher_impl.has_error()) {
+    if (!publisher_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
-    if (auto result = publisher_impl.value()->return_loan(loaned_message); result.has_error()) {
+    if (auto result = publisher_impl.value()->return_loan(loaned_message); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned message to publisher");
         return RMW_RET_ERROR;
     }
@@ -275,12 +274,12 @@ rmw_ret_t rmw_publish_loaned_message(const rmw_publisher_t* rmw_publisher,
     RMW_IOX2_LOG_DEBUG("Publishing loan to '%s'", rmw_publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(rmw_publisher->data);
-    if (publisher_impl.has_error()) {
+    if (!publisher_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
 
-    if (auto result = publisher_impl.value()->publish_loan(ros_message); result.has_error()) {
+    if (auto result = publisher_impl.value()->publish_loan(ros_message); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to publish loaned message");
         return RMW_RET_ERROR;
     }
@@ -303,7 +302,7 @@ rmw_ret_t rmw_publish_serialized_message(const rmw_publisher_t* rmw_publisher,
     RMW_IOX2_LOG_DEBUG("Publishing pre-serialized message to '%s'", rmw_publisher->topic_name);
 
     auto publisher_impl = unsafe_cast<PublisherImpl*>(rmw_publisher->data);
-    if (publisher_impl.has_error()) {
+    if (!publisher_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
         return RMW_RET_ERROR;
     }
@@ -312,7 +311,7 @@ rmw_ret_t rmw_publish_serialized_message(const rmw_publisher_t* rmw_publisher,
     // WARNING: This publish variant is usable if ONLY serialized payloads are published on this topic.
     if (auto result =
             publisher_impl.value()->publish_copy(serialized_message->buffer, serialized_message->buffer_length);
-        result.has_error()) {
+        !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to publish copy");
         return RMW_RET_ERROR;
     }

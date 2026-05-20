@@ -10,8 +10,8 @@
 #ifndef RMW_IOX2_COMMON_CREATE_HPP_
 #define RMW_IOX2_COMMON_CREATE_HPP_
 
-#include "iox/expected.hpp"
-#include "iox/optional.hpp"
+#include "iox2/bb/expected.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -33,20 +33,19 @@ namespace rmw::iox2
  *         or an error of type T::ErrorType on failure.
  */
 template <typename T, typename... Args>
-RMW_PUBLIC inline auto create(Args&&... args) -> iox::expected<T, typename T::ErrorType> {
-    using iox::err;
-    using iox::ok;
+RMW_PUBLIC inline auto create(Args&&... args) -> ::iox2::bb::Expected<T, typename T::ErrorType> {
+    using ::iox2::bb::err;
 
     static_assert(std::is_move_constructible<T>::value, "T must be move constructible");
 
-    iox::optional<typename Error<T>::Type> error{};
+    ::iox2::bb::Optional<typename Error<T>::Type> error{};
     T obj(CreationLock::unlock(), error, std::forward<Args>(args)...);
 
     if (error.has_value()) {
         return err(error.value());
     }
 
-    return ok(std::move(obj));
+    return std::move(obj);
 }
 
 /**
@@ -64,23 +63,22 @@ RMW_PUBLIC inline auto create(Args&&... args) -> iox::expected<T, typename T::Er
  *         or a ConstructionError on failure. On failure, the RMW error state is set with the cause.
  */
 template <typename T, typename... Args>
-RMW_PUBLIC inline auto create_in_place(T* ptr, Args&&... args) -> iox::expected<void, typename T::ErrorType> {
-    using iox::err;
-    using iox::ok;
+RMW_PUBLIC inline auto create_in_place(T* ptr, Args&&... args) -> ::iox2::bb::Expected<void, typename T::ErrorType> {
+    using ::iox2::bb::err;
 
     if (ptr == nullptr) {
         RMW_IOX2_CHAIN_ERROR_MSG("attempted to construct at nullptr");
         return err(T::ErrorType::INVARIANT_VIOLATION);
     }
 
-    iox::optional<typename Error<T>::Type> error{};
+    ::iox2::bb::Optional<typename Error<T>::Type> error{};
     new (ptr) T(CreationLock::unlock(), error, std::forward<Args>(args)...);
 
     if (error.has_value()) {
         return err(error.value());
     }
 
-    return ok();
+    return {};
 }
 
 /**
@@ -97,19 +95,22 @@ RMW_PUBLIC inline auto create_in_place(T* ptr, Args&&... args) -> iox::expected<
  *         On failure, the RMW error state is set with the cause.
  */
 template <typename T, typename... Args>
-RMW_PUBLIC inline auto create_in_place(iox::optional<T>& storage,
-                                       Args&&... args) -> iox::expected<void, typename T::ErrorType> {
-    using iox::err;
-    using iox::ok;
+RMW_PUBLIC inline auto create_in_place(::iox2::bb::Optional<T>& storage,
+                                       Args&&... args) -> ::iox2::bb::Expected<void, typename T::ErrorType> {
+    using ::iox2::bb::err;
 
-    iox::optional<typename Error<T>::Type> error{};
-    storage.emplace(CreationLock::unlock(), error, std::forward<Args>(args)...);
+    static_assert(std::is_move_constructible<T>::value, "T must be move constructible");
 
+    ::iox2::bb::Optional<typename Error<T>::Type> error{};
+
+    // iox2::bb::Optional::emplace does not provide a variadic-construct in place.
+    T obj(CreationLock::unlock(), error, std::forward<Args>(args)...);
     if (error.has_value()) {
         return err(error.value());
     }
+    storage.emplace(std::move(obj));
 
-    return ok();
+    return {};
 }
 
 } // namespace rmw::iox2

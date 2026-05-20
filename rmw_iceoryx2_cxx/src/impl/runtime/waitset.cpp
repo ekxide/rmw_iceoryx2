@@ -9,6 +9,7 @@
 
 #include "rmw_iceoryx2_cxx/impl/runtime/waitset.hpp"
 
+#include "iox2/bb/into.hpp"
 #include "iox2/callback_progression.hpp"
 #include "iox2/waitset.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
@@ -17,40 +18,42 @@
 namespace rmw::iox2
 {
 
-WaitSet::WaitSet(CreationLock, iox::optional<WaitSetError>& error, Context& context)
+WaitSet::WaitSet(CreationLock, ::iox2::bb::Optional<WaitSetError>& error, Context& context)
     : m_context{context} {
     auto waitset = Iceoryx2::WaitSet::create();
-    if (waitset.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(waitset.error()));
+    if (!waitset.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(waitset.error()));
         error.emplace(ErrorType::WAITSET_CREATION_FAILURE);
         return;
     }
     m_waitset.emplace(std::move(waitset.value()));
 }
 
-auto WaitSet::map(RmwIndex rmw_index, GuardCondition& guard_condition) -> iox::expected<void, WaitSetError> {
-    using ::iox::err;
-    using ::iox::ok;
+auto WaitSet::context() -> Context& {
+    return m_context.get();
+}
 
-    if (auto result = get_storage_index<GuardConditionListener>(guard_condition.service_name()); result.has_error()) {
+auto WaitSet::map(RmwIndex rmw_index, GuardCondition& guard_condition) -> ::iox2::bb::Expected<void, WaitSetError> {
+    using ::iox2::bb::err;
+
+    if (auto result = get_storage_index<GuardConditionListener>(guard_condition.service_name()); !result.has_value()) {
         return err(result.error());
     } else {
         auto storage_index = result.value();
         map_stored_listener(WaitableEntity::GUARD_CONDITION, storage_index, rmw_index);
-        return ok();
+        return {};
     }
 }
 
-auto WaitSet::map(RmwIndex rmw_index, Subscriber& subscriber) -> iox::expected<void, WaitSetError> {
-    using ::iox::err;
-    using ::iox::ok;
+auto WaitSet::map(RmwIndex rmw_index, Subscriber& subscriber) -> ::iox2::bb::Expected<void, WaitSetError> {
+    using ::iox2::bb::err;
 
-    if (auto result = get_storage_index<SubscriberListener>(subscriber.service_name()); result.has_error()) {
+    if (auto result = get_storage_index<SubscriberListener>(subscriber.service_name()); !result.has_value()) {
         return err(result.error());
     } else {
         auto storage_index = result.value();
         map_stored_listener(WaitableEntity::SUBSCRIBER, storage_index, rmw_index);
-        return ok();
+        return {};
     }
 }
 
@@ -71,15 +74,15 @@ auto WaitSet::unmap_all() -> void {
     m_mapping.clear();
 }
 
-auto WaitSet::wait(const iox::optional<Duration>& timeout) -> iox::expected<std::vector<TriggeredWaitable>, ErrorType> {
-    using ::iox::err;
-    using ::iox::ok;
+auto WaitSet::wait(const ::iox2::bb::Optional<Duration>& timeout)
+    -> ::iox2::bb::Expected<std::vector<TriggeredWaitable>, ErrorType> {
     using ::iox2::CallbackProgression;
+    using ::iox2::bb::err;
 
     if (m_mapping.empty()) {
         if (zero_timeout(timeout)) {
             // This is a NOOP.
-            return ok(std::vector<TriggeredWaitable>{});
+            return std::vector<TriggeredWaitable>{};
         }
         if (no_timeout(timeout)) {
             // Trying to wait indefinitely with nothing mapped.
@@ -94,13 +97,13 @@ auto WaitSet::wait(const iox::optional<Duration>& timeout) -> iox::expected<std:
 
     // Attach the timeout to the waitset
     if (timeout.has_value()) {
-        if (auto result = attach_timeout(timeout.value(), ctx); result.has_error()) {
+        if (auto result = attach_timeout(timeout.value(), ctx); !result.has_value()) {
             return err(result.error());
         }
     }
 
     // Attached all previously mapped listeners
-    if (auto result = attach_mapped_listeners(ctx); result.has_error()) {
+    if (auto result = attach_mapped_listeners(ctx); !result.has_value()) {
         return err(result.error());
     }
 
@@ -117,7 +120,7 @@ auto WaitSet::wait(const iox::optional<Duration>& timeout) -> iox::expected<std:
                 // This waitable was triggered. Drain all events. The number of triggers is irrelevant.
                 if (auto result =
                         process_trigger(attachment.mapping().waitable_type, attachment.mapping().storage_index);
-                    result.has_error()) {
+                    !result.has_value()) {
                     RMW_IOX2_LOG_ERROR("Failed to process trigger from a waitset attachment");
                     // Continue checking for other triggers even on error
                     return CallbackProgression::Continue;
@@ -137,52 +140,49 @@ auto WaitSet::wait(const iox::optional<Duration>& timeout) -> iox::expected<std:
     // If timeout is non-zero, block and wait, otherwise check for events and return immediately.
     if (auto result = no_timeout(timeout) ? m_waitset->wait_and_process_once(on_event)
                                           : m_waitset->wait_and_process_once_with_timeout(on_event, timeout.value());
-        result.has_error()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox::into<const char*>(result.error()));
+        !result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::WAIT_FAILURE);
     }
 
-    return ok(ctx.result);
+    return std::move(ctx.result);
 }
 
-auto WaitSet::zero_timeout(const iox::optional<Duration>& timeout) const -> bool {
+auto WaitSet::zero_timeout(const ::iox2::bb::Optional<Duration>& timeout) const -> bool {
     return timeout.has_value() && timeout.value() == Duration::zero();
 }
 
-auto WaitSet::no_timeout(const iox::optional<Duration>& timeout) const -> bool {
+auto WaitSet::no_timeout(const ::iox2::bb::Optional<Duration>& timeout) const -> bool {
     return !timeout.has_value();
 }
 
-auto WaitSet::attach_timeout(const Duration& timeout, WaitContext& ctx) -> ::iox::expected<void, ErrorType> {
-    using ::iox::err;
-    using ::iox::ok;
+auto WaitSet::attach_timeout(const Duration& timeout, WaitContext& ctx) -> ::iox2::bb::Expected<void, ErrorType> {
+    using ::iox2::bb::err;
 
     auto guard = m_waitset->attach_interval(timeout);
-    if (guard.has_error()) {
+    if (!guard.has_value()) {
         return err(ErrorType::ATTACHMENT_FAILURE);
     }
     ctx.attached_timeout.emplace(std::move(guard.value()));
-    return ok();
+    return {};
 }
 
-auto WaitSet::attach_mapped_listeners(WaitContext& ctx) -> iox::expected<void, ErrorType> {
-    using ::iox::err;
-    using ::iox::ok;
+auto WaitSet::attach_mapped_listeners(WaitContext& ctx) -> ::iox2::bb::Expected<void, ErrorType> {
+    using ::iox2::bb::err;
 
     for (const auto& staged : m_mapping) {
         auto result = attach_mapped_listener(staged);
-        if (result.has_error()) {
+        if (!result.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to attach mapped listeners to waitset");
             return err(result.error());
         }
         ctx.attached_listeners.push_back(std::move(result.value()));
     }
-    return ok();
+    return {};
 }
 
-auto WaitSet::attach_mapped_listener(const RmwMapping& mapping) -> iox::expected<AttachmentDetails, ErrorType> {
-    using ::iox::err;
-    using ::iox::ok;
+auto WaitSet::attach_mapped_listener(const RmwMapping& mapping) -> ::iox2::bb::Expected<AttachmentDetails, ErrorType> {
+    using ::iox2::bb::err;
 
     switch (mapping.waitable_type) {
     case WaitableEntity::GUARD_CONDITION:
@@ -196,18 +196,17 @@ auto WaitSet::attach_mapped_listener(const RmwMapping& mapping) -> iox::expected
 }
 
 auto WaitSet::process_trigger(const WaitableEntity waitable_type,
-                              const StorageIndex storage_index) -> iox::expected<void, ErrorType> {
-    using ::iox::err;
-    using ::iox::ok;
+                              const StorageIndex storage_index) -> ::iox2::bb::Expected<void, ErrorType> {
+    using ::iox2::bb::err;
 
     // Drain all events from the trigger.
     // The value nor number of triggers is irrelevant, so no callback logic required.
-    auto drain_events = [](auto& listener) -> iox::expected<void, ErrorType> {
-        if (auto result = listener.try_wait_all([&](auto) {}); result.has_error()) {
+    auto drain_events = [](auto& listener) -> ::iox2::bb::Expected<void, ErrorType> {
+        if (auto result = listener.try_wait_all([&](auto) {}); !result.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve events from listener");
             return err(ErrorType::LISTENER_FAILURE);
         }
-        return ok();
+        return ::iox2::bb::Expected<void, ErrorType>{};
     };
 
     // Retrieve the listener from the corresponding storage and drain all of its events
@@ -215,7 +214,7 @@ auto WaitSet::process_trigger(const WaitableEntity waitable_type,
     case WaitableEntity::GUARD_CONDITION: {
         if (auto result = get_stored_listener<GuardConditionListener>(storage_index); result.has_value()) {
             auto& listener_details = result.value();
-            if (auto result = drain_events(listener_details->listener); result.has_error()) {
+            if (auto result = drain_events(listener_details->listener); !result.has_value()) {
                 return err(result.error());
             }
         } else {
@@ -227,7 +226,7 @@ auto WaitSet::process_trigger(const WaitableEntity waitable_type,
     case WaitableEntity::SUBSCRIBER: {
         if (auto result = get_stored_listener<SubscriberListener>(storage_index); result.has_value()) {
             auto& listener_details = result.value();
-            if (auto result = drain_events(listener_details->listener); result.has_error()) {
+            if (auto result = drain_events(listener_details->listener); !result.has_value()) {
                 return err(result.error());
             }
         } else {
@@ -240,7 +239,7 @@ auto WaitSet::process_trigger(const WaitableEntity waitable_type,
         RMW_IOX2_CHAIN_ERROR_MSG("received trigger for unknown waitable type");
         return err(ErrorType::INVALID_WAITABLE_TYPE);
     }
-    return ok();
+    return {};
 }
 
 } // namespace rmw::iox2

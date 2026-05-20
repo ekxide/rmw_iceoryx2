@@ -88,12 +88,12 @@ rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* co
     context->options.enclave = rcutils_strdup(rmw_init_options->enclave, rmw_init_options->allocator);
 
     auto ptr = allocate<rmw_context_impl_s>();
-    if (ptr.has_error()) {
+    if (!ptr.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_context_impl_s");
         return RMW_RET_ERROR;
     }
 
-    if (create_in_place<rmw_context_impl_s>(ptr.value(), context->instance_id).has_error()) {
+    if (!create_in_place<rmw_context_impl_s>(ptr.value(), context->instance_id).has_value()) {
         destruct<rmw_context_impl_s>(ptr.value());
         deallocate(ptr.value());
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct rmw_context_impl_s");

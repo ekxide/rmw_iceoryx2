@@ -9,7 +9,8 @@
 
 #include <gtest/gtest.h>
 
-#include "iox/optional.hpp"
+#include "iox2/bb/duration.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
@@ -40,29 +41,27 @@ protected:
     }
 
     rmw::iox2::Iceoryx2& iox2() {
-        if (!m_iox2) {
-            create_in_place(m_iox2, names::test_handle(test_id())).expect("failed to create test node");
+        if (!m_iox2.has_value()) {
+            auto result = create_in_place(m_iox2, names::test_handle(test_id()));
+            EXPECT_TRUE(result.has_value()) << "failed to create test node";
         }
         return m_iox2.value();
     }
 
     template <typename String>
     auto iox2_listener(String&& name) -> Listener {
-        auto service_name =
-            ::iox2::ServiceName::create(name.c_str()).expect("failed to create test listener service name");
-        auto service = iox2()
-                           .local()
-                           .service_builder(service_name)
-                           .event()
-                           .open_or_create()
-                           .expect("failed to create test listener service");
-        auto listener = service.listener_builder().create().expect("failed to create test listener");
+        auto service_name = ::iox2::ServiceName::create(name.c_str());
+        EXPECT_TRUE(service_name.has_value()) << "failed to create test listener service name";
+        auto service = iox2().local().service_builder(service_name.value()).event().open_or_create();
+        EXPECT_TRUE(service.has_value()) << "failed to create test listener service";
+        auto listener = service.value().listener_builder().create();
+        EXPECT_TRUE(listener.has_value()) << "failed to create test listener";
 
-        return listener;
+        return std::move(listener.value());
     }
 
 private:
-    iox::optional<::rmw::iox2::Iceoryx2> m_iox2;
+    ::iox2::bb::Optional<::rmw::iox2::Iceoryx2> m_iox2;
 };
 
 TEST_F(RmwGuardConditionTest, create_and_destroy) {
@@ -86,12 +85,15 @@ TEST_F(RmwGuardConditionTest, trigger) {
     EXPECT_NE(guard_condition->data, nullptr);
 
     // TODO: An easier way to access the guard condition ID?
-    auto impl = unsafe_cast<GuardCondition*>(guard_condition->data).expect("failed to get guard condition impl");
+    auto impl_result = unsafe_cast<GuardCondition*>(guard_condition->data);
+    ASSERT_TRUE(impl_result.has_value()) << "failed to get guard condition impl";
+    auto impl = impl_result.value();
     auto listener = iox2_listener(names::guard_condition(guard_condition->context->instance_id, impl->trigger_id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
-    auto event =
-        listener.timed_wait_one(iox::units::Duration::fromMicroseconds(500)).expect("failed to wait for trigger");
+    auto wait_result = listener.timed_wait_one(::iox2::bb::Duration::from_micros(500u));
+    ASSERT_TRUE(wait_result.has_value()) << "failed to wait for trigger";
+    auto event = wait_result.value();
     ASSERT_TRUE(event.has_value());
     ASSERT_EQ(event.value().as_value(), impl->trigger_id());
 
