@@ -19,7 +19,7 @@ namespace rmw::iox2
 {
 
 WaitSet::WaitSet(CreationLock, ::iox2::bb::Optional<WaitSetError>& error, Context& context)
-    : m_context{&context} {
+    : m_context{context} {
     auto waitset = Iceoryx2::WaitSet::create();
     if (!waitset.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(waitset.error()));
@@ -27,6 +27,10 @@ WaitSet::WaitSet(CreationLock, ::iox2::bb::Optional<WaitSetError>& error, Contex
         return;
     }
     m_waitset.emplace(std::move(waitset.value()));
+}
+
+auto WaitSet::context() -> Context& {
+    return m_context.get();
 }
 
 auto WaitSet::map(RmwIndex rmw_index, GuardCondition& guard_condition) -> ::iox2::bb::Expected<void, WaitSetError> {

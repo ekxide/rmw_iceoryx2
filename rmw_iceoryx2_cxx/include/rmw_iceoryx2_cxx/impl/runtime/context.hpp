@@ -58,10 +58,13 @@ public:
     /// @param[in] id ID to use for this context
     rmw_context_impl_s(CreationLock lock, ::iox2::bb::Optional<ErrorType>& error, const uint32_t id);
 
+    // Move ops are required because `iox2::bb::Optional::emplace` uses
+    // move-construct then move-assign internally.
     rmw_context_impl_s(rmw_context_impl_s&& other) noexcept;
     auto operator=(rmw_context_impl_s&& other) noexcept -> rmw_context_impl_s&;
     rmw_context_impl_s(const rmw_context_impl_s&) = delete;
     auto operator=(const rmw_context_impl_s&) -> rmw_context_impl_s& = delete;
+    ~rmw_context_impl_s() = default;
 
     /// @brief Get the ID of this context
     /// @return The context ID
@@ -76,6 +79,9 @@ public:
     auto generate_guard_condition_id() -> uint32_t;
 
 private:
+    // m_id is logically const after construction. The `const` qualifier is omitted
+    // only because the explicit move-assignment operator needs to overwrite it.
+    // Do not mutate.
     uint32_t m_id;
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
     std::atomic<uint32_t> m_guard_condition_counter{0};

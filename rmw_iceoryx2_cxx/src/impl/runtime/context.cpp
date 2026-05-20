@@ -27,14 +27,14 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock, ::iox2::bb::Optional<ErrorT
 rmw_context_impl_s::rmw_context_impl_s(rmw_context_impl_s&& other) noexcept
     : m_id{other.m_id}
     , m_iox2{std::move(other.m_iox2)}
-    , m_guard_condition_counter{other.m_guard_condition_counter.load()} {
+    , m_guard_condition_counter{other.m_guard_condition_counter.exchange(0)} {
 }
 
 auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_context_impl_s& {
     if (this != &other) {
         m_id = other.m_id;
         m_iox2 = std::move(other.m_iox2);
-        m_guard_condition_counter.store(other.m_guard_condition_counter.load());
+        m_guard_condition_counter.store(other.m_guard_condition_counter.exchange(0));
     }
     return *this;
 }

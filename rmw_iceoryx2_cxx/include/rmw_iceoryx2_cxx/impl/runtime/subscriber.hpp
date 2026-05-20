@@ -100,6 +100,9 @@ public:
     auto return_loan(void* loan) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
+    // m_topic and m_service_name are logically const after construction. The `const`
+    // qualifier is omitted only because storing this class in `iox2::bb::Optional`
+    // requires it to be move-assignable. Do not mutate them.
     std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
     std::string m_service_name;

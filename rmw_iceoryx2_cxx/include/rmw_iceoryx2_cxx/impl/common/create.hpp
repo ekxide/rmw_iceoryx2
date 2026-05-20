@@ -99,14 +99,15 @@ RMW_PUBLIC inline auto create_in_place(::iox2::bb::Optional<T>& storage,
                                        Args&&... args) -> ::iox2::bb::Expected<void, typename T::ErrorType> {
     using ::iox2::bb::err;
 
+    static_assert(std::is_move_constructible<T>::value, "T must be move constructible");
+
     ::iox2::bb::Optional<typename Error<T>::Type> error{};
+
     // iox2::bb::Optional::emplace does not provide a variadic-construct in place.
     T obj(CreationLock::unlock(), error, std::forward<Args>(args)...);
-
     if (error.has_value()) {
         return err(error.value());
     }
-
     storage.emplace(std::move(obj));
 
     return {};

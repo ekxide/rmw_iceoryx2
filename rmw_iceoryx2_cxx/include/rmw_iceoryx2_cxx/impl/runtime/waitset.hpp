@@ -24,6 +24,7 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
+#include <functional>
 #include <vector>
 
 namespace rmw::iox2
@@ -265,10 +266,13 @@ private:
     auto process_trigger(const WaitableEntity waitable_type,
                          const StorageIndex storage_index) -> ::iox2::bb::Expected<void, ErrorType>;
 
+    /// @brief Reference to RMW context that this WaitSet belongs to.
+    auto context() -> Context&;
+
 private:
-    // Pointer (not reference) so the class is move-assignable, which iox2::bb::Optional's
-    // re-assign path requires. The context is guaranteed non-null after construction.
-    Context* m_context;
+    // `reference_wrapper` so the class remains move-constructible, which
+    // iox2::bb::Optional's emplace path requires. Cannot be null by construction.
+    std::reference_wrapper<Context> m_context;
     ::iox2::bb::Optional<IceoryxWaitSet> m_waitset;
 
     // Storage for all attached listeners.
@@ -297,7 +301,7 @@ auto WaitSet::get_storage_index(const std::string& service_name) -> ::iox2::bb::
 
     if (it == storage.end()) {
         auto service_result =
-            m_context->iox2().service_builder<ServiceType<ListenerType>>(service_name).event().open_or_create();
+            context().iox2().service_builder<ServiceType<ListenerType>>(service_name).event().open_or_create();
         if (!service_result.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(service_result.error()));
             return err(ErrorType::SERVICE_CREATION_FAILURE);

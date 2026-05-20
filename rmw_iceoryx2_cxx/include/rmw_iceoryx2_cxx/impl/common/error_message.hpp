@@ -23,6 +23,8 @@ static const size_t MAX_ERROR_MSG_LENGTH = 4096;
 } // namespace rmw::iox2
 
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while) `do { ... } while (0)` is the
+// typical multi-statement macro idiom
 #define RMW_IOX2_CHAIN_ERROR_MSG(msg)                                                                                  \
     do {                                                                                                               \
         if (rcutils_error_is_set()) {                                                                                  \
@@ -46,4 +48,5 @@ static const size_t MAX_ERROR_MSG_LENGTH = 4096;
             RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(format, __VA_ARGS__);                                             \
         }                                                                                                              \
     } while (0)
+// NOLINTEND(cppcoreguidelines-avoid-do-while)
 #endif
