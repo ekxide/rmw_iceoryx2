@@ -344,8 +344,8 @@ TEST_F(QosTest, diff_returns_empty_when_attributes_match) {
     auto spec = TryConvert<::iox2::AttributeSpecifier>::from(resolved.value());
     ASSERT_TRUE(spec.has_value());
 
-    auto diff = diff_attributes(resolved.value(), spec.value().attributes());
-    EXPECT_FALSE(diff.has_value());
+    auto diffs = diff_attributes(resolved.value(), spec.value().attributes());
+    EXPECT_TRUE(diffs.empty());
 }
 
 TEST_F(QosTest, diff_reports_reliability_mismatch) {
@@ -362,11 +362,11 @@ TEST_F(QosTest, diff_reports_reliability_mismatch) {
     auto spec_b = TryConvert<::iox2::AttributeSpecifier>::from(resolved_b.value());
     ASSERT_TRUE(spec_b.has_value());
 
-    auto diff = diff_attributes(resolved_a.value(), spec_b.value().attributes());
-    ASSERT_TRUE(diff.has_value());
-    EXPECT_STREQ(diff.value().key, "rmw.qos.local.reliability");
-    EXPECT_STREQ(diff.value().requested, "reliable");
-    EXPECT_STREQ(diff.value().existing, "best_effort");
+    auto diffs = diff_attributes(resolved_a.value(), spec_b.value().attributes());
+    ASSERT_EQ(diffs.size(), 1u);
+    EXPECT_STREQ(diffs.unchecked_access()[0].key, "rmw.qos.local.reliability");
+    EXPECT_STREQ(diffs.unchecked_access()[0].requested, "reliable");
+    EXPECT_STREQ(diffs.unchecked_access()[0].existing, "best_effort");
 }
 
 TEST_F(QosTest, diff_reports_history_depth_mismatch) {
@@ -383,11 +383,11 @@ TEST_F(QosTest, diff_reports_history_depth_mismatch) {
     auto spec_b = TryConvert<::iox2::AttributeSpecifier>::from(resolved_b.value());
     ASSERT_TRUE(spec_b.has_value());
 
-    auto diff = diff_attributes(resolved_a.value(), spec_b.value().attributes());
-    ASSERT_TRUE(diff.has_value());
-    EXPECT_STREQ(diff.value().key, "rmw.qos.local.history");
-    EXPECT_STREQ(diff.value().requested, "keep_last:5");
-    EXPECT_STREQ(diff.value().existing, "keep_last:20");
+    auto diffs = diff_attributes(resolved_a.value(), spec_b.value().attributes());
+    ASSERT_EQ(diffs.size(), 1u);
+    EXPECT_STREQ(diffs.unchecked_access()[0].key, "rmw.qos.local.history");
+    EXPECT_STREQ(diffs.unchecked_access()[0].requested, "keep_last:5");
+    EXPECT_STREQ(diffs.unchecked_access()[0].existing, "keep_last:20");
 }
 
 TEST_F(QosTest, diff_reports_durability_mismatch) {
@@ -404,11 +404,38 @@ TEST_F(QosTest, diff_reports_durability_mismatch) {
     auto spec_b = TryConvert<::iox2::AttributeSpecifier>::from(resolved_b.value());
     ASSERT_TRUE(spec_b.has_value());
 
-    auto diff = diff_attributes(resolved_a.value(), spec_b.value().attributes());
-    ASSERT_TRUE(diff.has_value());
-    EXPECT_STREQ(diff.value().key, "rmw.qos.local.durability");
-    EXPECT_STREQ(diff.value().requested, "volatile");
-    EXPECT_STREQ(diff.value().existing, "transient_local");
+    auto diffs = diff_attributes(resolved_a.value(), spec_b.value().attributes());
+    ASSERT_EQ(diffs.size(), 1u);
+    EXPECT_STREQ(diffs.unchecked_access()[0].key, "rmw.qos.local.durability");
+    EXPECT_STREQ(diffs.unchecked_access()[0].requested, "volatile");
+    EXPECT_STREQ(diffs.unchecked_access()[0].existing, "transient_local");
+}
+
+TEST_F(QosTest, diff_reports_multiple_mismatches_in_schema_order) {
+    // Mismatches on history, reliability, durability — three distinct
+    // policies. Ensure diff_attributes returns all three in schema order.
+    auto profile_a = rmw_qos_profile_default;
+    profile_a.depth = 5;
+    profile_a.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
+    profile_a.durability = RMW_QOS_POLICY_DURABILITY_VOLATILE;
+    auto resolved_a = TryConvert<ResolvedQos>::from(profile_a, ProfileKind::PUBLISH_SUBSCRIBE);
+    ASSERT_TRUE(resolved_a.has_value());
+
+    auto profile_b = rmw_qos_profile_default;
+    profile_b.depth = 20;
+    profile_b.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    profile_b.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+    auto resolved_b = TryConvert<ResolvedQos>::from(profile_b, ProfileKind::PUBLISH_SUBSCRIBE);
+    ASSERT_TRUE(resolved_b.has_value());
+
+    auto spec_b = TryConvert<::iox2::AttributeSpecifier>::from(resolved_b.value());
+    ASSERT_TRUE(spec_b.has_value());
+
+    auto diffs = diff_attributes(resolved_a.value(), spec_b.value().attributes());
+    ASSERT_EQ(diffs.size(), 3u);
+    EXPECT_STREQ(diffs.unchecked_access()[0].key, "rmw.qos.local.history");
+    EXPECT_STREQ(diffs.unchecked_access()[1].key, "rmw.qos.local.reliability");
+    EXPECT_STREQ(diffs.unchecked_access()[2].key, "rmw.qos.local.durability");
 }
 
 } // namespace

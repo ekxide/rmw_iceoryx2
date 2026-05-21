@@ -9,6 +9,11 @@
 
 #include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 
+#include "iox2/config.hpp"
+#include "iox2/messaging_pattern.hpp"
+#include "iox2/service.hpp"
+#include "iox2/service_name.hpp"
+#include "iox2/service_type.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 
@@ -285,14 +290,14 @@ struct Liveliness
 // Lookup table
 // ----------------------------------------------------------------------------
 
-struct PolicyCodec
+struct PolicyLookup
 {
     const char* key;
     void (*format)(const ResolvedQos&, char*, size_t);
     bool (*parse)(const char*, ResolvedQos::Builder&);
 };
 
-constexpr PolicyCodec POLICIES[] = {
+constexpr PolicyLookup POLICIES[] = {
     {History::KEY, &History::format, &History::parse},
     {Reliability::KEY, &Reliability::format, &Reliability::parse},
     {Durability::KEY, &Durability::format, &Durability::parse},
@@ -352,6 +357,7 @@ auto set_qos_attributes(Target& target, const ResolvedQos& qos) -> bool {
 // diff_attributes helper
 // ----------------------------------------------------------------------------
 
+// TODO: Rename
 auto record_diff(AttributeDiff& diff, const char* key, const char* requested, const char* existing) -> bool {
     if (std::strcmp(requested, existing) == 0) {
         return false;
@@ -406,10 +412,34 @@ auto TryConvert<AttributeVerifier>::from(const ResolvedQos& qos) -> Expected<Att
 }
 
 // ----------------------------------------------------------------------------
-// warn_unmapped
+// Diff Calculation
 // ----------------------------------------------------------------------------
 
-void warn_unmapped(const ResolvedQos& qos, const char* topic) noexcept {
+auto diff_attributes(const ResolvedQos& required,
+                     AttributeSetView actual) -> ::iox2::bb::StaticVector<AttributeDiff, MAX_POLICY_DIFFS> {
+    ::iox2::bb::StaticVector<AttributeDiff, MAX_POLICY_DIFFS> result{};
+    char requested[256];
+    char existing[256];
+
+    for (const auto& policy : POLICIES) {
+        policy.format(required, requested, sizeof(requested));
+        if (!get_attribute_value(actual, policy.key, existing, sizeof(existing))) {
+            continue;
+        }
+        AttributeDiff diff{};
+        if (record_diff(diff, policy.key, requested, existing)) {
+            result.try_push_back(diff);
+        }
+    }
+
+    return result;
+}
+
+// ----------------------------------------------------------------------------
+// Error Handling
+// ----------------------------------------------------------------------------
+
+void log_unsupported_policies(const ResolvedQos& qos, const char* topic) noexcept {
     if (!is_default_duration(qos.deadline())) {
         RMW_IOX2_LOG_WARN("QoS policy 'deadline' (=%llu:%llu) on topic '%s' is not honored by the iceoryx2 transport",
                           static_cast<unsigned long long>(qos.deadline().sec),
@@ -422,10 +452,6 @@ void warn_unmapped(const ResolvedQos& qos, const char* topic) noexcept {
                           static_cast<unsigned long long>(qos.lifespan().nsec),
                           topic);
     }
-    if (qos.liveliness() == ResolvedQos::Liveliness::MANUAL_BY_TOPIC) {
-        RMW_IOX2_LOG_WARN(
-            "QoS policy 'liveliness' (=manual_by_topic) on topic '%s' is not honored by the iceoryx2 transport", topic);
-    }
     if (!is_default_duration(qos.liveliness_lease_duration())) {
         RMW_IOX2_LOG_WARN("QoS policy 'liveliness_lease_duration' (=%llu:%llu) on topic '%s' is not honored by the "
                           "iceoryx2 transport",
@@ -433,26 +459,69 @@ void warn_unmapped(const ResolvedQos& qos, const char* topic) noexcept {
                           static_cast<unsigned long long>(qos.liveliness_lease_duration().nsec),
                           topic);
     }
+
+    if (qos.liveliness() == ResolvedQos::Liveliness::MANUAL_BY_TOPIC) {
+        RMW_IOX2_LOG_WARN(
+            "QoS policy 'liveliness' (=manual_by_topic) on topic '%s' is not honored by the iceoryx2 transport", topic);
+    }
 }
 
-// ----------------------------------------------------------------------------
-// diff_attributes
-// ----------------------------------------------------------------------------
+void chain_attribute_mismatch_error(const ResolvedQos& requested,
+                                    const ::iox2::ServiceName& service_name,
+                                    ::iox2::ConfigView config,
+                                    const char* topic) noexcept {
+    auto details = ::iox2::Service<::iox2::ServiceType::Ipc>::details(
+        service_name, config, ::iox2::MessagingPattern::PublishSubscribe);
 
-auto diff_attributes(const ResolvedQos& required, AttributeSetView existing) -> Optional<AttributeDiff> {
-    AttributeDiff diff{};
-    char requested[256];
-    char existing_val[256];
+    if (!details.has_value() || !details.value().has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING("QoS mismatch on '%s' (failed to read existing service attributes)",
+                                                    topic);
+        return;
+    }
 
-    for (const auto& policy : POLICIES) {
-        policy.format(required, requested, sizeof(requested));
-        if (get_attribute_value(existing, policy.key, existing_val, sizeof(existing_val))
-            && record_diff(diff, policy.key, requested, existing_val)) {
-            return diff;
+    auto attrs = details.value().value().static_details.attributes();
+    auto diffs = diff_attributes(requested, attrs);
+    if (diffs.empty()) {
+        // Shouldn't happen after OpenIncompatibleAttributes.
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING("QoS mismatch on '%s' but no per-key diff was produced", topic);
+        return;
+    }
+
+    char message[rmw::iox2::MAX_ERROR_MSG_LENGTH];
+    int written = std::snprintf(message, sizeof(message), "QoS mismatch on '%s':", topic);
+    size_t offset = (written > 0) ? static_cast<size_t>(written) : 0;
+    if (offset >= sizeof(message)) {
+        offset = sizeof(message) - 1;
+    }
+
+    for (size_t i = 0; i < diffs.size(); ++i) {
+        auto diff = diffs.unchecked_access()[i];
+        const char* sep = (i + 1 < diffs.size()) ? ";" : ".";
+
+        // NOLINTNEXTLINE(cert-err33-c) buffer sized at MAX_ERROR_MSG_LENGTH; trailing diffs truncate if exhausted
+        written = std::snprintf(message + offset,
+                                sizeof(message) - offset,
+                                " %s [existing=%s, requested=%s]%s",
+                                diff.key,
+                                diff.existing,
+                                diff.requested,
+                                sep);
+        if (written <= 0) {
+            break;
+        }
+        offset += static_cast<size_t>(written);
+        if (offset >= sizeof(message)) {
+            offset = sizeof(message) - 1;
+            break;
         }
     }
 
-    return NULLOPT;
+    // NOLINTNEXTLINE(cert-err33-c) buffer sized at MAX_ERROR_MSG_LENGTH; trailing hint truncates if exhausted
+    std::snprintf(message + offset,
+                  sizeof(message) - offset,
+                  " Set RMW_IOX2_QOS_MATCH=adopt to auto-match the existing service.");
+
+    RMW_IOX2_CHAIN_ERROR_MSG(message);
 }
 
 } // namespace rmw::iox2

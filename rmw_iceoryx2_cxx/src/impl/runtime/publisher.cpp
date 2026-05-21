@@ -62,9 +62,11 @@ Publisher::Publisher(CreationLock,
                                    .open_or_create_with_attributes(verifier.value());
 
     if (!iox2_pubsub_service.has_value()) {
-        // TODO: translate OpenIncompatibleAttributes into a per-key diff
-        //       message via diff_attributes(m_qos, existing_attrs).
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
+        if (iox2_pubsub_service.error() == ::iox2::PublishSubscribeOpenOrCreateError::OpenIncompatibleAttributes) {
+            chain_attribute_mismatch_error(m_qos, iox2_service_name.value(), node.iox2().ipc().config(), topic);
+        } else {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
+        }
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }

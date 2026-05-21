@@ -18,6 +18,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
@@ -65,6 +66,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
         // Error already chained by TryConvert.
         return nullptr;
     }
+    ::rmw::iox2::log_unsupported_policies(resolved_qos.value(), topic_name);
 
     auto* rmw_subscription = rmw_subscription_allocate();
     if (rmw_subscription == nullptr) {
