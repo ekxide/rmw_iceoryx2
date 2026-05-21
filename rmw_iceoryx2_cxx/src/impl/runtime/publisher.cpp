@@ -23,11 +23,13 @@ Publisher::Publisher(CreationLock,
                      ::iox2::bb::Optional<ErrorType>& error,
                      Node& node,
                      const char* topic,
-                     const rosidl_message_type_support_t* type_support)
+                     const rosidl_message_type_support_t* type_support,
+                     const ResolvedQos& qos)
     : m_topic{topic}
     , m_typesupport{type_support}
     , m_unserialized_size{::rmw::iox2::message_size(type_support)}
-    , m_service_name{::rmw::iox2::names::topic(topic)} {
+    , m_service_name{::rmw::iox2::names::topic(topic)}
+    , m_qos{qos} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
     if (!iox2_service_name.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
@@ -106,6 +108,10 @@ auto Publisher::unserialized_size() const -> uint64_t {
 
 auto Publisher::service_name() const -> const std::string& {
     return m_service_name;
+}
+
+auto Publisher::qos() const -> const ResolvedQos& {
+    return m_qos;
 }
 
 // TODO: Make return uint8_t

@@ -16,6 +16,7 @@
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/resolved_qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
@@ -62,12 +63,14 @@ public:
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] node The node that owns this subscriber
     /// @param[in] topic The topic name to subscribe to
-    /// @param[in] typesupport The message typesupport
+    /// @param[in] type_support The message typesupport
+    /// @param[in] qos The resolved QoS for this subscriber
     Subscriber(CreationLock,
                ::iox2::bb::Optional<ErrorType>& error,
                Node& node,
                const char* topic,
-               const rosidl_message_type_support_t* type_support);
+               const rosidl_message_type_support_t* type_support,
+               const ResolvedQos& qos);
 
     /// @brief Get the unique identifier of the subscriber
     /// @return Optional containing the raw ID of the subscriber
@@ -85,6 +88,10 @@ public:
     /// @return The service name as string
     auto service_name() const -> const std::string&;
 
+    /// @brief Get the resolved QoS used to create this subscriber
+    /// @return Reference to the resolved QoS
+    auto qos() const -> const ResolvedQos&;
+
     /// @brief Take a message by copying it to the destination buffer
     /// @param[out] dest Pointer to the destination buffer
     /// @return Expected containing true if a message was taken, false if no message available
@@ -100,12 +107,14 @@ public:
     auto return_loan(void* loan) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
-    // m_topic and m_service_name are logically const after construction. The `const`
-    // qualifier is omitted only because storing this class in `iox2::bb::Optional`
-    // requires it to be move-assignable. Do not mutate them.
+    // m_topic, m_service_name, and m_qos are logically const after
+    // construction. The `const` qualifier is omitted only because storing
+    // this class in `iox2::bb::Optional` requires it to be move-assignable.
+    // Do not mutate them.
     std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
     std::string m_service_name;
+    ResolvedQos m_qos;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxSubscriber> m_iox2_subscriber;

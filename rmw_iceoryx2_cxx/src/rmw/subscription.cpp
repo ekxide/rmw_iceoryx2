@@ -51,11 +51,20 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::is_self_contained;
+    using ::rmw::iox2::ProfileKind;
+    using ::rmw::iox2::ResolvedQos;
+    using ::rmw::iox2::TryConvert;
     using NodeImpl = ::rmw::iox2::Node;
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("Creating subscription to '%s'", topic_name);
+
+    auto resolved_qos = TryConvert<ResolvedQos>::from(*qos_profile, ProfileKind::PUBLISH_SUBSCRIBE);
+    if (!resolved_qos.has_value()) {
+        // Error already chained by TryConvert.
+        return nullptr;
+    }
 
     auto* rmw_subscription = rmw_subscription_allocate();
     if (rmw_subscription == nullptr) {
@@ -92,7 +101,8 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Subscriber");
         return nullptr;
     } else {
-        if (!create_in_place<SubscriberImpl>(subscriber_impl.value(), *node_impl.value(), topic_name, type_support)
+        if (!create_in_place<SubscriberImpl>(
+                 subscriber_impl.value(), *node_impl.value(), topic_name, type_support, resolved_qos.value())
                  .has_value()) {
             destruct<SubscriberImpl>(subscriber_impl.value());
             deallocate<SubscriberImpl>(subscriber_impl.value());

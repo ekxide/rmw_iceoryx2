@@ -51,11 +51,20 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::is_self_contained;
     using ::rmw::iox2::message_size;
+    using ::rmw::iox2::ProfileKind;
+    using ::rmw::iox2::ResolvedQos;
+    using ::rmw::iox2::TryConvert;
     using NodeImpl = ::rmw::iox2::Node;
     using PublisherImpl = ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("Creating publisher to '%s'", topic_name);
+
+    auto resolved_qos = TryConvert<ResolvedQos>::from(*qos, ProfileKind::PUBLISH_SUBSCRIBE);
+    if (!resolved_qos.has_value()) {
+        // Error already chained by TryConvert.
+        return nullptr;
+    }
 
     auto* rmw_publisher = rmw_publisher_allocate();
     if (rmw_publisher == nullptr) {
@@ -92,7 +101,8 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Publisher");
         return nullptr;
     } else {
-        if (!create_in_place<PublisherImpl>(publisher_impl.value(), *node_impl.value(), topic_name, type_support)
+        if (!create_in_place<PublisherImpl>(
+                 publisher_impl.value(), *node_impl.value(), topic_name, type_support, resolved_qos.value())
                  .has_value()) {
             destruct<PublisherImpl>(publisher_impl.value());
             deallocate<PublisherImpl>(publisher_impl.value());

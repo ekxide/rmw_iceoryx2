@@ -21,10 +21,12 @@ Subscriber::Subscriber(CreationLock,
                        ::iox2::bb::Optional<ErrorType>& error,
                        Node& node,
                        const char* topic,
-                       const rosidl_message_type_support_t* type_support)
+                       const rosidl_message_type_support_t* type_support,
+                       const ResolvedQos& qos)
     : m_topic{topic}
     , m_typesupport{type_support}
-    , m_service_name{::rmw::iox2::names::topic(topic)} {
+    , m_service_name{::rmw::iox2::names::topic(topic)}
+    , m_qos{qos} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
 
     if (!iox2_service_name.has_value()) {
@@ -80,6 +82,10 @@ auto Subscriber::typesupport() const -> const rosidl_message_type_support_t* {
 
 auto Subscriber::service_name() const -> const std::string& {
     return m_service_name;
+}
+
+auto Subscriber::qos() const -> const ResolvedQos& {
+    return m_qos;
 }
 
 auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<bool, ErrorType> {

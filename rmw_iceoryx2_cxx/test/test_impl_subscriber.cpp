@@ -10,7 +10,9 @@
 #include <gtest/gtest.h>
 
 #include "iox2/bb/optional.hpp"
+#include "rmw/qos_profiles.h"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/resolved_qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
@@ -36,7 +38,10 @@ TEST_F(SubscriberTest, construction) {
     using ::rmw::iox2::Context;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::Node;
+    using ::rmw::iox2::ProfileKind;
+    using ::rmw::iox2::ResolvedQos;
     using ::rmw::iox2::Subscriber;
+    using ::rmw::iox2::TryConvert;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     ::iox2::bb::Optional<Context> context_storage;
@@ -49,8 +54,12 @@ TEST_F(SubscriberTest, construction) {
         << "failed to create node for publisher creation";
     auto& node = node_storage.value();
 
+    auto qos = TryConvert<ResolvedQos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
+    ASSERT_TRUE(qos.has_value()) << "failed to resolve default QoS";
+
     ::iox2::bb::Optional<Subscriber> subscriber_storage;
-    ASSERT_TRUE(create_in_place(subscriber_storage, node, "Topic", test_type_support<Defaults>()).has_value());
+    ASSERT_TRUE(
+        create_in_place(subscriber_storage, node, "Topic", test_type_support<Defaults>(), qos.value()).has_value());
 }
 
 } // namespace
