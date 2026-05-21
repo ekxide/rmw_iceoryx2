@@ -22,15 +22,14 @@ namespace
 using ::iox2::bb::err;
 using ::iox2::bb::Expected;
 
-// BEST_AVAILABLE sentinel duration from rmw/types.h.
-constexpr uint64_t BEST_AVAIL_SEC = 9223372036ULL;
-constexpr uint64_t BEST_AVAIL_NSEC = 854775806ULL;
+// Sentinel that means "match whatever other endpoints have" from rmw/types.h.
+constexpr rmw_time_t BEST_AVAILABLE_DURATION = RMW_QOS_DEADLINE_BEST_AVAILABLE;
 
 constexpr uint64_t DEFAULT_DEPTH = 10;
 
 auto map_time(rmw_time_t time) -> ResolvedQos::Duration {
     // BEST_AVAILABLE sentinel collapses to the canonical default (0:0).
-    if (time.sec == BEST_AVAIL_SEC && time.nsec == BEST_AVAIL_NSEC) {
+    if (time.sec == BEST_AVAILABLE_DURATION.sec && time.nsec == BEST_AVAILABLE_DURATION.nsec) {
         return {0U, 0U};
     }
     return {time.sec, time.nsec};
