@@ -46,6 +46,7 @@
 * Use `vcs` to manage dependencies [#13](https://github.com/ekxide/rmw_iceoryx2/issues/13)
 * Add CI for building and testing with `clang` [#12](https://github.com/ekxide/rmw_iceoryx2/issues/12)
 * Add CI for building and testing with `gcc` [#15](https://github.com/ekxide/rmw_iceoryx2/issues/15)
+* Add measurement for serialized messages to benchmark [#2]
 
 ### New API features
 
