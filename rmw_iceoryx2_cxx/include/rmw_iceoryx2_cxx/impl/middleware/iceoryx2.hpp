@@ -110,7 +110,10 @@ public:
         using AttachmentId = ::iox2::WaitSetAttachmentId<::iox2::ServiceType::Local>;
 
         static inline auto create = []() {
-            return ::iox2::WaitSetBuilder().template create<::iox2::ServiceType::Local>();
+            return ::iox2::WaitSetBuilder()
+                // delegate signal handling to rcl
+                .signal_handling_mode(::iox2::SignalHandlingMode::Disabled)
+                .template create<::iox2::ServiceType::Local>();
         };
     };
 
