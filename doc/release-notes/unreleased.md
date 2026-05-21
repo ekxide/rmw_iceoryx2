@@ -43,10 +43,11 @@
     conflicts when merging.
 -->
 
-* Use `vcs` to manage dependencies [#13](https://github.com/ekxide/rmw_iceoryx2/issues/13)
+* Add measurement for serialized messages to benchmark [#2](https://github.com/ekxide/rmw_iceoryx2/issues/15)
 * Add CI for building and testing with `clang` [#12](https://github.com/ekxide/rmw_iceoryx2/issues/12)
+* Use `vcs` to manage dependencies [#13](https://github.com/ekxide/rmw_iceoryx2/issues/13)
 * Add CI for building and testing with `gcc` [#15](https://github.com/ekxide/rmw_iceoryx2/issues/15)
-* Add measurement for serialized messages to benchmark [#2]
+* Rename `main` branch to `rolling` [#38](https://github.com/ekxide/rmw_iceoryx2/issues/38)
 
 ### New API features
 
