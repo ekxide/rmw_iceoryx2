@@ -158,6 +158,7 @@ if(BUILD_TESTING)
     test/test_impl_message_introspection.cpp
     test/test_impl_node.cpp
     test/test_impl_publisher.cpp
+    test/test_impl_qos.cpp
     test/test_impl_sample_registry.cpp
     test/test_impl_subscriber.cpp
     test/test_impl_waitset.cpp
