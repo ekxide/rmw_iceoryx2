@@ -26,6 +26,7 @@ Subscriber::Subscriber(CreationLock,
     , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::topic(topic)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
+
     if (!iox2_service_name.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
         error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
@@ -36,25 +37,30 @@ Subscriber::Subscriber(CreationLock,
                                    .ipc()
                                    .service_builder(iox2_service_name.value())
                                    .publish_subscribe<Payload>()
-                                   // TODO: make configurable
+                                   // TODO: Replace hard-coded values with values from
+                                   //       `rmw_qos_profile_t`
                                    .max_publishers(64)
                                    .max_subscribers(64)
                                    .history_size(10)
                                    .subscriber_max_buffer_size(10)
                                    .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
                                    .open_or_create();    // TODO: set attribute for ROS typename
+
     if (!iox2_pubsub_service.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 
-    auto iox2_subscriber = iox2_pubsub_service.value().subscriber_builder().create();
+    // TODO: Determine buffer_size from `rmw_qos_profile_t::depth`
+    auto iox2_subscriber = iox2_pubsub_service.value().subscriber_builder().buffer_size(10).create();
+
     if (!iox2_subscriber.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_subscriber.error()));
         error.emplace(ErrorType::SUBSCRIBER_CREATION_FAILURE);
         return;
     }
+
     m_iox2_unique_id.emplace(iox2_subscriber->id());
     m_iox2_subscriber.emplace(std::move(iox2_subscriber.value()));
 }

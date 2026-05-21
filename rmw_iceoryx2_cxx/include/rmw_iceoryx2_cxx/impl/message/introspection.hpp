@@ -10,32 +10,24 @@
 #ifndef RMW_IOX2_MESSAGE_INTROSPECTION_HPP_
 #define RMW_IOX2_MESSAGE_INTROSPECTION_HPP_
 
-#include "rmw/dynamic_message_type_support.h"
 #include "rmw/visibility_control.h"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
-#include "rosidl_typesupport_introspection_c/message_introspection.h"
-#include "rosidl_typesupport_introspection_cpp/field_types.hpp"
-#include "rosidl_typesupport_introspection_cpp/message_introspection.hpp"
 
 namespace rmw::iox2
 {
 
-bool is_message(const rosidl_typesupport_introspection_c__MessageMember* member);
-bool is_fixed_array(const rosidl_typesupport_introspection_c__MessageMember* member);
-bool is_dynamic_array(const rosidl_typesupport_introspection_c__MessageMember* member);
-bool is_dynamic_string(const rosidl_typesupport_introspection_c__MessageMember* member);
-bool is_pod(const rosidl_typesupport_introspection_c__MessageMembers* members);
+/// @brief True if the message has no dynamic (heap-allocated) content.
+/// @details A self-contained message can be memcpy into an `iceoryx2`
+///          payload. Other messages must be serialized.
+RMW_PUBLIC bool is_self_contained(const rosidl_message_type_support_t* type_support);
 
-bool is_message(const rosidl_typesupport_introspection_cpp::MessageMember* member);
-bool is_fixed_array(const rosidl_typesupport_introspection_cpp::MessageMember* member);
-bool is_dynamic_array(const rosidl_typesupport_introspection_cpp::MessageMember* member);
-bool is_dynamic_string(const rosidl_typesupport_introspection_cpp::MessageMember* member);
-bool is_pod(const rosidl_typesupport_introspection_cpp::MessageMembers* members);
-
-bool is_pod(const rosidl_message_type_support_t* type_support);
+/// @brief The in-memory size of the message's C/C++ struct (`sizeof(T)`).
 RMW_PUBLIC size_t message_size(const rosidl_message_type_support_t* type_support);
+
+/// @brief The per-instance serialized size in bytes, including the 4-byte
+///        CDR encapsulation header.
 RMW_PUBLIC size_t serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support);
 
 } // namespace rmw::iox2
 
-#endif // RMW_IOX2_INTROSPECTION_MESSAGE_HPP_
+#endif // RMW_IOX2_MESSAGE_INTROSPECTION_HPP_

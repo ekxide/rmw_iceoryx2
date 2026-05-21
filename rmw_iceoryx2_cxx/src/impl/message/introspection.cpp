@@ -9,49 +9,79 @@
 
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 
+#include "iox2/legacy/variant.hpp"
+#include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
 #include "rosidl_typesupport_introspection_c/identifier.h"
+#include "rosidl_typesupport_introspection_c/message_introspection.h"
 #include "rosidl_typesupport_introspection_cpp/field_types.hpp"
 #include "rosidl_typesupport_introspection_cpp/identifier.hpp"
+#include "rosidl_typesupport_introspection_cpp/message_introspection.hpp"
 
 namespace rmw::iox2
 {
 
-bool is_message(const rosidl_typesupport_introspection_c__MessageMember* member) {
-    return member->type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_MESSAGE;
+// Helpers --------------------------------------------------------------
+
+namespace
+{
+
+namespace introspection_cpp = rosidl_typesupport_introspection_cpp;
+
+using CMember = rosidl_typesupport_introspection_c__MessageMember;
+using CMembers = rosidl_typesupport_introspection_c__MessageMembers;
+using CppMember = introspection_cpp::MessageMember;
+using CppMembers = introspection_cpp::MessageMembers;
+using IntrospectionView = ::iox2::legacy::variant<const CppMembers*, const CMembers*>;
+
+template <typename Member>
+bool is_string(const Member* m) {
+    // Both `string` and `wstring` own dynamically-sized heap buffers; for the
+    // purpose of self-containedness they are equivalent.
+    return m->type_id_ == introspection_cpp::ROS_TYPE_STRING || m->type_id_ == introspection_cpp::ROS_TYPE_WSTRING;
 }
 
-bool is_fixed_array(const rosidl_typesupport_introspection_c__MessageMember* member) {
-    return member->is_array_ && member->array_size_ > 0 && !member->is_upper_bound_;
+template <typename Member>
+bool is_message(const Member* m) {
+    return m->type_id_ == introspection_cpp::ROS_TYPE_MESSAGE;
 }
 
-bool is_dynamic_array(const rosidl_typesupport_introspection_c__MessageMember* member) {
-    return member->is_array_ && (member->array_size_ == 0 || member->is_upper_bound_);
+template <typename Member>
+bool is_fixed_array(const Member* m) {
+    return m->is_array_ && m->array_size_ > 0 && !m->is_upper_bound_;
 }
 
-bool is_dynamic_string(const rosidl_typesupport_introspection_c__MessageMember* member) {
-    return member->type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_STRING;
+template <typename Member>
+bool is_dynamic_array(const Member* m) {
+    return m->is_array_ && (m->array_size_ == 0 || m->is_upper_bound_);
 }
 
-bool is_pod(const rosidl_typesupport_introspection_c__MessageMembers* members) {
-    if (members == nullptr) {
+// A field has a runtime-determined size if its content lives on the heap.
+template <typename Member>
+bool has_dynamic_size(const Member* m) {
+    return is_string(m) || is_dynamic_array(m);
+}
+
+template <typename Members>
+bool is_self_contained_impl(const Members* members) {
+    if (!members) {
         return false;
     }
-
     for (uint32_t i = 0; i < members->member_count_; ++i) {
         const auto* member = members->members_ + i;
 
-        if (is_dynamic_array(member) || is_dynamic_string(member)) {
+        if (has_dynamic_size(member)) {
             return false;
         }
+
         if (is_message(member)) {
             if (!member->members_ || !member->members_->data) {
                 return false;
             }
-            if (!is_pod(
-                    static_cast<const rosidl_typesupport_introspection_c__MessageMembers*>(member->members_->data))) {
+            const auto* nested = static_cast<const Members*>(member->members_->data);
+            if (!is_self_contained_impl(nested)) {
                 return false;
             }
         }
@@ -59,67 +89,39 @@ bool is_pod(const rosidl_typesupport_introspection_c__MessageMembers* members) {
     return true;
 }
 
-bool is_message(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
-    return member->type_id_ == ::rosidl_typesupport_introspection_cpp::ROS_TYPE_MESSAGE;
-}
-
-bool is_fixed_array(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
-    return member->is_array_ && member->array_size_ > 0 && !member->is_upper_bound_;
-}
-
-bool is_dynamic_array(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
-    return member->is_array_ && (member->array_size_ == 0 || member->is_upper_bound_);
-}
-
-bool is_dynamic_string(const rosidl_typesupport_introspection_cpp::MessageMember* member) {
-    return member->type_id_ == ::rosidl_typesupport_introspection_cpp::ROS_TYPE_STRING;
-}
-
-bool is_pod(const rosidl_typesupport_introspection_cpp::MessageMembers* members) {
-    if (members == nullptr)
-        return false;
-
-    for (uint32_t i = 0; i < members->member_count_; ++i) {
-        const auto* member = members->members_ + i;
-
-        if (is_dynamic_array(member) || is_dynamic_string(member)) {
-            return false;
-        }
-        if (is_message(member)) {
-            if (!member->members_ || !member->members_->data)
-                return false;
-            if (!is_pod(
-                    static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(member->members_->data))) {
-                return false;
-            };
-        }
+auto find_introspection(const rosidl_message_type_support_t* ts) -> IntrospectionView {
+    IntrospectionView view;
+    if (auto handle = get_message_typesupport_handle(ts, introspection_cpp::typesupport_identifier)) {
+        view.template emplace<const CppMembers*>(static_cast<const CppMembers*>(handle->data));
+    } else if (auto handle = get_message_typesupport_handle(ts, rosidl_typesupport_introspection_c__identifier)) {
+        view.template emplace<const CMembers*>(static_cast<const CMembers*>(handle->data));
     }
-    return true;
+    return view;
 }
 
-bool is_pod(const rosidl_message_type_support_t* type_support) {
-    if (auto handle = get_message_typesupport_handle(type_support,
-                                                     rosidl_typesupport_introspection_cpp::typesupport_identifier)) {
-        auto members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(handle->data);
-        return is_pod(members);
+} // namespace
+
+// Public API --------------------------------------------------------------
+
+bool is_self_contained(const rosidl_message_type_support_t* type_support) {
+    auto view = find_introspection(type_support);
+    if (auto* member = view.get<const CppMembers*>()) {
+        return is_self_contained_impl(*member);
+    }
+    if (auto* member = view.get<const CMembers*>()) {
+        return is_self_contained_impl(*member);
     }
     return false;
 }
 
 size_t message_size(const rosidl_message_type_support_t* type_support) {
-    // Try C++ typesupport first
-    if (auto handle = get_message_typesupport_handle(type_support,
-                                                     rosidl_typesupport_introspection_cpp::typesupport_identifier)) {
-        auto members = static_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(handle->data);
-        return members->size_of_;
+    auto view = find_introspection(type_support);
+    if (auto* member = view.get<const CppMembers*>()) {
+        return (*member)->size_of_;
     }
-
-    // Try C typesupport if C++ failed
-    if (auto handle = get_message_typesupport_handle(type_support, rosidl_typesupport_introspection_c__identifier)) {
-        auto members = static_cast<const rosidl_typesupport_introspection_c__MessageMembers*>(handle->data);
-        return members->size_of_;
+    if (auto* member = view.get<const CMembers*>()) {
+        return (*member)->size_of_;
     }
-
     RMW_IOX2_CHAIN_ERROR_MSG("failed to determine message size");
     return 0;
 }
