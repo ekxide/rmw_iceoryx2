@@ -4,9 +4,9 @@ env:
   TEST_ARGS: "--cmake-args -DBUILD_TESTING=ON"
 on:
   push:
-    branches: [ main ]
+    branches: [ rolling ]
   pull_request:
-    branches: [ main ]
+    branches: [ rolling ]
     types: [ opened, ready_for_review, reopened, synchronize ]
 jobs:
   changes:
@@ -68,8 +68,8 @@ jobs:
 
 #     - name: Run clang-tidy
 #       run: |
-#         git fetch origin main
-#         ./scripts/check-clang-tidy.sh warning-as-error diff-to-main
+#         git fetch origin rolling
+#         ./scripts/check-clang-tidy.sh
 
   colcon-build-test:
     needs: [preflight-check, static-code-analysis]

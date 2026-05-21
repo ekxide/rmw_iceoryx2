@@ -69,14 +69,14 @@ bindings to the Rust core.
 1. Clone `iceoryx2` source:
 
     ```console
-    vcs import --force --input https://raw.githubusercontent.com/ekxide/rmw_iceoryx2/refs/heads/main/iceoryx.repos ~/workspace/src
+    vcs import --force --input https://raw.githubusercontent.com/ekxide/rmw_iceoryx2/refs/heads/rolling/iceoryx.repos ~/workspace/src
     ```
 
 1. Clone `rmw_iceoryx2`:
-    1. Either `main` or a specific version tag e.g. `v0.1.0`
+    1. Either `rolling` or a specific version tag e.g. `v0.1.0`
 
     ```console
-    git clone -b main https://github.com/ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2/
+    git clone -b rolling https://github.com/ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2/
     ```
 
 1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes:

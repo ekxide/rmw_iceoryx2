@@ -13,7 +13,7 @@
 * [ ] Changelog updated [in the unreleased section][changelog] including API breaking changes
 * [ ] Assign PR to reviewer
 
-[changelog]: https://github.com/ekxide/rmw_iceoryx2/blob/main/doc/release-notes/unreleased.md
+[changelog]: https://github.com/ekxide/rmw_iceoryx2/blob/rolling/doc/release-notes/unreleased.md
 
 ## Checklist for the PR Reviewer
 
