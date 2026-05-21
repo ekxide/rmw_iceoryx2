@@ -138,9 +138,9 @@ CheckOptions:
   - { key: readability-identifier-naming.PrivateMemberPrefix,     value: m_ }
   - { key: readability-identifier-naming.ProtectedMemberPrefix,   value: '' }
   - { key: readability-identifier-naming.MemberCase,              value: lower_case }
-  - { key: readability-identifier-naming.ConstexprVariableCase,   value: lower_case }
+  - { key: readability-identifier-naming.ConstexprVariableCase,   value: UPPER_CASE }
   - { key: readability-identifier-naming.EnumConstantCase,        value: UPPER_CASE }
-  - { key: readability-identifier-naming.GlobalConstantCase,      value: lower_case }
+  - { key: readability-identifier-naming.GlobalConstantCase,      value: UPPER_CASE }
   - { key: readability-identifier-naming.TemplateParameterCase,   value: CamelCase }
   - { key: readability-function-size.LineThreshold,               value: 200 }
   - { key: readability-function-size.StatementThreshold,          value: 200 }
