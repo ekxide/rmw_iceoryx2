@@ -22,6 +22,7 @@
 
 * Fix failing `gcc` build [#15](https://github.com/ekxide/rmw_iceoryx2/issues/15)
 * Fix failing `gcc` and `clang` build on Ubuntu 22.04 [#29](https://github.com/ekxide/rmw_iceoryx2/issues/29)
+* Fix non-triggered attachments not being set to `nullptr` on timeout [#36](https://github.com/ekxide/rmw_iceoryx2/issues/36)
 
 ### Refactoring
 
