@@ -179,15 +179,14 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
     // Reset all mappings - each wait call provides a different set of mappings
     waitset_impl->unmap_all();
 
-    // Process triggers
+    // Collect triggered indices
     auto return_code = RMW_RET_TIMEOUT;
     auto triggers = std::move(wait_result.value());
+    std::set<size_t> triggered_subscribers;
+    std::set<size_t> triggered_guard_conditions;
+
     if (!triggers.empty()) {
         return_code = RMW_RET_OK;
-
-        // Collect all triggered indices
-        std::set<size_t> triggered_subscribers;
-        std::set<size_t> triggered_guard_conditions;
         for (const auto& trigger : triggers) {
             switch (trigger.waitable_type) {
             case WaitableEntity::SUBSCRIBER:
@@ -198,20 +197,20 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
                 break;
             }
         }
+    }
 
-        // Set non-triggered indices to nullptr
-        if (rmw_subscriptions) {
-            for (size_t index = 0; index < rmw_subscriptions->subscriber_count; index++) {
-                if (triggered_subscribers.find(index) == triggered_subscribers.end()) {
-                    rmw_subscriptions->subscribers[index] = nullptr;
-                }
+    // Set every non-triggered entry must to nullptr
+    if (rmw_subscriptions) {
+        for (size_t index = 0; index < rmw_subscriptions->subscriber_count; index++) {
+            if (triggered_subscribers.find(index) == triggered_subscribers.end()) {
+                rmw_subscriptions->subscribers[index] = nullptr;
             }
         }
-        if (rmw_guard_conditions) {
-            for (size_t index = 0; index < rmw_guard_conditions->guard_condition_count; index++) {
-                if (triggered_guard_conditions.find(index) == triggered_guard_conditions.end()) {
-                    rmw_guard_conditions->guard_conditions[index] = nullptr;
-                }
+    }
+    if (rmw_guard_conditions) {
+        for (size_t index = 0; index < rmw_guard_conditions->guard_condition_count; index++) {
+            if (triggered_guard_conditions.find(index) == triggered_guard_conditions.end()) {
+                rmw_guard_conditions->guard_conditions[index] = nullptr;
             }
         }
     }
