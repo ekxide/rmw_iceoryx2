@@ -12,6 +12,7 @@
 
 #include "rmw/visibility_control.h"
 
+// NOLINTNEXTLINE(readability-identifier-naming) lowercase enforced by RMW C API contract
 constexpr const char* rmw_iox2_identifier = "rmw_iceoryx2_cxx";
 
 extern "C" {

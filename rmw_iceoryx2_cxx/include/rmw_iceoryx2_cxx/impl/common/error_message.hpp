@@ -35,7 +35,12 @@ static const size_t MAX_ERROR_MSG_LENGTH = 4096;
             RCUTILS_SET_ERROR_MSG(msg);                                                                                \
         }                                                                                                              \
     } while (0)
+// NOLINTEND(cppcoreguidelines-avoid-do-while)
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while, cert-err33-c)
+// `do { ... } while (0)` is the typical multi-statement macro idiom;
+// snprintf truncation into the fixed-size MAX_ERROR_MSG_LENGTH buffer only
+// shortens the error message and is therefore safe to ignore.
 #define RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(format, ...)                                                       \
     do {                                                                                                               \
         if (rcutils_error_is_set()) {                                                                                  \
@@ -48,5 +53,5 @@ static const size_t MAX_ERROR_MSG_LENGTH = 4096;
             RCUTILS_SET_ERROR_MSG_WITH_FORMAT_STRING(format, __VA_ARGS__);                                             \
         }                                                                                                              \
     } while (0)
-// NOLINTEND(cppcoreguidelines-avoid-do-while)
+// NOLINTEND(cppcoreguidelines-avoid-do-while, cert-err33-c)
 #endif
