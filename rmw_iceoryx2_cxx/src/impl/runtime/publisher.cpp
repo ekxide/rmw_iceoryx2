@@ -13,6 +13,7 @@
 #include "iox2/bb/slice.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 
@@ -37,20 +38,32 @@ Publisher::Publisher(CreationLock,
         return;
     }
 
+    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos);
+    if (!verifier.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to build QoS attribute verifier");
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
+    // TODO: branch on init_options qos_match_mode (strict vs adopt) once
+    //       qos_match_mode is plumbed through rmw_init_options_t::impl.
+    // TODO: replace hardcoded max_publishers / max_subscribers with values
+    //       from rmw_init_options_t::impl.
     auto iox2_pubsub_service = node.iox2()
                                    .ipc()
                                    .service_builder(iox2_service_name.value())
                                    .publish_subscribe<Payload>()
-                                   // TODO: replace hard-coded values with values from
-                                   //       `rmw_qos_profile_t`
                                    .max_publishers(64)
                                    .max_subscribers(64)
-                                   .history_size(10)
-                                   .subscriber_max_buffer_size(10)
+                                   .history_size(m_qos.history_size())
+                                   .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
+                                   .enable_safe_overflow(m_qos.enable_safe_overflow())
                                    .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
-                                   .open_or_create();    // TODO: set attribute for ROS typename
+                                   .open_or_create_with_attributes(verifier.value());
 
     if (!iox2_pubsub_service.has_value()) {
+        // TODO: translate OpenIncompatibleAttributes into a per-key diff
+        //       message via diff_attributes(m_qos, existing_attrs).
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
