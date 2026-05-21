@@ -433,8 +433,18 @@ rmw_ret_t rmw_subscription_get_actual_qos(const rmw_subscription_t* rmw_subscrip
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
-    // ementation -------------------------------------------------------------------------------
-    *qos = rmw_qos_profile_default;
+    // Implementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::Convert;
+    using ::rmw::iox2::unsafe_cast;
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
+
+    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
+    if (!subscriber_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
+        return RMW_RET_ERROR;
+    }
+
+    *qos = Convert<rmw_qos_profile_t>::from(subscriber_impl.value()->qos());
 
     return RMW_RET_OK;
 }

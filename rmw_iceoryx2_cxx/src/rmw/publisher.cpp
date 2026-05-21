@@ -338,7 +338,17 @@ rmw_ret_t rmw_publisher_get_actual_qos(const rmw_publisher_t* rmw_publisher, rmw
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    *qos = rmw_qos_profile_default;
+    using ::rmw::iox2::Convert;
+    using ::rmw::iox2::unsafe_cast;
+    using PublisherImpl = ::rmw::iox2::Publisher;
+
+    auto publisher_impl = unsafe_cast<PublisherImpl*>(rmw_publisher->data);
+    if (!publisher_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
+        return RMW_RET_ERROR;
+    }
+
+    *qos = Convert<rmw_qos_profile_t>::from(publisher_impl.value()->qos());
 
     return RMW_RET_OK;
 }
