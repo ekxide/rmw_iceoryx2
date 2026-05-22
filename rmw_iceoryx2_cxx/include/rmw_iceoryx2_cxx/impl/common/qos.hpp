@@ -41,31 +41,38 @@ public:
     class Builder
     {
     public:
-        void set_history(History history, uint64_t depth) noexcept {
+        auto set_history(History history, uint64_t depth) noexcept -> Builder& {
             m_history = history;
             m_depth = depth;
+            return *this;
         }
-        void set_reliability(Reliability reliability) noexcept {
+        auto set_reliability(Reliability reliability) noexcept -> Builder& {
             m_reliability = reliability;
+            return *this;
         }
-        void set_durability(Durability durability) noexcept {
+        auto set_durability(Durability durability) noexcept -> Builder& {
             m_durability = durability;
+            return *this;
         }
-        void set_deadline(Duration deadline) noexcept {
+        auto set_deadline(Duration deadline) noexcept -> Builder& {
             m_deadline = deadline;
+            return *this;
         }
-        void set_lifespan(Duration lifespan) noexcept {
+        auto set_lifespan(Duration lifespan) noexcept -> Builder& {
             m_lifespan = lifespan;
+            return *this;
         }
-        void set_liveliness(Liveliness liveliness, Duration lease) noexcept {
+        auto set_liveliness(Liveliness liveliness, Duration lease) noexcept -> Builder& {
             m_liveliness = liveliness;
             m_liveliness_lease_duration = lease;
+            return *this;
         }
-        void set_avoid_ros_namespace_conventions(bool avoid) noexcept {
+        auto set_avoid_ros_namespace_conventions(bool avoid) noexcept -> Builder& {
             m_avoid_ros_namespace_conventions = avoid;
+            return *this;
         }
 
-        auto build() && noexcept -> Qos {
+        auto build() const noexcept -> Qos {
             Qos qos;
             qos.m_history = m_history;
             qos.m_depth = m_depth;

@@ -14,7 +14,6 @@
 #include "rmw_iceoryx2_cxx/impl/common/qos_matching.hpp"
 
 #include <cstdio>
-#include <utility>
 
 namespace rmw::iox2
 {
@@ -149,31 +148,23 @@ auto TryConvert<Qos>::from(const rmw_qos_profile_t& profile, ProfileKind kind) -
         return err(QosError::UNSUPPORTED_HISTORY_POLICY);
     }
 
-    Qos::Builder builder;
-
     // History only resolves to KEEP_LAST (KEEP_ALL is rejected above).
-    builder.set_history(Qos::History::KEEP_LAST, matching::resolve_depth(profile.depth));
-
-    builder.set_reliability(matching::resolve(profile.reliability) == RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT
-                                ? Qos::Reliability::BEST_EFFORT
-                                : Qos::Reliability::RELIABLE);
-
-    builder.set_durability(matching::resolve(profile.durability) == RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL
-                               ? Qos::Durability::TRANSIENT_LOCAL
-                               : Qos::Durability::VOLATILE);
-
-    builder.set_deadline(to_duration(profile.deadline));
-    builder.set_lifespan(to_duration(profile.lifespan));
-
-    auto lease = to_duration(profile.liveliness_lease_duration);
-    builder.set_liveliness(matching::resolve(profile.liveliness) == RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC
-                               ? Qos::Liveliness::MANUAL_BY_TOPIC
-                               : Qos::Liveliness::AUTOMATIC,
-                           lease);
-
-    builder.set_avoid_ros_namespace_conventions(profile.avoid_ros_namespace_conventions);
-
-    return std::move(builder).build();
+    return Qos::Builder{}
+        .set_history(Qos::History::KEEP_LAST, matching::resolve_depth(profile.depth))
+        .set_reliability(matching::resolve(profile.reliability) == RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT
+                             ? Qos::Reliability::BEST_EFFORT
+                             : Qos::Reliability::RELIABLE)
+        .set_durability(matching::resolve(profile.durability) == RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL
+                            ? Qos::Durability::TRANSIENT_LOCAL
+                            : Qos::Durability::VOLATILE)
+        .set_deadline(to_duration(profile.deadline))
+        .set_lifespan(to_duration(profile.lifespan))
+        .set_liveliness(matching::resolve(profile.liveliness) == RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC
+                            ? Qos::Liveliness::MANUAL_BY_TOPIC
+                            : Qos::Liveliness::AUTOMATIC,
+                        to_duration(profile.liveliness_lease_duration))
+        .set_avoid_ros_namespace_conventions(profile.avoid_ros_namespace_conventions)
+        .build();
 }
 
 auto TryConvert<Qos>::from(AttributeSetView attributes, ProfileKind kind) -> Expected<Qos, QosError> {
@@ -241,7 +232,7 @@ auto TryConvert<Qos>::from(AttributeSetView attributes, ProfileKind kind) -> Exp
     }
     builder.set_liveliness(liveliness.value().kind, liveliness.value().lease);
 
-    return std::move(builder).build();
+    return builder.build();
 }
 
 auto TryConvert<AttributeSpecifier>::from(const Qos& qos) -> Expected<AttributeSpecifier, QosError> {
