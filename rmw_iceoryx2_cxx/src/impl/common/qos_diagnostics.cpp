@@ -56,7 +56,7 @@ void log_unsupported_policies(const Qos& qos, const char* topic) noexcept {
     }
 }
 
-void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView attrs, const char* topic) noexcept {
+void log_attribute_mismatch(const Qos& qos, ::iox2::AttributeSetView attribute_set, const char* topic) noexcept {
     char message[rmw::iox2::MAX_ERROR_MSG_LENGTH];
     int written = std::snprintf(message, sizeof(message), "QoS mismatch on '%s':", topic);
     size_t offset = (written > 0) ? static_cast<size_t>(written) : 0;
@@ -65,27 +65,27 @@ void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView attrs
     }
 
     size_t count = 0;
-    char requested_val[256];
-    char existing_val[256];
+    char requested[256];
+    char attribute[256];
 
     auto diff = [&](const char* key) {
         if (offset >= sizeof(message)) {
             return;
         }
-        if (!read_attribute_value(attrs, key, existing_val, sizeof(existing_val))) {
+        if (!read_attribute_value(attribute_set, key, attribute, sizeof(attribute))) {
             return;
         }
-        if (std::strcmp(requested_val, existing_val) == 0) {
+        if (std::strcmp(requested, attribute) == 0) {
             return;
         }
         // NOLINTNEXTLINE(cert-err33-c) buffer sized at MAX_ERROR_MSG_LENGTH; trailing diffs truncate if exhausted
         int written = std::snprintf(message + offset,
                                     sizeof(message) - offset,
-                                    "%s %s [existing=%s, requested=%s]",
+                                    "%s %s [attribute=%s, requested=%s]",
                                     count == 0 ? "" : ";",
                                     key,
-                                    existing_val,
-                                    requested_val);
+                                    attribute,
+                                    requested);
         if (written <= 0) {
             return;
         }
@@ -96,29 +96,30 @@ void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView attrs
         ++count;
     };
 
-    codec::History::format(requested, requested_val, sizeof(requested_val));
+    codec::History::format(qos, requested, sizeof(requested));
     diff(codec::History::KEY);
-    codec::Reliability::format(requested, requested_val, sizeof(requested_val));
+    codec::Reliability::format(qos, requested, sizeof(requested));
     diff(codec::Reliability::KEY);
-    codec::Durability::format(requested, requested_val, sizeof(requested_val));
+    codec::Durability::format(qos, requested, sizeof(requested));
     diff(codec::Durability::KEY);
-    codec::Deadline::format(requested, requested_val, sizeof(requested_val));
+    codec::Deadline::format(qos, requested, sizeof(requested));
     diff(codec::Deadline::KEY);
-    codec::Lifespan::format(requested, requested_val, sizeof(requested_val));
+    codec::Lifespan::format(qos, requested, sizeof(requested));
     diff(codec::Lifespan::KEY);
-    codec::Liveliness::format(requested, requested_val, sizeof(requested_val));
+    codec::Liveliness::format(qos, requested, sizeof(requested));
     diff(codec::Liveliness::KEY);
 
     if (count == 0) {
         // Shouldn't happen after OpenIncompatibleAttributes.
-        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING("QoS mismatch on '%s' but no per-key diff was produced", topic);
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING("QoS mismatch on '%s' but no QoS attribute set on iceoryx2 service",
+                                                    topic);
         return;
     }
 
     // NOLINTNEXTLINE(cert-err33-c) buffer sized at MAX_ERROR_MSG_LENGTH; trailing hint truncates if exhausted
     std::snprintf(message + offset,
                   sizeof(message) - offset,
-                  ". Set RMW_IOX2_QOS_MATCH=adopt to auto-match the existing service.");
+                  ". Set RMW_IOX2_QOS_MATCHING=adoptive to auto-match attributes in the existing service.");
 
     RMW_IOX2_CHAIN_ERROR_MSG(message);
 }

@@ -25,7 +25,7 @@ namespace rmw::iox2::codec
 struct History
 {
     static constexpr char KEY[] = "rmw.qos.local.history";
-    static constexpr char KEEP_LAST[] = "keep_last";
+    static constexpr char VALUE_KEEP_LAST[] = "keep_last";
 
     RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     RMW_PUBLIC static auto parse(const char* str) -> ::iox2::bb::Optional<uint64_t>;
@@ -34,8 +34,8 @@ struct History
 struct Reliability
 {
     static constexpr char KEY[] = "rmw.qos.local.reliability";
-    static constexpr char RELIABLE[] = "reliable";
-    static constexpr char BEST_EFFORT[] = "best_effort";
+    static constexpr char VALUE_RELIABLE[] = "reliable";
+    static constexpr char VALUE_BEST_EFFORT[] = "best_effort";
 
     RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     RMW_PUBLIC static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Reliability>;
@@ -44,8 +44,8 @@ struct Reliability
 struct Durability
 {
     static constexpr char KEY[] = "rmw.qos.local.durability";
-    static constexpr char VOLATILE[] = "volatile";
-    static constexpr char TRANSIENT_LOCAL[] = "transient_local";
+    static constexpr char VALUE_VOLATILE[] = "volatile";
+    static constexpr char VALUE_TRANSIENT_LOCAL[] = "transient_local";
 
     RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     RMW_PUBLIC static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Durability>;
@@ -78,8 +78,8 @@ struct Liveliness
     };
 
     static constexpr char KEY[] = "rmw.qos.local.liveliness";
-    static constexpr char AUTOMATIC[] = "automatic";
-    static constexpr char MANUAL_BY_TOPIC[] = "manual_by_topic";
+    static constexpr char VALUE_AUTOMATIC[] = "automatic";
+    static constexpr char VALUE_MANUAL_BY_TOPIC[] = "manual_by_topic";
 
     RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     RMW_PUBLIC static auto parse(const char* str) -> ::iox2::bb::Optional<Value>;

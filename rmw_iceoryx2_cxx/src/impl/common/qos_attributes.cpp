@@ -34,6 +34,7 @@ constexpr rmw_time_t BEST_AVAILABLE_DURATION = RMW_QOS_DEADLINE_BEST_AVAILABLE;
 
 constexpr uint64_t DEFAULT_DEPTH = 10;
 
+// TODO: Rename
 auto map_time(rmw_time_t time) -> Qos::Duration {
     // BEST_AVAILABLE sentinel collapses to the canonical default (0:0).
     if (time.sec == BEST_AVAILABLE_DURATION.sec && time.nsec == BEST_AVAILABLE_DURATION.nsec) {

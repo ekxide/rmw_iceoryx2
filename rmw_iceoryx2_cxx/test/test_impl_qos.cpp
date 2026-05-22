@@ -352,28 +352,31 @@ struct CapturedMismatch
     std::string existing;
 };
 
-template <typename Policy>
-void check_one(const Qos& requested, ::iox2::AttributeSetView existing, std::vector<CapturedMismatch>& diffs) {
-    char req[256];
-    char exi[256];
-    Policy::format(requested, req, sizeof(req));
-    if (!read_attribute_value(existing, Policy::KEY, exi, sizeof(exi))) {
+template <typename Codec>
+void check(const Qos& qos, ::iox2::AttributeSetView attributes, std::vector<CapturedMismatch>& diffs) {
+    char requested[256];
+    char existing[256];
+
+    Codec::format(qos, requested, sizeof(requested));
+    if (!read_attribute_value(attributes, Codec::KEY, existing, sizeof(existing))) {
         return;
     }
-    if (std::strcmp(req, exi) != 0) {
-        diffs.push_back(CapturedMismatch{Policy::KEY, req, exi});
+    if (std::strcmp(requested, existing) != 0) {
+        diffs.push_back(CapturedMismatch{Codec::KEY, requested, existing});
     }
 }
 
-auto collect_mismatches(const Qos& requested, ::iox2::AttributeSetView existing) -> std::vector<CapturedMismatch> {
-    std::vector<CapturedMismatch> diffs;
-    check_one<codec::History>(requested, existing, diffs);
-    check_one<codec::Reliability>(requested, existing, diffs);
-    check_one<codec::Durability>(requested, existing, diffs);
-    check_one<codec::Deadline>(requested, existing, diffs);
-    check_one<codec::Lifespan>(requested, existing, diffs);
-    check_one<codec::Liveliness>(requested, existing, diffs);
-    return diffs;
+auto collect_mismatches(const Qos& qos, ::iox2::AttributeSetView attributes) -> std::vector<CapturedMismatch> {
+    std::vector<CapturedMismatch> mismatches;
+
+    check<codec::History>(qos, attributes, mismatches);
+    check<codec::Reliability>(qos, attributes, mismatches);
+    check<codec::Durability>(qos, attributes, mismatches);
+    check<codec::Deadline>(qos, attributes, mismatches);
+    check<codec::Lifespan>(qos, attributes, mismatches);
+    check<codec::Liveliness>(qos, attributes, mismatches);
+
+    return mismatches;
 }
 } // namespace
 

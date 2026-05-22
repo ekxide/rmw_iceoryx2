@@ -26,8 +26,7 @@ namespace rmw::iox2
 // Conversions
 // ----------------------------------------------------------------------------
 
-/// Fallible conversion to `Qos`. Lives here (not in `qos.hpp`) because
-/// the `AttributeSetView` overload depends on the policy schema above.
+/// Fallible conversion to `Qos`.
 template <>
 struct RMW_PUBLIC TryConvert<Qos>
 {

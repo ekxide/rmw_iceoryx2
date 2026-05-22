@@ -64,11 +64,11 @@ auto strip_prefix(const char* str, const char* prefix) -> const char* {
 void History::format(const Qos& qos, char* buf, size_t len) {
     // Qos guarantees KEEP_LAST.
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
-    std::snprintf(buf, len, "%s:%llu", KEEP_LAST, static_cast<unsigned long long>(qos.depth()));
+    std::snprintf(buf, len, "%s:%llu", VALUE_KEEP_LAST, static_cast<unsigned long long>(qos.depth()));
 }
 
 auto History::parse(const char* str) -> ::iox2::bb::Optional<uint64_t> {
-    const char* rest = strip_prefix(str, KEEP_LAST);
+    const char* rest = strip_prefix(str, VALUE_KEEP_LAST);
     if (rest == nullptr) {
         return NULLOPT;
     }
@@ -83,18 +83,18 @@ auto History::parse(const char* str) -> ::iox2::bb::Optional<uint64_t> {
 }
 
 void Reliability::format(const Qos& qos, char* buf, size_t len) {
-    const char* str = qos.reliability() == Qos::Reliability::RELIABLE ? RELIABLE : BEST_EFFORT;
+    const char* str = qos.reliability() == Qos::Reliability::RELIABLE ? VALUE_RELIABLE : VALUE_BEST_EFFORT;
 
     // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
     std::snprintf(buf, len, "%s", str);
 }
 
 auto Reliability::parse(const char* str) -> ::iox2::bb::Optional<Qos::Reliability> {
-    if (std::strcmp(str, RELIABLE) == 0) {
+    if (std::strcmp(str, VALUE_RELIABLE) == 0) {
         return Qos::Reliability::RELIABLE;
     }
 
-    if (std::strcmp(str, BEST_EFFORT) == 0) {
+    if (std::strcmp(str, VALUE_BEST_EFFORT) == 0) {
         return Qos::Reliability::BEST_EFFORT;
     }
 
@@ -102,17 +102,17 @@ auto Reliability::parse(const char* str) -> ::iox2::bb::Optional<Qos::Reliabilit
 }
 
 void Durability::format(const Qos& qos, char* buf, size_t len) {
-    const char* str = qos.durability() == Qos::Durability::TRANSIENT_LOCAL ? TRANSIENT_LOCAL : VOLATILE;
+    const char* str = qos.durability() == Qos::Durability::TRANSIENT_LOCAL ? VALUE_TRANSIENT_LOCAL : VALUE_VOLATILE;
 
     // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
     std::snprintf(buf, len, "%s", str);
 }
 
 auto Durability::parse(const char* str) -> ::iox2::bb::Optional<Qos::Durability> {
-    if (std::strcmp(str, VOLATILE) == 0) {
+    if (std::strcmp(str, VALUE_VOLATILE) == 0) {
         return Qos::Durability::VOLATILE;
     }
-    if (std::strcmp(str, TRANSIENT_LOCAL) == 0) {
+    if (std::strcmp(str, VALUE_TRANSIENT_LOCAL) == 0) {
         return Qos::Durability::TRANSIENT_LOCAL;
     }
 
@@ -166,7 +166,7 @@ auto Lifespan::parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration> {
 }
 
 void Liveliness::format(const Qos& qos, char* buf, size_t len) {
-    const char* kind = qos.liveliness() == Qos::Liveliness::MANUAL_BY_TOPIC ? MANUAL_BY_TOPIC : AUTOMATIC;
+    const char* kind = qos.liveliness() == Qos::Liveliness::MANUAL_BY_TOPIC ? VALUE_MANUAL_BY_TOPIC : VALUE_AUTOMATIC;
     auto lease = qos.liveliness_lease_duration();
 
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
@@ -181,9 +181,9 @@ void Liveliness::format(const Qos& qos, char* buf, size_t len) {
 auto Liveliness::parse(const char* str) -> ::iox2::bb::Optional<Liveliness::Value> {
     Qos::Liveliness kind = Qos::Liveliness::AUTOMATIC;
 
-    const char* rest = strip_prefix(str, AUTOMATIC);
+    const char* rest = strip_prefix(str, VALUE_AUTOMATIC);
     if (rest == nullptr) {
-        rest = strip_prefix(str, MANUAL_BY_TOPIC);
+        rest = strip_prefix(str, VALUE_MANUAL_BY_TOPIC);
         if (rest == nullptr) {
             return NULLOPT;
         }
