@@ -84,22 +84,26 @@ protected:
 
     template <typename MessageType>
     rmw_publisher_t* create_default_publisher(const std::string& topic_name) {
-        auto pub = rmw_create_publisher(test_node(),
-                                        test_type_support<MessageType>(),
-                                        topic_name.c_str(),
-                                        &rmw_qos_profile_default,
-                                        &m_publisher_options);
+        return create_publisher<MessageType>(topic_name, rmw_qos_profile_default);
+    }
+
+    template <typename MessageType>
+    rmw_subscription_t* create_default_subscriber(const std::string& topic_name) {
+        return create_subscriber<MessageType>(topic_name, rmw_qos_profile_default);
+    }
+
+    template <typename MessageType>
+    rmw_publisher_t* create_publisher(const std::string& topic_name, const rmw_qos_profile_t& qos) {
+        auto pub = rmw_create_publisher(
+            test_node(), test_type_support<MessageType>(), topic_name.c_str(), &qos, &m_publisher_options);
         m_publishers.push_back(pub);
         return pub;
     }
 
     template <typename MessageType>
-    rmw_subscription_t* create_default_subscriber(const std::string& topic_name) {
-        auto sub = rmw_create_subscription(test_node(),
-                                           test_type_support<MessageType>(),
-                                           topic_name.c_str(),
-                                           &rmw_qos_profile_default,
-                                           &m_subscriber_options);
+    rmw_subscription_t* create_subscriber(const std::string& topic_name, const rmw_qos_profile_t& qos) {
+        auto sub = rmw_create_subscription(
+            test_node(), test_type_support<MessageType>(), topic_name.c_str(), &qos, &m_subscriber_options);
         m_subscribers.push_back(sub);
         return sub;
     }
@@ -139,7 +143,8 @@ protected:
 
     void print_rmw_errors() {
         if (rcutils_error_is_set()) {
-            std::cerr << rcutils_get_error_string().str;
+            std::cerr << rcutils_get_error_string().str << '\n';
+            rcutils_reset_error();
         }
     }
 

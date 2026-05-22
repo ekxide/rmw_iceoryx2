@@ -172,6 +172,7 @@ if(BUILD_TESTING)
     test/test_rmw_logging.cpp
     test/test_rmw_node.cpp
     test/test_rmw_publisher.cpp
+    test/test_rmw_qos.cpp
     test/test_rmw_serialize.cpp
     test/test_rmw_subscription.cpp
     test/test_rmw_publish_subscribe.cpp
