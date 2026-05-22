@@ -17,9 +17,6 @@
 #include "testing/base.hpp"
 
 #include <cstdlib>
-#include <optional>
-#include <string>
-#include <vector>
 
 namespace
 {
@@ -52,7 +49,7 @@ TEST_F(RmwInitTest, initialization_and_shutdown) {
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
-class RmwInitQosOptionsTest : public TestBase
+class RmwInitOptionsTest : public TestBase
 {
 protected:
     void SetUp() override {
@@ -66,32 +63,11 @@ protected:
         restore_environment();
         print_rmw_errors();
     }
-
-private:
-    void unset_environment(const char* name) {
-        const char* current = std::getenv(name);
-        m_snapshots.emplace_back(
-            name, current == nullptr ? std::optional<std::string>{} : std::optional<std::string>{current});
-        unsetenv(name);
-    }
-
-    void restore_environment() {
-        for (const auto& [name, value] : m_snapshots) {
-            if (value.has_value()) {
-                setenv(name.c_str(), value->c_str(), 1);
-            } else {
-                unsetenv(name.c_str());
-            }
-        }
-        m_snapshots.clear();
-    }
-
-    std::vector<std::pair<std::string, std::optional<std::string>>> m_snapshots;
 };
 
 // Happy path ----------------------------------------------------------------
 
-TEST_F(RmwInitQosOptionsTest, uses_defaults_when_env_unset) {
+TEST_F(RmwInitOptionsTest, uses_defaults_when_env_unset) {
     setenv("RMW_IOX2_QOS_MATCHING", "", 1);
     setenv("RMW_IOX2_MAX_NODES_PER_SERVICE", "", 1);
     setenv("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC", "", 1);
@@ -109,7 +85,7 @@ TEST_F(RmwInitQosOptionsTest, uses_defaults_when_env_unset) {
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
-TEST_F(RmwInitQosOptionsTest, properly_sets_strict_matching_mode) {
+TEST_F(RmwInitOptionsTest, properly_sets_strict_matching_mode) {
     setenv("RMW_IOX2_QOS_MATCHING", "strict", 1);
 
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
@@ -118,7 +94,7 @@ TEST_F(RmwInitQosOptionsTest, properly_sets_strict_matching_mode) {
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
-TEST_F(RmwInitQosOptionsTest, properly_sets_adoptive_matching_mode) {
+TEST_F(RmwInitOptionsTest, properly_sets_adoptive_matching_mode) {
     setenv("RMW_IOX2_QOS_MATCHING", "adoptive", 1);
 
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
@@ -127,7 +103,7 @@ TEST_F(RmwInitQosOptionsTest, properly_sets_adoptive_matching_mode) {
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
-TEST_F(RmwInitQosOptionsTest, properly_sets_max_publishers_per_topic) {
+TEST_F(RmwInitOptionsTest, properly_sets_max_publishers_per_topic) {
     setenv("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC", "64", 1);
 
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
@@ -137,7 +113,7 @@ TEST_F(RmwInitQosOptionsTest, properly_sets_max_publishers_per_topic) {
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
-TEST_F(RmwInitQosOptionsTest, properly_sets_max_subscribers_per_topic) {
+TEST_F(RmwInitOptionsTest, properly_sets_max_subscribers_per_topic) {
     setenv("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC", "128", 1);
 
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
@@ -147,7 +123,7 @@ TEST_F(RmwInitQosOptionsTest, properly_sets_max_subscribers_per_topic) {
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
-TEST_F(RmwInitQosOptionsTest, properly_sets_max_nodes_per_service) {
+TEST_F(RmwInitOptionsTest, properly_sets_max_nodes_per_service) {
     setenv("RMW_IOX2_MAX_NODES_PER_SERVICE", "16", 1);
 
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
@@ -159,7 +135,7 @@ TEST_F(RmwInitQosOptionsTest, properly_sets_max_nodes_per_service) {
 
 // Error path ----------------------------------------------------------------
 
-TEST_F(RmwInitQosOptionsTest, rejects_invalid_matching_mode) {
+TEST_F(RmwInitOptionsTest, rejects_invalid_matching_mode) {
     setenv("RMW_IOX2_QOS_MATCHING", "lenient", 1);
 
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
@@ -167,7 +143,7 @@ TEST_F(RmwInitQosOptionsTest, rejects_invalid_matching_mode) {
     EXPECT_EQ(init_options.impl, nullptr);
 }
 
-TEST_F(RmwInitQosOptionsTest, rejects_invalid_size) {
+TEST_F(RmwInitOptionsTest, rejects_invalid_size) {
     setenv("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC", "banana", 1);
 
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();

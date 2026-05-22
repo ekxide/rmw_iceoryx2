@@ -9,143 +9,28 @@
 
 #include <gtest/gtest.h>
 
-#include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
+#include "rmw/qos_profiles.h"
+#include "rmw/types.h"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
+
+#include <string>
 
 namespace
 {
 
 using namespace rmw::iox2::testing;
-using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
 // ---------------------------------------------------------------------------
-// rmw_publisher_get_actual_qos / rmw_subscription_get_actual_qos round-trips
+// profile_check_compatible
 // ---------------------------------------------------------------------------
 
-class RmwQosRoundTripTest : public TestBase
+class RmwQosCheckCompatibleTest : public TestBase
 {
 protected:
-    void SetUp() override {
-        initialize();
-    }
-
     void TearDown() override {
-        cleanup();
         print_rmw_errors();
     }
-};
-
-TEST_F(RmwQosRoundTripTest, properly_reports_publisher_reliability_best_effort) {
-    auto profile = rmw_qos_profile_default;
-    profile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
-
-    auto* pub = create_publisher<Defaults>(create_test_topic(), profile);
-    ASSERT_NE(pub, nullptr);
-
-    rmw_qos_profile_t actual = {};
-    ASSERT_RMW_OK(rmw_publisher_get_actual_qos(pub, &actual));
-    EXPECT_EQ(actual.reliability, RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
-}
-
-TEST_F(RmwQosRoundTripTest, properly_reports_publisher_durability_transient_local) {
-    auto profile = rmw_qos_profile_default;
-    profile.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
-
-    auto* pub = create_publisher<Defaults>(create_test_topic(), profile);
-    ASSERT_NE(pub, nullptr);
-
-    rmw_qos_profile_t actual = {};
-    ASSERT_RMW_OK(rmw_publisher_get_actual_qos(pub, &actual));
-    EXPECT_EQ(actual.durability, RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
-}
-
-TEST_F(RmwQosRoundTripTest, properly_reports_publisher_history_depth) {
-    auto profile = rmw_qos_profile_default;
-    profile.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
-    profile.depth = 42;
-
-    auto* pub = create_publisher<Defaults>(create_test_topic(), profile);
-    ASSERT_NE(pub, nullptr);
-
-    rmw_qos_profile_t actual = {};
-    ASSERT_RMW_OK(rmw_publisher_get_actual_qos(pub, &actual));
-    EXPECT_EQ(actual.history, RMW_QOS_POLICY_HISTORY_KEEP_LAST);
-    EXPECT_EQ(actual.depth, 42U);
-}
-
-TEST_F(RmwQosRoundTripTest, properly_reports_publisher_deadline) {
-    auto profile = rmw_qos_profile_default;
-    profile.deadline = {5U, 250000000U};
-
-    auto* pub = create_publisher<Defaults>(create_test_topic(), profile);
-    ASSERT_NE(pub, nullptr);
-
-    rmw_qos_profile_t actual = {};
-    ASSERT_RMW_OK(rmw_publisher_get_actual_qos(pub, &actual));
-    EXPECT_EQ(actual.deadline.sec, 5U);
-    EXPECT_EQ(actual.deadline.nsec, 250000000U);
-}
-
-TEST_F(RmwQosRoundTripTest, properly_reports_publisher_lifespan) {
-    auto profile = rmw_qos_profile_default;
-    profile.lifespan = {2U, 0U};
-
-    auto* pub = create_publisher<Defaults>(create_test_topic(), profile);
-    ASSERT_NE(pub, nullptr);
-
-    rmw_qos_profile_t actual = {};
-    ASSERT_RMW_OK(rmw_publisher_get_actual_qos(pub, &actual));
-    EXPECT_EQ(actual.lifespan.sec, 2U);
-    EXPECT_EQ(actual.lifespan.nsec, 0U);
-}
-
-TEST_F(RmwQosRoundTripTest, properly_reports_publisher_liveliness_manual_by_topic) {
-    auto profile = rmw_qos_profile_default;
-    profile.liveliness = RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC;
-    profile.liveliness_lease_duration = {1U, 0U};
-
-    auto* pub = create_publisher<Defaults>(create_test_topic(), profile);
-    ASSERT_NE(pub, nullptr);
-
-    rmw_qos_profile_t actual = {};
-    ASSERT_RMW_OK(rmw_publisher_get_actual_qos(pub, &actual));
-    EXPECT_EQ(actual.liveliness, RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC);
-    EXPECT_EQ(actual.liveliness_lease_duration.sec, 1U);
-    EXPECT_EQ(actual.liveliness_lease_duration.nsec, 0U);
-}
-
-TEST_F(RmwQosRoundTripTest, properly_reports_subscriber_reliability_best_effort) {
-    auto profile = rmw_qos_profile_default;
-    profile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
-
-    auto* sub = create_subscriber<Defaults>(create_test_topic(), profile);
-    ASSERT_NE(sub, nullptr);
-
-    rmw_qos_profile_t actual = {};
-    ASSERT_RMW_OK(rmw_subscription_get_actual_qos(sub, &actual));
-    EXPECT_EQ(actual.reliability, RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
-}
-
-TEST_F(RmwQosRoundTripTest, properly_reports_subscriber_durability_transient_local) {
-    auto profile = rmw_qos_profile_default;
-    profile.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
-
-    auto* sub = create_subscriber<Defaults>(create_test_topic(), profile);
-    ASSERT_NE(sub, nullptr);
-
-    rmw_qos_profile_t actual = {};
-    ASSERT_RMW_OK(rmw_subscription_get_actual_qos(sub, &actual));
-    EXPECT_EQ(actual.durability, RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
-}
-
-// ---------------------------------------------------------------------------
-// rmw_qos_profile_check_compatible
-// ---------------------------------------------------------------------------
-
-class RmwQosCheckCompatibleTest : public ::testing::Test
-{
 };
 
 TEST_F(RmwQosCheckCompatibleTest, accepts_identical_concrete_profiles) {

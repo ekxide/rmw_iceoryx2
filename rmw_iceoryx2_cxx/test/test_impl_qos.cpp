@@ -36,7 +36,7 @@ class QosTest : public ::testing::Test
 };
 
 // ----------------------------------------------------------------------------
-// TryConvert<Qos>::from(rmw_qos_profile_t) — rejection
+// Rejection
 // ----------------------------------------------------------------------------
 
 TEST_F(QosTest, resolve_rejects_unknown_history) {
@@ -85,7 +85,7 @@ TEST_F(QosTest, resolve_rejects_keep_all) {
 }
 
 // ----------------------------------------------------------------------------
-// TryConvert<Qos>::from(rmw_qos_profile_t) — SYSTEM_DEFAULT substitution
+// System defaults
 // ----------------------------------------------------------------------------
 
 TEST_F(QosTest, resolve_substitutes_system_default_depth) {
@@ -125,7 +125,7 @@ TEST_F(QosTest, resolve_substitutes_system_default_liveliness) {
 }
 
 // ----------------------------------------------------------------------------
-// TryConvert<Qos>::from(rmw_qos_profile_t) — BEST_AVAILABLE substitution
+// Best available
 // ----------------------------------------------------------------------------
 
 TEST_F(QosTest, resolve_substitutes_best_available_reliability) {
@@ -157,7 +157,7 @@ TEST_F(QosTest, resolve_substitutes_best_available_deadline) {
 }
 
 // ----------------------------------------------------------------------------
-// TryConvert<Qos>::from(rmw_qos_profile_t) — pass-through
+// Pass-through
 // ----------------------------------------------------------------------------
 
 TEST_F(QosTest, resolve_passes_through_best_effort) {
@@ -230,10 +230,10 @@ TEST_F(QosTest, resolve_passes_through_avoid_ros_namespace_conventions) {
 }
 
 // ----------------------------------------------------------------------------
-// Convert<rmw_qos_profile_t>::from
+// To rmw profile
 // ----------------------------------------------------------------------------
 
-TEST_F(QosTest, convert_to_rmw_default_profile) {
+TEST_F(QosTest, produces_rmw_default_profile_from_default_qos) {
     auto resolved = TryConvert<Qos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
     ASSERT_TRUE(resolved.has_value());
 
@@ -260,7 +260,7 @@ TEST_F(QosTest, convert_to_rmw_best_effort_transient_local) {
 }
 
 // ----------------------------------------------------------------------------
-// Attribute round-trip: rmw profile -> Qos -> attributes -> Qos
+// Attribute round-trip
 // ----------------------------------------------------------------------------
 
 void expect_roundtrip(const rmw_qos_profile_t& profile, ProfileKind kind = ProfileKind::PUBLISH_SUBSCRIBE) {
@@ -328,10 +328,10 @@ TEST_F(QosTest, roundtrip_manual_liveliness_with_lease) {
 }
 
 // ----------------------------------------------------------------------------
-// TryConvert<Qos>::from() — error on missing attributes
+// Missing attributes
 // ----------------------------------------------------------------------------
 
-TEST_F(QosTest, to_resolved_qos_fails_on_empty_attribute_set) {
+TEST_F(QosTest, rejects_empty_attribute_set) {
     ::iox2::AttributeSpecifier empty_spec;
     auto result = TryConvert<Qos>::from(empty_spec.attributes(), ProfileKind::PUBLISH_SUBSCRIBE);
 
@@ -340,7 +340,7 @@ TEST_F(QosTest, to_resolved_qos_fails_on_empty_attribute_set) {
 }
 
 // ----------------------------------------------------------------------------
-// Mismatch detection across all policies
+// Mismatch detection
 // ----------------------------------------------------------------------------
 
 namespace
