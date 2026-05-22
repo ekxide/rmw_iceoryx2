@@ -11,6 +11,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/qos_codec.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos_matching.hpp"
 
 #include <cstdio>
 #include <utility>
@@ -21,6 +22,8 @@ namespace rmw::iox2
 namespace
 {
 
+namespace matching = ::rmw::iox2::matching;
+
 using ::iox2::Attribute;
 using ::iox2::AttributeSetView;
 using ::iox2::AttributeSpecifier;
@@ -29,18 +32,9 @@ using ::iox2::bb::err;
 using ::iox2::bb::Expected;
 using ::iox2::bb::Optional;
 
-// Sentinel that means "match whatever other endpoints have" from rmw/types.h.
-constexpr rmw_time_t BEST_AVAILABLE_DURATION = RMW_QOS_DEADLINE_BEST_AVAILABLE;
-
-constexpr uint64_t DEFAULT_DEPTH = 10;
-
-// TODO: Rename
-auto map_time(rmw_time_t time) -> Qos::Duration {
-    // BEST_AVAILABLE sentinel collapses to the canonical default (0:0).
-    if (time.sec == BEST_AVAILABLE_DURATION.sec && time.nsec == BEST_AVAILABLE_DURATION.nsec) {
-        return {0U, 0U};
-    }
-    return {time.sec, time.nsec};
+auto to_duration(rmw_time_t time) -> Qos::Duration {
+    auto resolved = matching::resolve(time);
+    return {resolved.sec, resolved.nsec};
 }
 
 // ----------------------------------------------------------------------------
@@ -122,9 +116,10 @@ auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
 auto TryConvert<Qos>::from(const rmw_qos_profile_t& profile, ProfileKind kind) -> Expected<Qos, QosError> {
     (void)kind;
 
-    if (profile.history == RMW_QOS_POLICY_HISTORY_UNKNOWN || profile.reliability == RMW_QOS_POLICY_RELIABILITY_UNKNOWN
-        || profile.durability == RMW_QOS_POLICY_DURABILITY_UNKNOWN
-        || profile.liveliness == RMW_QOS_POLICY_LIVELINESS_UNKNOWN) {
+    const bool has_unknown_policy = matching::is_unknown(profile.history) || matching::is_unknown(profile.reliability)
+                                    || matching::is_unknown(profile.durability)
+                                    || matching::is_unknown(profile.liveliness);
+    if (has_unknown_policy) {
         RMW_IOX2_CHAIN_ERROR_MSG("QoS contains an UNKNOWN policy value");
         return err(QosError::UNKNOWN_POLICY);
     }
@@ -136,48 +131,25 @@ auto TryConvert<Qos>::from(const rmw_qos_profile_t& profile, ProfileKind kind) -
 
     Qos::Builder builder;
 
-    builder.set_history(Qos::History::KEEP_LAST,
-                        profile.depth == RMW_QOS_POLICY_DEPTH_SYSTEM_DEFAULT ? DEFAULT_DEPTH : profile.depth);
+    // History only resolves to KEEP_LAST (KEEP_ALL is rejected above).
+    builder.set_history(Qos::History::KEEP_LAST, matching::resolve_depth(profile.depth));
 
-    switch (profile.reliability) {
-    case RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT:
-        builder.set_reliability(Qos::Reliability::BEST_EFFORT);
-        break;
-    case RMW_QOS_POLICY_RELIABILITY_RELIABLE:
-    case RMW_QOS_POLICY_RELIABILITY_SYSTEM_DEFAULT:
-    case RMW_QOS_POLICY_RELIABILITY_BEST_AVAILABLE:
-    default:
-        builder.set_reliability(Qos::Reliability::RELIABLE);
-        break;
-    }
+    builder.set_reliability(matching::resolve(profile.reliability) == RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT
+                                ? Qos::Reliability::BEST_EFFORT
+                                : Qos::Reliability::RELIABLE);
 
-    switch (profile.durability) {
-    case RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL:
-        builder.set_durability(Qos::Durability::TRANSIENT_LOCAL);
-        break;
-    case RMW_QOS_POLICY_DURABILITY_VOLATILE:
-    case RMW_QOS_POLICY_DURABILITY_SYSTEM_DEFAULT:
-    case RMW_QOS_POLICY_DURABILITY_BEST_AVAILABLE:
-    default:
-        builder.set_durability(Qos::Durability::VOLATILE);
-        break;
-    }
+    builder.set_durability(matching::resolve(profile.durability) == RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL
+                               ? Qos::Durability::TRANSIENT_LOCAL
+                               : Qos::Durability::VOLATILE);
 
-    builder.set_deadline(map_time(profile.deadline));
-    builder.set_lifespan(map_time(profile.lifespan));
+    builder.set_deadline(to_duration(profile.deadline));
+    builder.set_lifespan(to_duration(profile.lifespan));
 
-    auto lease = map_time(profile.liveliness_lease_duration);
-    switch (profile.liveliness) {
-    case RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC:
-        builder.set_liveliness(Qos::Liveliness::MANUAL_BY_TOPIC, lease);
-        break;
-    case RMW_QOS_POLICY_LIVELINESS_AUTOMATIC:
-    case RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT:
-    case RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE:
-    default:
-        builder.set_liveliness(Qos::Liveliness::AUTOMATIC, lease);
-        break;
-    }
+    auto lease = to_duration(profile.liveliness_lease_duration);
+    builder.set_liveliness(matching::resolve(profile.liveliness) == RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC
+                               ? Qos::Liveliness::MANUAL_BY_TOPIC
+                               : Qos::Liveliness::AUTOMATIC,
+                           lease);
 
     builder.set_avoid_ros_namespace_conventions(profile.avoid_ros_namespace_conventions);
 

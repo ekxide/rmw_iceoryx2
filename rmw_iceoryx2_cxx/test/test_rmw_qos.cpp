@@ -34,8 +34,6 @@ protected:
 };
 
 TEST_F(RmwQosCheckCompatibleTest, accepts_identical_concrete_profiles) {
-    // All fields explicitly concrete so no policy triggers a "cannot determine"
-    // warning in the compatibility check.
     rmw_qos_profile_t profile = rmw_qos_profile_default;
     profile.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
     profile.depth = 10;
@@ -108,9 +106,22 @@ TEST_F(RmwQosCheckCompatibleTest, rejects_keep_all_history) {
     EXPECT_NE(std::string{reason}.find("KEEP_ALL"), std::string::npos);
 }
 
-TEST_F(RmwQosCheckCompatibleTest, warns_on_system_default_reliability) {
+TEST_F(RmwQosCheckCompatibleTest, accepts_system_default_reliability_on_both_sides) {
     auto profile = rmw_qos_profile_default;
     profile.reliability = RMW_QOS_POLICY_RELIABILITY_SYSTEM_DEFAULT;
+
+    rmw_qos_compatibility_type_t compatibility = RMW_QOS_COMPATIBILITY_ERROR;
+    char reason[256] = {0};
+
+    EXPECT_RMW_OK(rmw_qos_profile_check_compatible(profile, profile, &compatibility, reason, sizeof(reason)));
+    EXPECT_EQ(compatibility, RMW_QOS_COMPATIBILITY_OK);
+}
+
+TEST_F(RmwQosCheckCompatibleTest, warns_on_unknown_reliability) {
+    // UNKNOWN cannot be resolved, so the check cannot predict whether the
+    // endpoints will connect.
+    auto profile = rmw_qos_profile_default;
+    profile.reliability = RMW_QOS_POLICY_RELIABILITY_UNKNOWN;
 
     rmw_qos_compatibility_type_t compatibility = RMW_QOS_COMPATIBILITY_OK;
     char reason[256] = {0};

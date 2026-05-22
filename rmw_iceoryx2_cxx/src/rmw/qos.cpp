@@ -11,6 +11,7 @@
 #include "rmw/ret_types.h"
 #include "rmw/types.h"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos_matching.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -19,8 +20,7 @@
 namespace
 {
 
-// Sentinel that means "match whatever other endpoints have" from rmw/types.h.
-constexpr rmw_time_t BEST_AVAILABLE_DURATION = RMW_QOS_DEADLINE_BEST_AVAILABLE;
+namespace matching = ::rmw::iox2::matching;
 
 /// One entry in the compatibility-check result list.
 struct Diagnostic
@@ -85,135 +85,87 @@ private:
     size_t m_count{0};
 };
 
-// Indeterminacy checks --------------------------------------------------------
-
-auto is_indeterminate_history(rmw_qos_history_policy_t policy) -> bool {
-    return policy == RMW_QOS_POLICY_HISTORY_SYSTEM_DEFAULT || policy == RMW_QOS_POLICY_HISTORY_UNKNOWN;
-}
-
-auto is_indeterminate_depth(size_t depth) -> bool {
-    return depth == RMW_QOS_POLICY_DEPTH_SYSTEM_DEFAULT;
-}
-
-auto is_indeterminate_reliability(rmw_qos_reliability_policy_t policy) -> bool {
-    return policy == RMW_QOS_POLICY_RELIABILITY_SYSTEM_DEFAULT || policy == RMW_QOS_POLICY_RELIABILITY_UNKNOWN
-           || policy == RMW_QOS_POLICY_RELIABILITY_BEST_AVAILABLE;
-}
-
-auto is_indeterminate_durability(rmw_qos_durability_policy_t policy) -> bool {
-    return policy == RMW_QOS_POLICY_DURABILITY_SYSTEM_DEFAULT || policy == RMW_QOS_POLICY_DURABILITY_UNKNOWN
-           || policy == RMW_QOS_POLICY_DURABILITY_BEST_AVAILABLE;
-}
-
-auto is_indeterminate_liveliness(rmw_qos_liveliness_policy_t policy) -> bool {
-    return policy == RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT || policy == RMW_QOS_POLICY_LIVELINESS_UNKNOWN
-           || policy == RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE;
-}
-
-auto is_best_available_time(rmw_time_t time) -> bool {
-    return time.sec == BEST_AVAILABLE_DURATION.sec && time.nsec == BEST_AVAILABLE_DURATION.nsec;
-}
+// Compatibility checks ----------------------------------------------
 
 auto durations_equal(rmw_time_t lhs, rmw_time_t rhs) -> bool {
     return lhs.sec == rhs.sec && lhs.nsec == rhs.nsec;
 }
-
-// Compatibility checks ----------------------------------------------
 
 void check_history(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
     if (pub.history == RMW_QOS_POLICY_HISTORY_KEEP_ALL || sub.history == RMW_QOS_POLICY_HISTORY_KEEP_ALL) {
         diagnostics.push_error("history KEEP_ALL is not supported by the iceoryx2 transport");
         return;
     }
-    if (is_indeterminate_history(pub.history) || is_indeterminate_history(sub.history)) {
-        diagnostics.push_warning("history policy is SYSTEM_DEFAULT or UNKNOWN; compatibility cannot be determined");
+    if (matching::is_unknown(pub.history) || matching::is_unknown(sub.history)) {
+        diagnostics.push_warning("history policy is UNKNOWN; compatibility cannot be determined");
         return;
     }
-    if (pub.history != sub.history) {
+    if (matching::resolve(pub.history) != matching::resolve(sub.history)) {
         diagnostics.push_error("history policy differs between publisher and subscription");
     }
 }
 
 void check_depth(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
-    if (is_indeterminate_depth(pub.depth) || is_indeterminate_depth(sub.depth)) {
-        diagnostics.push_warning("depth is SYSTEM_DEFAULT; compatibility cannot be determined");
-        return;
-    }
-    if (pub.depth != sub.depth) {
+    if (matching::resolve_depth(pub.depth) != matching::resolve_depth(sub.depth)) {
         diagnostics.push_error("depth differs between publisher and subscription");
     }
 }
 
 void check_reliability(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
-    if (is_indeterminate_reliability(pub.reliability) || is_indeterminate_reliability(sub.reliability)) {
-        diagnostics.push_warning(
-            "reliability is SYSTEM_DEFAULT / UNKNOWN / BEST_AVAILABLE; compatibility cannot be determined");
+    if (matching::is_unknown(pub.reliability) || matching::is_unknown(sub.reliability)) {
+        diagnostics.push_warning("reliability is UNKNOWN; compatibility cannot be determined");
         return;
     }
-    if (pub.reliability != sub.reliability) {
+    if (matching::resolve(pub.reliability) != matching::resolve(sub.reliability)) {
         diagnostics.push_error("reliability differs between publisher and subscription");
     }
 }
 
 void check_durability(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
-    if (is_indeterminate_durability(pub.durability) || is_indeterminate_durability(sub.durability)) {
-        diagnostics.push_warning(
-            "durability is SYSTEM_DEFAULT / UNKNOWN / BEST_AVAILABLE; compatibility cannot be determined");
+    if (matching::is_unknown(pub.durability) || matching::is_unknown(sub.durability)) {
+        diagnostics.push_warning("durability is UNKNOWN; compatibility cannot be determined");
         return;
     }
-    if (pub.durability != sub.durability) {
+    if (matching::resolve(pub.durability) != matching::resolve(sub.durability)) {
         diagnostics.push_error("durability differs between publisher and subscription");
     }
 }
 
 void check_deadline(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
-    if (is_best_available_time(pub.deadline) || is_best_available_time(sub.deadline)) {
-        diagnostics.push_warning("deadline is BEST_AVAILABLE; compatibility cannot be determined");
-        return;
-    }
-    if (!durations_equal(pub.deadline, sub.deadline)) {
+    if (!durations_equal(matching::resolve(pub.deadline), matching::resolve(sub.deadline))) {
         diagnostics.push_error("deadline differs between publisher and subscription");
     }
 }
 
 void check_lifespan(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
-    if (is_best_available_time(pub.lifespan) || is_best_available_time(sub.lifespan)) {
-        diagnostics.push_warning("lifespan is BEST_AVAILABLE; compatibility cannot be determined");
-        return;
-    }
-    if (!durations_equal(pub.lifespan, sub.lifespan)) {
+    if (!durations_equal(matching::resolve(pub.lifespan), matching::resolve(sub.lifespan))) {
         diagnostics.push_error("lifespan differs between publisher and subscription");
     }
 }
 
 void check_liveliness(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
-    if (is_indeterminate_liveliness(pub.liveliness) || is_indeterminate_liveliness(sub.liveliness)) {
-        diagnostics.push_warning(
-            "liveliness is SYSTEM_DEFAULT / UNKNOWN / BEST_AVAILABLE; compatibility cannot be determined");
+    if (matching::is_unknown(pub.liveliness) || matching::is_unknown(sub.liveliness)) {
+        diagnostics.push_warning("liveliness is UNKNOWN; compatibility cannot be determined");
         return;
     }
-    if (pub.liveliness != sub.liveliness) {
+    if (matching::resolve(pub.liveliness) != matching::resolve(sub.liveliness)) {
         diagnostics.push_error("liveliness differs between publisher and subscription");
     }
 }
 
-void check_liveliness_lease_duration(const rmw_qos_profile_t& publisher_profile,
-                                     const rmw_qos_profile_t& subscriber_profile,
+void check_liveliness_lease_duration(const rmw_qos_profile_t& pub,
+                                     const rmw_qos_profile_t& sub,
                                      DiagnosticList& diagnostics) {
-    if (is_best_available_time(publisher_profile.liveliness_lease_duration)
-        || is_best_available_time(subscriber_profile.liveliness_lease_duration)) {
-        diagnostics.push_warning("liveliness_lease_duration is BEST_AVAILABLE; compatibility cannot be determined");
-        return;
-    }
-    if (!durations_equal(publisher_profile.liveliness_lease_duration, subscriber_profile.liveliness_lease_duration)) {
+    if (!durations_equal(matching::resolve(pub.liveliness_lease_duration),
+                         matching::resolve(sub.liveliness_lease_duration))) {
         diagnostics.push_error("liveliness_lease_duration differs between publisher and subscription");
     }
 }
 
-void check_avoid_ros_namespace_conventions(const rmw_qos_profile_t& publisher_profile,
-                                           const rmw_qos_profile_t& subscriber_profile,
+void check_avoid_ros_namespace_conventions(const rmw_qos_profile_t& pub,
+                                           const rmw_qos_profile_t& sub,
                                            DiagnosticList& diagnostics) {
-    if (publisher_profile.avoid_ros_namespace_conventions != subscriber_profile.avoid_ros_namespace_conventions) {
+    if (pub.avoid_ros_namespace_conventions != sub.avoid_ros_namespace_conventions) {
         diagnostics.push_error("avoid_ros_namespace_conventions differs between publisher and subscription");
     }
 }

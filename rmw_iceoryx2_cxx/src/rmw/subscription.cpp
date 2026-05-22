@@ -117,10 +117,10 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
                 if (!service_details.has_value()) {
                     RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
                         "QoS mismatch on '%s' (failed to look up service details)", topic_name);
+                } else {
+                    ::rmw::iox2::log_attribute_mismatch(
+                        resolved_qos.value(), service_details.value().static_details.attributes(), topic_name);
                 }
-
-                ::rmw::iox2::log_attribute_mismatch(
-                    resolved_qos.value(), service_details.value().static_details.attributes(), topic_name);
             } else {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Subscriber");
             }
