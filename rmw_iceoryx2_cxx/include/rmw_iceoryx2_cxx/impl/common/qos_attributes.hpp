@@ -18,7 +18,7 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/convert.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/resolved_qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -31,7 +31,7 @@ namespace rmw::iox2
 // ----------------------------------------------------------------------------
 
 /// One entry in the `rmw.qos.local.*` attribute schema: its key plus the
-/// function pointer that encodes a `ResolvedQos` field into the string
+/// function pointer that encodes a `Qos` field into the string
 /// stored in an iceoryx2 service attribute.
 ///
 /// Decoding is type-specific (each policy returns its own value type) and
@@ -40,7 +40,7 @@ namespace rmw::iox2
 struct PolicyCodec
 {
     const char* key;
-    void (*format)(const ResolvedQos& qos, char* buf, size_t len);
+    void (*format)(const Qos& qos, char* buf, size_t len);
 };
 
 struct History
@@ -48,7 +48,7 @@ struct History
     static constexpr char KEY[] = "rmw.qos.local.history";
     static constexpr char KEEP_LAST[] = "keep_last";
 
-    static void format(const ResolvedQos& qos, char* buf, size_t len);
+    static void format(const Qos& qos, char* buf, size_t len);
     /// Parses the depth from a `keep_last:N` attribute string.
     static auto parse(const char* str) -> ::iox2::bb::Optional<uint64_t>;
 };
@@ -59,8 +59,8 @@ struct Reliability
     static constexpr char RELIABLE[] = "reliable";
     static constexpr char BEST_EFFORT[] = "best_effort";
 
-    static void format(const ResolvedQos& qos, char* buf, size_t len);
-    static auto parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Reliability>;
+    static void format(const Qos& qos, char* buf, size_t len);
+    static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Reliability>;
 };
 
 struct Durability
@@ -69,24 +69,24 @@ struct Durability
     static constexpr char VOLATILE[] = "volatile";
     static constexpr char TRANSIENT_LOCAL[] = "transient_local";
 
-    static void format(const ResolvedQos& qos, char* buf, size_t len);
-    static auto parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Durability>;
+    static void format(const Qos& qos, char* buf, size_t len);
+    static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Durability>;
 };
 
 struct Deadline
 {
     static constexpr char KEY[] = "rmw.qos.local.deadline";
 
-    static void format(const ResolvedQos& qos, char* buf, size_t len);
-    static auto parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Duration>;
+    static void format(const Qos& qos, char* buf, size_t len);
+    static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration>;
 };
 
 struct Lifespan
 {
     static constexpr char KEY[] = "rmw.qos.local.lifespan";
 
-    static void format(const ResolvedQos& qos, char* buf, size_t len);
-    static auto parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Duration>;
+    static void format(const Qos& qos, char* buf, size_t len);
+    static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration>;
 };
 
 struct Liveliness
@@ -96,15 +96,15 @@ struct Liveliness
     /// caller in one shot.
     struct Value
     {
-        ResolvedQos::Liveliness kind;
-        ResolvedQos::Duration lease;
+        Qos::Liveliness kind;
+        Qos::Duration lease;
     };
 
     static constexpr char KEY[] = "rmw.qos.local.liveliness";
     static constexpr char AUTOMATIC[] = "automatic";
     static constexpr char MANUAL_BY_TOPIC[] = "manual_by_topic";
 
-    static void format(const ResolvedQos& qos, char* buf, size_t len);
+    static void format(const Qos& qos, char* buf, size_t len);
     static auto parse(const char* str) -> ::iox2::bb::Optional<Value>;
 };
 
@@ -122,27 +122,27 @@ inline constexpr PolicyCodec POLICIES[] = {
 // Conversions
 // ----------------------------------------------------------------------------
 
-/// Fallible conversion to `ResolvedQos`. Lives here (not in `resolved_qos.hpp`)
-/// because the `AttributeSetView` overload depends on the policy schema above.
+/// Fallible conversion to `Qos`. Lives here (not in `qos.hpp`) because
+/// the `AttributeSetView` overload depends on the policy schema above.
 template <>
-struct RMW_PUBLIC TryConvert<ResolvedQos>
+struct RMW_PUBLIC TryConvert<Qos>
 {
-    static auto from(const rmw_qos_profile_t& profile, ProfileKind kind) -> ::iox2::bb::Expected<ResolvedQos, QosError>;
-    static auto from(::iox2::AttributeSetView attrs, ProfileKind kind) -> ::iox2::bb::Expected<ResolvedQos, QosError>;
+    static auto from(const rmw_qos_profile_t& profile, ProfileKind kind) -> ::iox2::bb::Expected<Qos, QosError>;
+    static auto from(::iox2::AttributeSetView attrs, ProfileKind kind) -> ::iox2::bb::Expected<Qos, QosError>;
 };
 
-/// Fallible conversion `ResolvedQos` → `iox2::AttributeSpecifier`.
+/// Fallible conversion `Qos` → `iox2::AttributeSpecifier`.
 template <>
 struct RMW_PUBLIC TryConvert<::iox2::AttributeSpecifier>
 {
-    static auto from(const ResolvedQos& qos) -> ::iox2::bb::Expected<::iox2::AttributeSpecifier, QosError>;
+    static auto from(const Qos& qos) -> ::iox2::bb::Expected<::iox2::AttributeSpecifier, QosError>;
 };
 
-/// Fallible conversion `ResolvedQos` → `iox2::AttributeVerifier`.
+/// Fallible conversion `Qos` → `iox2::AttributeVerifier`.
 template <>
 struct RMW_PUBLIC TryConvert<::iox2::AttributeVerifier>
 {
-    static auto from(const ResolvedQos& qos) -> ::iox2::bb::Expected<::iox2::AttributeVerifier, QosError>;
+    static auto from(const Qos& qos) -> ::iox2::bb::Expected<::iox2::AttributeVerifier, QosError>;
 };
 
 // ----------------------------------------------------------------------------
@@ -152,7 +152,7 @@ struct RMW_PUBLIC TryConvert<::iox2::AttributeVerifier>
 /// Emit `RMW_IOX2_LOG_WARN` for every policy that cannot be mapped to
 /// iceoryx2.
 RMW_PUBLIC
-void log_unsupported_policies(const ResolvedQos& qos, const char* topic) noexcept;
+void log_unsupported_policies(const Qos& qos, const char* topic) noexcept;
 
 /// Iterate the `rmw.qos.local.*` policy schema in canonical order
 /// (history, reliability, durability, deadline, lifespan, liveliness).
@@ -172,7 +172,7 @@ auto read_attribute_value(::iox2::AttributeSetView attrs, const char* key, char*
 /// layer to call after the runtime reports `QOS_INCOMPATIBLE` and the
 /// service lookup has succeeded.
 RMW_PUBLIC
-void chain_attribute_mismatch_error(const ResolvedQos& requested,
+void chain_attribute_mismatch_error(const Qos& requested,
                                     ::iox2::AttributeSetView existing,
                                     const char* topic) noexcept;
 

@@ -38,7 +38,7 @@ constexpr rmw_time_t BEST_AVAILABLE_DURATION = RMW_QOS_DEADLINE_BEST_AVAILABLE;
 
 constexpr uint64_t DEFAULT_DEPTH = 10;
 
-auto map_time(rmw_time_t time) -> ResolvedQos::Duration {
+auto map_time(rmw_time_t time) -> Qos::Duration {
     // BEST_AVAILABLE sentinel collapses to the canonical default (0:0).
     if (time.sec == BEST_AVAILABLE_DURATION.sec && time.nsec == BEST_AVAILABLE_DURATION.nsec) {
         return {0U, 0U};
@@ -50,7 +50,7 @@ auto map_time(rmw_time_t time) -> ResolvedQos::Duration {
 // Format / parse helpers
 // ----------------------------------------------------------------------------
 
-void write_duration(ResolvedQos::Duration duration, char* buf, size_t len) {
+void write_duration(Qos::Duration duration, char* buf, size_t len) {
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
     std::snprintf(buf,
                   len,
@@ -68,7 +68,7 @@ auto read_uint64(const char* first, const char* last, uint64_t& out, const char*
     return true;
 }
 
-auto read_duration(const char* str, ResolvedQos::Duration& out) -> bool {
+auto read_duration(const char* str, Qos::Duration& out) -> bool {
     const char* end = str + std::strlen(str);
     const char* next = nullptr;
     if (!read_uint64(str, end, out.sec, next) || next == end || *next != ':') {
@@ -96,7 +96,7 @@ auto strip_prefix(const char* str, const char* prefix) -> const char* {
     return str + index + 1;
 }
 
-auto is_default_duration(ResolvedQos::Duration duration) -> bool {
+auto is_default_duration(Qos::Duration duration) -> bool {
     return duration.sec == 0U && duration.nsec == 0U;
 }
 
@@ -132,7 +132,7 @@ auto define_or_require<AttributeVerifier>(AttributeVerifier& target,
 }
 
 template <typename Target>
-auto set_qos_attributes(Target& target, const ResolvedQos& qos) -> bool {
+auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
     char buf[256];
     for (const auto& policy : POLICIES) {
         auto key = Attribute::Key::from_utf8_null_terminated_unchecked(policy.key);
@@ -153,8 +153,8 @@ auto set_qos_attributes(Target& target, const ResolvedQos& qos) -> bool {
 // Policy codecs
 // ----------------------------------------------------------------------------
 
-void History::format(const ResolvedQos& qos, char* buf, size_t len) {
-    // ResolvedQos guarantees KEEP_LAST.
+void History::format(const Qos& qos, char* buf, size_t len) {
+    // Qos guarantees KEEP_LAST.
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
     std::snprintf(buf, len, "%s:%llu", KEEP_LAST, static_cast<unsigned long long>(qos.depth()));
 }
@@ -174,49 +174,49 @@ auto History::parse(const char* str) -> ::iox2::bb::Optional<uint64_t> {
     return depth;
 }
 
-void Reliability::format(const ResolvedQos& qos, char* buf, size_t len) {
-    const char* str = qos.reliability() == ResolvedQos::Reliability::RELIABLE ? RELIABLE : BEST_EFFORT;
+void Reliability::format(const Qos& qos, char* buf, size_t len) {
+    const char* str = qos.reliability() == Qos::Reliability::RELIABLE ? RELIABLE : BEST_EFFORT;
 
     // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
     std::snprintf(buf, len, "%s", str);
 }
 
-auto Reliability::parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Reliability> {
+auto Reliability::parse(const char* str) -> ::iox2::bb::Optional<Qos::Reliability> {
     if (std::strcmp(str, RELIABLE) == 0) {
-        return ResolvedQos::Reliability::RELIABLE;
+        return Qos::Reliability::RELIABLE;
     }
 
     if (std::strcmp(str, BEST_EFFORT) == 0) {
-        return ResolvedQos::Reliability::BEST_EFFORT;
+        return Qos::Reliability::BEST_EFFORT;
     }
 
     return NULLOPT;
 }
 
-void Durability::format(const ResolvedQos& qos, char* buf, size_t len) {
-    const char* str = qos.durability() == ResolvedQos::Durability::TRANSIENT_LOCAL ? TRANSIENT_LOCAL : VOLATILE;
+void Durability::format(const Qos& qos, char* buf, size_t len) {
+    const char* str = qos.durability() == Qos::Durability::TRANSIENT_LOCAL ? TRANSIENT_LOCAL : VOLATILE;
 
     // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
     std::snprintf(buf, len, "%s", str);
 }
 
-auto Durability::parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Durability> {
+auto Durability::parse(const char* str) -> ::iox2::bb::Optional<Qos::Durability> {
     if (std::strcmp(str, VOLATILE) == 0) {
-        return ResolvedQos::Durability::VOLATILE;
+        return Qos::Durability::VOLATILE;
     }
     if (std::strcmp(str, TRANSIENT_LOCAL) == 0) {
-        return ResolvedQos::Durability::TRANSIENT_LOCAL;
+        return Qos::Durability::TRANSIENT_LOCAL;
     }
 
     return NULLOPT;
 }
 
-void Deadline::format(const ResolvedQos& qos, char* buf, size_t len) {
+void Deadline::format(const Qos& qos, char* buf, size_t len) {
     write_duration(qos.deadline(), buf, len);
 }
 
-auto Deadline::parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Duration> {
-    ResolvedQos::Duration duration{};
+auto Deadline::parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration> {
+    Qos::Duration duration{};
     if (!read_duration(str, duration)) {
         return NULLOPT;
     }
@@ -224,12 +224,12 @@ auto Deadline::parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Durat
     return duration;
 }
 
-void Lifespan::format(const ResolvedQos& qos, char* buf, size_t len) {
+void Lifespan::format(const Qos& qos, char* buf, size_t len) {
     write_duration(qos.lifespan(), buf, len);
 }
 
-auto Lifespan::parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Duration> {
-    ResolvedQos::Duration duration{};
+auto Lifespan::parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration> {
+    Qos::Duration duration{};
     if (!read_duration(str, duration)) {
         return NULLOPT;
     }
@@ -237,8 +237,8 @@ auto Lifespan::parse(const char* str) -> ::iox2::bb::Optional<ResolvedQos::Durat
     return duration;
 }
 
-void Liveliness::format(const ResolvedQos& qos, char* buf, size_t len) {
-    const char* kind = qos.liveliness() == ResolvedQos::Liveliness::MANUAL_BY_TOPIC ? MANUAL_BY_TOPIC : AUTOMATIC;
+void Liveliness::format(const Qos& qos, char* buf, size_t len) {
+    const char* kind = qos.liveliness() == Qos::Liveliness::MANUAL_BY_TOPIC ? MANUAL_BY_TOPIC : AUTOMATIC;
     auto lease = qos.liveliness_lease_duration();
 
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
@@ -251,7 +251,7 @@ void Liveliness::format(const ResolvedQos& qos, char* buf, size_t len) {
 }
 
 auto Liveliness::parse(const char* str) -> ::iox2::bb::Optional<Liveliness::Value> {
-    ResolvedQos::Liveliness kind = ResolvedQos::Liveliness::AUTOMATIC;
+    Qos::Liveliness kind = Qos::Liveliness::AUTOMATIC;
 
     const char* rest = strip_prefix(str, AUTOMATIC);
     if (rest == nullptr) {
@@ -259,9 +259,9 @@ auto Liveliness::parse(const char* str) -> ::iox2::bb::Optional<Liveliness::Valu
         if (rest == nullptr) {
             return NULLOPT;
         }
-        kind = ResolvedQos::Liveliness::MANUAL_BY_TOPIC;
+        kind = Qos::Liveliness::MANUAL_BY_TOPIC;
     }
-    ResolvedQos::Duration lease{};
+    Qos::Duration lease{};
     if (!read_duration(rest, lease)) {
         return NULLOPT;
     }
@@ -273,8 +273,7 @@ auto Liveliness::parse(const char* str) -> ::iox2::bb::Optional<Liveliness::Valu
 // Conversions
 // ----------------------------------------------------------------------------
 
-auto TryConvert<ResolvedQos>::from(const rmw_qos_profile_t& profile,
-                                   ProfileKind kind) -> Expected<ResolvedQos, QosError> {
+auto TryConvert<Qos>::from(const rmw_qos_profile_t& profile, ProfileKind kind) -> Expected<Qos, QosError> {
     (void)kind; // pub/sub and service defaults are identical in v1
 
     if (profile.history == RMW_QOS_POLICY_HISTORY_UNKNOWN || profile.reliability == RMW_QOS_POLICY_RELIABILITY_UNKNOWN
@@ -289,32 +288,32 @@ auto TryConvert<ResolvedQos>::from(const rmw_qos_profile_t& profile,
         return err(QosError::UNSUPPORTED_HISTORY_POLICY);
     }
 
-    ResolvedQos::Builder builder;
+    Qos::Builder builder;
 
-    builder.set_history(ResolvedQos::History::KEEP_LAST,
+    builder.set_history(Qos::History::KEEP_LAST,
                         profile.depth == RMW_QOS_POLICY_DEPTH_SYSTEM_DEFAULT ? DEFAULT_DEPTH : profile.depth);
 
     switch (profile.reliability) {
     case RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT:
-        builder.set_reliability(ResolvedQos::Reliability::BEST_EFFORT);
+        builder.set_reliability(Qos::Reliability::BEST_EFFORT);
         break;
     case RMW_QOS_POLICY_RELIABILITY_RELIABLE:
     case RMW_QOS_POLICY_RELIABILITY_SYSTEM_DEFAULT:
     case RMW_QOS_POLICY_RELIABILITY_BEST_AVAILABLE:
     default:
-        builder.set_reliability(ResolvedQos::Reliability::RELIABLE);
+        builder.set_reliability(Qos::Reliability::RELIABLE);
         break;
     }
 
     switch (profile.durability) {
     case RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL:
-        builder.set_durability(ResolvedQos::Durability::TRANSIENT_LOCAL);
+        builder.set_durability(Qos::Durability::TRANSIENT_LOCAL);
         break;
     case RMW_QOS_POLICY_DURABILITY_VOLATILE:
     case RMW_QOS_POLICY_DURABILITY_SYSTEM_DEFAULT:
     case RMW_QOS_POLICY_DURABILITY_BEST_AVAILABLE:
     default:
-        builder.set_durability(ResolvedQos::Durability::VOLATILE);
+        builder.set_durability(Qos::Durability::VOLATILE);
         break;
     }
 
@@ -324,13 +323,13 @@ auto TryConvert<ResolvedQos>::from(const rmw_qos_profile_t& profile,
     auto lease = map_time(profile.liveliness_lease_duration);
     switch (profile.liveliness) {
     case RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC:
-        builder.set_liveliness(ResolvedQos::Liveliness::MANUAL_BY_TOPIC, lease);
+        builder.set_liveliness(Qos::Liveliness::MANUAL_BY_TOPIC, lease);
         break;
     case RMW_QOS_POLICY_LIVELINESS_AUTOMATIC:
     case RMW_QOS_POLICY_LIVELINESS_SYSTEM_DEFAULT:
     case RMW_QOS_POLICY_LIVELINESS_BEST_AVAILABLE:
     default:
-        builder.set_liveliness(ResolvedQos::Liveliness::AUTOMATIC, lease);
+        builder.set_liveliness(Qos::Liveliness::AUTOMATIC, lease);
         break;
     }
 
@@ -339,13 +338,13 @@ auto TryConvert<ResolvedQos>::from(const rmw_qos_profile_t& profile,
     return std::move(builder).build();
 }
 
-auto TryConvert<ResolvedQos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected<ResolvedQos, QosError> {
+auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected<Qos, QosError> {
     (void)kind;
 
-    ResolvedQos::Builder builder;
+    Qos::Builder builder;
     char buf[256];
 
-    auto fail = [](const char* key) -> Expected<ResolvedQos, QosError> {
+    auto fail = [](const char* key) -> Expected<Qos, QosError> {
         RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING("failed to decode attribute '%s'", key);
         return err(QosError::ATTRIBUTE_DECODING_FAILURE);
     };
@@ -357,7 +356,7 @@ auto TryConvert<ResolvedQos>::from(AttributeSetView attrs, ProfileKind kind) -> 
     if (!depth.has_value()) {
         return fail(History::KEY);
     }
-    builder.set_history(ResolvedQos::History::KEEP_LAST, depth.value());
+    builder.set_history(Qos::History::KEEP_LAST, depth.value());
 
     if (!read_attribute_value(attrs, Reliability::KEY, buf, sizeof(buf))) {
         return fail(Reliability::KEY);
@@ -407,7 +406,7 @@ auto TryConvert<ResolvedQos>::from(AttributeSetView attrs, ProfileKind kind) -> 
     return std::move(builder).build();
 }
 
-auto TryConvert<AttributeSpecifier>::from(const ResolvedQos& qos) -> Expected<AttributeSpecifier, QosError> {
+auto TryConvert<AttributeSpecifier>::from(const Qos& qos) -> Expected<AttributeSpecifier, QosError> {
     AttributeSpecifier specifier;
     if (!set_qos_attributes(specifier, qos)) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to define one or more QoS attributes on AttributeSpecifier");
@@ -416,7 +415,7 @@ auto TryConvert<AttributeSpecifier>::from(const ResolvedQos& qos) -> Expected<At
     return specifier;
 }
 
-auto TryConvert<AttributeVerifier>::from(const ResolvedQos& qos) -> Expected<AttributeVerifier, QosError> {
+auto TryConvert<AttributeVerifier>::from(const Qos& qos) -> Expected<AttributeVerifier, QosError> {
     AttributeVerifier verifier;
     if (!set_qos_attributes(verifier, qos)) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to require one or more QoS attributes on AttributeVerifier");
@@ -449,7 +448,7 @@ auto read_attribute_value(::iox2::AttributeSetView attrs, const char* key, char*
     return true;
 }
 
-void log_unsupported_policies(const ResolvedQos& qos, const char* topic) noexcept {
+void log_unsupported_policies(const Qos& qos, const char* topic) noexcept {
     if (!is_default_duration(qos.deadline())) {
         RMW_IOX2_LOG_WARN("QoS policy 'deadline' (=%llu:%llu) on topic '%s' is not honored by the iceoryx2 transport",
                           static_cast<unsigned long long>(qos.deadline().sec),
@@ -470,15 +469,13 @@ void log_unsupported_policies(const ResolvedQos& qos, const char* topic) noexcep
                           topic);
     }
 
-    if (qos.liveliness() == ResolvedQos::Liveliness::MANUAL_BY_TOPIC) {
+    if (qos.liveliness() == Qos::Liveliness::MANUAL_BY_TOPIC) {
         RMW_IOX2_LOG_WARN(
             "QoS policy 'liveliness' (=manual_by_topic) on topic '%s' is not honored by the iceoryx2 transport", topic);
     }
 }
 
-void chain_attribute_mismatch_error(const ResolvedQos& requested,
-                                    ::iox2::AttributeSetView attrs,
-                                    const char* topic) noexcept {
+void chain_attribute_mismatch_error(const Qos& requested, ::iox2::AttributeSetView attrs, const char* topic) noexcept {
     char message[rmw::iox2::MAX_ERROR_MSG_LENGTH];
     int written = std::snprintf(message, sizeof(message), "QoS mismatch on '%s':", topic);
     size_t offset = (written > 0) ? static_cast<size_t>(written) : 0;

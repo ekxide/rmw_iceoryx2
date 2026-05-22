@@ -16,7 +16,7 @@
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/resolved_qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
@@ -70,7 +70,7 @@ public:
                Node& node,
                const char* topic,
                const rosidl_message_type_support_t* type_support,
-               const ResolvedQos& qos);
+               const Qos& qos);
 
     /// @brief Get the unique identifier of the subscriber
     /// @return Optional containing the raw ID of the subscriber
@@ -90,7 +90,7 @@ public:
 
     /// @brief Get the resolved QoS used to create this subscriber
     /// @return Reference to the resolved QoS
-    auto qos() const -> const ResolvedQos&;
+    auto qos() const -> const Qos&;
 
     /// @brief Take a message by copying it to the destination buffer
     /// @param[out] dest Pointer to the destination buffer
@@ -114,7 +114,7 @@ private:
     std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
     std::string m_service_name;
-    ResolvedQos m_qos;
+    Qos m_qos;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxSubscriber> m_iox2_subscriber;

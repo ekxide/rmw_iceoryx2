@@ -12,8 +12,8 @@
 #include "iox2/bb/optional.hpp"
 #include "rmw/qos_profiles.h"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/resolved_qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
@@ -41,7 +41,7 @@ TEST_F(PublisherTest, construction) {
     using ::rmw::iox2::Node;
     using ::rmw::iox2::ProfileKind;
     using ::rmw::iox2::Publisher;
-    using ::rmw::iox2::ResolvedQos;
+    using ::rmw::iox2::Qos;
     using ::rmw::iox2::TryConvert;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
@@ -55,7 +55,7 @@ TEST_F(PublisherTest, construction) {
         << "failed to create node for publisher creation";
     auto& node = node_storage.value();
 
-    auto qos = TryConvert<ResolvedQos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
+    auto qos = TryConvert<Qos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
     ASSERT_TRUE(qos.has_value()) << "failed to resolve default QoS";
 
     ::iox2::bb::Optional<Publisher> publisher_storage;

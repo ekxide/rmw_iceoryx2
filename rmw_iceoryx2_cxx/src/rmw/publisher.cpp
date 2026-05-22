@@ -55,7 +55,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
     using ::rmw::iox2::is_self_contained;
     using ::rmw::iox2::message_size;
     using ::rmw::iox2::ProfileKind;
-    using ::rmw::iox2::ResolvedQos;
+    using ::rmw::iox2::Qos;
     using ::rmw::iox2::TryConvert;
     using Iceoryx2 = ::rmw::iox2::Iceoryx2;
     using NodeImpl = ::rmw::iox2::Node;
@@ -64,7 +64,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
 
     RMW_IOX2_LOG_DEBUG("Creating publisher to '%s'", topic_name);
 
-    auto resolved_qos = TryConvert<ResolvedQos>::from(*qos, ProfileKind::PUBLISH_SUBSCRIBE);
+    auto resolved_qos = TryConvert<Qos>::from(*qos, ProfileKind::PUBLISH_SUBSCRIBE);
     if (!resolved_qos.has_value()) {
         // Error already chained by TryConvert.
         return nullptr;

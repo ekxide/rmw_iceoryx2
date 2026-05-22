@@ -7,8 +7,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_COMMON_RESOLVED_QOS_HPP_
-#define RMW_IOX2_COMMON_RESOLVED_QOS_HPP_
+#ifndef RMW_IOX2_COMMON_QOS_HPP_
+#define RMW_IOX2_COMMON_QOS_HPP_
 
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
@@ -23,7 +23,7 @@ namespace rmw::iox2
 enum class ProfileKind : uint8_t { PUBLISH_SUBSCRIBE, SERVICE };
 
 /// Validated QoS used throughout the C++ runtime wrappers.
-class RMW_PUBLIC ResolvedQos
+class RMW_PUBLIC Qos
 {
 public:
     enum class History : uint8_t { KEEP_LAST };
@@ -37,11 +37,11 @@ public:
         uint64_t nsec;
     };
 
-    ResolvedQos(const ResolvedQos&) = default;
-    ResolvedQos(ResolvedQos&&) noexcept = default;
-    auto operator=(const ResolvedQos&) -> ResolvedQos& = default;
-    auto operator=(ResolvedQos&&) noexcept -> ResolvedQos& = default;
-    ~ResolvedQos() = default;
+    Qos(const Qos&) = default;
+    Qos(Qos&&) noexcept = default;
+    auto operator=(const Qos&) -> Qos& = default;
+    auto operator=(Qos&&) noexcept -> Qos& = default;
+    ~Qos() = default;
 
     // Policy accessors -----------------------------------------------
 
@@ -113,9 +113,9 @@ public:
         }
 
         /// Consume the builder and produce the validated value.
-        auto build() && noexcept -> ResolvedQos {
-            // Nested class has private access to ResolvedQos.
-            ResolvedQos qos;
+        auto build() && noexcept -> Qos {
+            // Nested class has private access to Qos.
+            Qos qos;
             qos.m_history = m_history;
             qos.m_depth = m_depth;
             qos.m_reliability = m_reliability;
@@ -141,7 +141,7 @@ public:
     };
 
 private:
-    ResolvedQos() = default;
+    Qos() = default;
 
     History m_history{History::KEEP_LAST};
     uint64_t m_depth{10};
@@ -158,14 +158,14 @@ private:
 // Conversions
 // ----------------------------------------------------------------------------
 
-/// Infallible conversion `ResolvedQos` → `rmw_qos_profile_t`.
+/// Infallible conversion `Qos` → `rmw_qos_profile_t`.
 /// Used at the C API boundary (e.g. `rmw_*_get_actual_qos`).
 template <>
 struct RMW_PUBLIC Convert<rmw_qos_profile_t>
 {
-    static auto from(const ResolvedQos& qos) noexcept -> rmw_qos_profile_t;
+    static auto from(const Qos& qos) noexcept -> rmw_qos_profile_t;
 };
 
 } // namespace rmw::iox2
 
-#endif // RMW_IOX2_COMMON_RESOLVED_QOS_HPP_
+#endif // RMW_IOX2_COMMON_QOS_HPP_

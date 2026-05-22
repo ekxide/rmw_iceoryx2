@@ -16,7 +16,7 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/resolved_qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
@@ -68,7 +68,7 @@ public:
               Node& node,
               const char* topic,
               const rosidl_message_type_support_t* type_support,
-              const ResolvedQos& qos);
+              const Qos& qos);
 
     /// @brief Get the unique identifier of this publisher
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
@@ -92,7 +92,7 @@ public:
 
     /// @brief Get the resolved QoS used to create this publisher
     /// @return Reference to the resolved QoS
-    auto qos() const -> const ResolvedQos&;
+    auto qos() const -> const Qos&;
 
     /// @brief Loan memory for zero-copy publishing
     /// @return Expected containing pointer to loaned memory or error
@@ -124,7 +124,7 @@ private:
     const rosidl_message_type_support_t* m_typesupport;
     uint64_t m_unserialized_size;
     std::string m_service_name;
-    ResolvedQos m_qos;
+    Qos m_qos;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;

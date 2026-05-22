@@ -23,7 +23,7 @@ Subscriber::Subscriber(CreationLock,
                        Node& node,
                        const char* topic,
                        const rosidl_message_type_support_t* type_support,
-                       const ResolvedQos& qos)
+                       const Qos& qos)
     : m_topic{topic}
     , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::topic(topic)}
@@ -100,7 +100,7 @@ auto Subscriber::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto Subscriber::qos() const -> const ResolvedQos& {
+auto Subscriber::qos() const -> const Qos& {
     return m_qos;
 }
 

@@ -25,7 +25,7 @@ Publisher::Publisher(CreationLock,
                      Node& node,
                      const char* topic,
                      const rosidl_message_type_support_t* type_support,
-                     const ResolvedQos& qos)
+                     const Qos& qos)
     : m_topic{topic}
     , m_typesupport{type_support}
     , m_unserialized_size{::rmw::iox2::message_size(type_support)}
@@ -126,7 +126,7 @@ auto Publisher::service_name() const -> const std::string& {
     return m_service_name;
 }
 
-auto Publisher::qos() const -> const ResolvedQos& {
+auto Publisher::qos() const -> const Qos& {
     return m_qos;
 }
 
