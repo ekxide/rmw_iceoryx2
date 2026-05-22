@@ -12,7 +12,6 @@
 
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
-#include "rmw_iceoryx2_cxx/impl/common/convert.hpp"
 
 #include <cstdint>
 
@@ -153,18 +152,6 @@ private:
     Liveliness m_liveliness{Liveliness::AUTOMATIC};
     Duration m_liveliness_lease_duration{0, 0};
     bool m_avoid_ros_namespace_conventions{false};
-};
-
-// ----------------------------------------------------------------------------
-// Conversions
-// ----------------------------------------------------------------------------
-
-/// Infallible conversion `Qos` → `rmw_qos_profile_t`.
-/// Used at the C API boundary (e.g. `rmw_*_get_actual_qos`).
-template <>
-struct RMW_PUBLIC Convert<rmw_qos_profile_t>
-{
-    static auto from(const Qos& qos) noexcept -> rmw_qos_profile_t;
 };
 
 } // namespace rmw::iox2

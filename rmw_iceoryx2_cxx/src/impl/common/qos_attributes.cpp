@@ -113,6 +113,26 @@ auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
 // Conversions
 // ----------------------------------------------------------------------------
 
+auto Convert<rmw_qos_profile_t>::from(const Qos& qos) noexcept -> rmw_qos_profile_t {
+    rmw_qos_profile_t out{};
+    out.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
+    out.depth = qos.depth();
+    out.reliability = qos.reliability() == Qos::Reliability::RELIABLE ? RMW_QOS_POLICY_RELIABILITY_RELIABLE
+                                                                      : RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    out.durability = qos.durability() == Qos::Durability::TRANSIENT_LOCAL ? RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL
+                                                                          : RMW_QOS_POLICY_DURABILITY_VOLATILE;
+    out.deadline.sec = qos.deadline().sec;
+    out.deadline.nsec = qos.deadline().nsec;
+    out.lifespan.sec = qos.lifespan().sec;
+    out.lifespan.nsec = qos.lifespan().nsec;
+    out.liveliness = qos.liveliness() == Qos::Liveliness::MANUAL_BY_TOPIC ? RMW_QOS_POLICY_LIVELINESS_MANUAL_BY_TOPIC
+                                                                          : RMW_QOS_POLICY_LIVELINESS_AUTOMATIC;
+    out.liveliness_lease_duration.sec = qos.liveliness_lease_duration().sec;
+    out.liveliness_lease_duration.nsec = qos.liveliness_lease_duration().nsec;
+    out.avoid_ros_namespace_conventions = qos.avoid_ros_namespace_conventions();
+    return out;
+}
+
 auto TryConvert<Qos>::from(const rmw_qos_profile_t& profile, ProfileKind kind) -> Expected<Qos, QosError> {
     (void)kind;
 
@@ -156,7 +176,7 @@ auto TryConvert<Qos>::from(const rmw_qos_profile_t& profile, ProfileKind kind) -
     return std::move(builder).build();
 }
 
-auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected<Qos, QosError> {
+auto TryConvert<Qos>::from(AttributeSetView attributes, ProfileKind kind) -> Expected<Qos, QosError> {
     (void)kind;
 
     Qos::Builder builder;
@@ -167,7 +187,7 @@ auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected
         return err(QosError::ATTRIBUTE_DECODING_FAILURE);
     };
 
-    if (!read_attribute_value(attrs, codec::History::KEY, buf, sizeof(buf))) {
+    if (!read_attribute_value(attributes, codec::History::KEY, buf, sizeof(buf))) {
         return fail(codec::History::KEY);
     }
     auto depth = codec::History::parse(buf);
@@ -176,7 +196,7 @@ auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected
     }
     builder.set_history(Qos::History::KEEP_LAST, depth.value());
 
-    if (!read_attribute_value(attrs, codec::Reliability::KEY, buf, sizeof(buf))) {
+    if (!read_attribute_value(attributes, codec::Reliability::KEY, buf, sizeof(buf))) {
         return fail(codec::Reliability::KEY);
     }
     auto reliability = codec::Reliability::parse(buf);
@@ -185,7 +205,7 @@ auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected
     }
     builder.set_reliability(reliability.value());
 
-    if (!read_attribute_value(attrs, codec::Durability::KEY, buf, sizeof(buf))) {
+    if (!read_attribute_value(attributes, codec::Durability::KEY, buf, sizeof(buf))) {
         return fail(codec::Durability::KEY);
     }
     auto durability = codec::Durability::parse(buf);
@@ -194,7 +214,7 @@ auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected
     }
     builder.set_durability(durability.value());
 
-    if (!read_attribute_value(attrs, codec::Deadline::KEY, buf, sizeof(buf))) {
+    if (!read_attribute_value(attributes, codec::Deadline::KEY, buf, sizeof(buf))) {
         return fail(codec::Deadline::KEY);
     }
     auto deadline = codec::Deadline::parse(buf);
@@ -203,7 +223,7 @@ auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected
     }
     builder.set_deadline(deadline.value());
 
-    if (!read_attribute_value(attrs, codec::Lifespan::KEY, buf, sizeof(buf))) {
+    if (!read_attribute_value(attributes, codec::Lifespan::KEY, buf, sizeof(buf))) {
         return fail(codec::Lifespan::KEY);
     }
     auto lifespan = codec::Lifespan::parse(buf);
@@ -212,7 +232,7 @@ auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected
     }
     builder.set_lifespan(lifespan.value());
 
-    if (!read_attribute_value(attrs, codec::Liveliness::KEY, buf, sizeof(buf))) {
+    if (!read_attribute_value(attributes, codec::Liveliness::KEY, buf, sizeof(buf))) {
         return fail(codec::Liveliness::KEY);
     }
     auto liveliness = codec::Liveliness::parse(buf);
@@ -246,12 +266,12 @@ auto TryConvert<AttributeVerifier>::from(const Qos& qos) -> Expected<AttributeVe
 // Attribute helpers
 // ----------------------------------------------------------------------------
 
-auto read_attribute_value(::iox2::AttributeSetView attrs, const char* key, char* out, size_t out_size) -> bool {
+auto read_attribute_value(::iox2::AttributeSetView attributes, const char* key, char* out, size_t out_size) -> bool {
     auto key_obj = Attribute::Key::from_utf8_null_terminated_unchecked(key);
     if (!key_obj.has_value()) {
         return false;
     }
-    auto val = attrs.key_value(key_obj.value(), 0);
+    auto val = attributes.key_value(key_obj.value(), 0);
     if (!val.has_value()) {
         return false;
     }

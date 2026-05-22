@@ -26,25 +26,34 @@ namespace rmw::iox2
 // Conversions
 // ----------------------------------------------------------------------------
 
-/// Fallible conversion to `Qos`.
+template <>
+struct RMW_PUBLIC Convert<rmw_qos_profile_t>
+{
+    /// Infallible conversion `Qos` → `rmw_qos_profile_t`.
+    /// Used at the C API boundary (e.g. `rmw_*_get_actual_qos`).
+    static auto from(const Qos& qos) noexcept -> rmw_qos_profile_t;
+};
+
 template <>
 struct RMW_PUBLIC TryConvert<Qos>
 {
+    /// Fallible conversion `rmw_qos_profile_t` → `Qos`.
     static auto from(const rmw_qos_profile_t& profile, ProfileKind kind) -> ::iox2::bb::Expected<Qos, QosError>;
-    static auto from(::iox2::AttributeSetView attrs, ProfileKind kind) -> ::iox2::bb::Expected<Qos, QosError>;
+    /// Fallible conversion `::iox2::AttributeSetView` → `Qos`.
+    static auto from(::iox2::AttributeSetView attributes, ProfileKind kind) -> ::iox2::bb::Expected<Qos, QosError>;
 };
 
-/// Fallible conversion `Qos` → `iox2::AttributeSpecifier`.
 template <>
 struct RMW_PUBLIC TryConvert<::iox2::AttributeSpecifier>
 {
+    /// Fallible conversion `Qos` → `iox2::AttributeSpecifier`.
     static auto from(const Qos& qos) -> ::iox2::bb::Expected<::iox2::AttributeSpecifier, QosError>;
 };
 
-/// Fallible conversion `Qos` → `iox2::AttributeVerifier`.
 template <>
 struct RMW_PUBLIC TryConvert<::iox2::AttributeVerifier>
 {
+    /// Fallible conversion `Qos` → `iox2::AttributeVerifier`.
     static auto from(const Qos& qos) -> ::iox2::bb::Expected<::iox2::AttributeVerifier, QosError>;
 };
 
@@ -52,10 +61,10 @@ struct RMW_PUBLIC TryConvert<::iox2::AttributeVerifier>
 // Attribute helpers
 // ----------------------------------------------------------------------------
 
-/// Copy the value of `key` from `attrs` into the caller-provided buffer
+/// Copy the value of `key` from attributes into the caller-provided buffer
 /// (null-terminated). Returns false when the key is absent from `attrs`.
 RMW_PUBLIC
-auto read_attribute_value(::iox2::AttributeSetView attrs, const char* key, char* out, size_t out_size) -> bool;
+auto read_attribute_value(::iox2::AttributeSetView attributes, const char* key, char* out, size_t out_size) -> bool;
 
 } // namespace rmw::iox2
 
