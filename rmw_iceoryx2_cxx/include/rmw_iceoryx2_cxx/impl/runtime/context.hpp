@@ -30,24 +30,45 @@ struct Error<rmw_context_impl_s>
 };
 
 /// Controls how `rmw_create_*` reconciles requested QoS with an existing
-/// iceoryx2 service. Lives here because it will eventually be a member of
-/// `rmw_init_options_impl_s` (see TODOs in `runtime/{publisher,subscriber}.cpp`).
-enum class QosMatchMode : uint8_t {
-    STRICT, ///< require attribute equality (default)
-    ADOPT,  ///< substitute caller QoS with existing service attributes
+/// iceoryx2 service.
+enum class QosMatchingMode : uint8_t {
+    STRICT,   ///< require attribute equality (default)
+    ADOPTIVE, ///< substitute caller QoS with existing service attributes
 };
+
+/// Defaults applied unless overriden by environment variable.
+constexpr size_t DEFAULT_MAX_PUBLISHERS_PER_TOPIC = 32U;
+constexpr size_t DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC = 32U;
+constexpr size_t DEFAULT_MAX_NODES_PER_SERVICE = 32U;
 
 } // namespace rmw::iox2
 
 extern "C" {
 
-/// @brief Empty init options implementation
-/// @details Only used to check for initialization
+/// @brief iceoryx2-specific init options.
 class RMW_PUBLIC rmw_init_options_impl_s
 {
+public:
+    /// QoS reconciliation policy
+    ::rmw::iox2::QosMatchingMode qos_matching_mode{::rmw::iox2::QosMatchingMode::STRICT};
+
+    /// Upper bound on publishers per service. Configured via
+    /// `RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC`. Falls back to
+    /// `DEFAULT_MAX_PUBLISHERS_PER_TOPIC` when empty.
+    ::iox2::bb::Optional<size_t> max_publishers_per_topic;
+
+    /// Upper bound on subscribers per service. Configured via
+    /// `RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC`. Falls back to
+    /// `DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC` when empty.
+    ::iox2::bb::Optional<size_t> max_subscribers_per_topic;
+
+    /// Upper bound on nodes per service. Configured via
+    /// `RMW_IOX2_MAX_NODES_PER_SERVICE`. Falls back to
+    /// `DEFAULT_MAX_NODES_PER_SERVICE` when empty.
+    ::iox2::bb::Optional<size_t> max_nodes_per_service;
 };
 
-constexpr rmw_init_options_impl_s INITIALIZED_OPTIONS{};
+const rmw_init_options_impl_s INITIALIZED_OPTIONS{};
 
 /// @brief Implementation of the RMW context for iceoryx2
 /// @details The context manages the lifetime of entities used to implement guard conditions

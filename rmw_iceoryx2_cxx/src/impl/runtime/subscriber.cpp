@@ -43,8 +43,8 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
-    // TODO: branch on init_options qos_match_mode (strict vs adopt) once
-    //       qos_match_mode is plumbed through rmw_init_options_t::impl.
+    // TODO: branch on init_options qos_matching_mode (strict vs adoptive) once
+    //       qos_matching_mode is plumbed through rmw_init_options_t::impl.
     // TODO: replace hardcoded max_publishers / max_subscribers with values
     //       from rmw_init_options_t::impl.
     auto iox2_pubsub_service = node.iox2()
