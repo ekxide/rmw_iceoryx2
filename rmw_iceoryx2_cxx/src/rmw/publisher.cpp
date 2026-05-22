@@ -20,6 +20,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos_diagnostics.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
@@ -111,15 +112,15 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
 
         if (!construct_result.has_value()) {
             if (construct_result.error() == PublisherImpl::ErrorType::QOS_INCOMPATIBLE) {
-                auto details = node_impl.value()->iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(
+                auto service_details = node_impl.value()->iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(
                     ::rmw::iox2::names::topic(topic_name), Iceoryx2::MessagingPattern::PublishSubscribe);
-                if (!details.has_value()) {
+                if (!service_details.has_value()) {
                     RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
                         "QoS mismatch on '%s' (failed to look up service details)", topic_name);
                 }
 
-                ::rmw::iox2::chain_attribute_mismatch_error(
-                    resolved_qos.value(), details.value().static_details.attributes(), topic_name);
+                ::rmw::iox2::log_attribute_mismatch(
+                    resolved_qos.value(), service_details.value().static_details.attributes(), topic_name);
             } else {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Publisher");
             }

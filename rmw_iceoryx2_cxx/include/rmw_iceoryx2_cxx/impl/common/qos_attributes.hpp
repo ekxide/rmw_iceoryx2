@@ -146,13 +146,8 @@ struct RMW_PUBLIC TryConvert<::iox2::AttributeVerifier>
 };
 
 // ----------------------------------------------------------------------------
-// Diagnostics
+// Schema iteration helpers
 // ----------------------------------------------------------------------------
-
-/// Emit `RMW_IOX2_LOG_WARN` for every policy that cannot be mapped to
-/// iceoryx2.
-RMW_PUBLIC
-void log_unsupported_policies(const Qos& qos, const char* topic) noexcept;
 
 /// Iterate the `rmw.qos.local.*` policy schema in canonical order
 /// (history, reliability, durability, deadline, lifespan, liveliness).
@@ -165,16 +160,6 @@ void for_each_policy(const std::function<void(const PolicyCodec&)>& on_policy);
 /// (null-terminated). Returns false when the key is absent from `attrs`.
 RMW_PUBLIC
 auto read_attribute_value(::iox2::AttributeSetView attrs, const char* key, char* out, size_t out_size) -> bool;
-
-/// Chain a per-key QoS mismatch error message via `RMW_IOX2_CHAIN_ERROR_MSG`,
-/// comparing `requested` against the values in `existing` (typically the
-/// attributes of the in-place iceoryx2 service). Intended for the C API
-/// layer to call after the runtime reports `QOS_INCOMPATIBLE` and the
-/// service lookup has succeeded.
-RMW_PUBLIC
-void chain_attribute_mismatch_error(const Qos& requested,
-                                    ::iox2::AttributeSetView existing,
-                                    const char* topic) noexcept;
 
 } // namespace rmw::iox2
 
