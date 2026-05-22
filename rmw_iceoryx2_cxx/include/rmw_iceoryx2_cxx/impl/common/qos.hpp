@@ -31,12 +31,68 @@ public:
     enum class Durability : uint8_t { VOLATILE, TRANSIENT_LOCAL };
     enum class Liveliness : uint8_t { AUTOMATIC, MANUAL_BY_TOPIC };
 
+    // Cannot use iox2::bb::duration as its nanos are uint32_t
+    // wheras RMW uses uint64_t
     struct Duration
     {
         uint64_t sec;
         uint64_t nsec;
     };
 
+    class Builder
+    {
+    public:
+        void set_history(History history, uint64_t depth) noexcept {
+            m_history = history;
+            m_depth = depth;
+        }
+        void set_reliability(Reliability reliability) noexcept {
+            m_reliability = reliability;
+        }
+        void set_durability(Durability durability) noexcept {
+            m_durability = durability;
+        }
+        void set_deadline(Duration deadline) noexcept {
+            m_deadline = deadline;
+        }
+        void set_lifespan(Duration lifespan) noexcept {
+            m_lifespan = lifespan;
+        }
+        void set_liveliness(Liveliness liveliness, Duration lease) noexcept {
+            m_liveliness = liveliness;
+            m_liveliness_lease_duration = lease;
+        }
+        void set_avoid_ros_namespace_conventions(bool avoid) noexcept {
+            m_avoid_ros_namespace_conventions = avoid;
+        }
+
+        auto build() && noexcept -> Qos {
+            Qos qos;
+            qos.m_history = m_history;
+            qos.m_depth = m_depth;
+            qos.m_reliability = m_reliability;
+            qos.m_durability = m_durability;
+            qos.m_deadline = m_deadline;
+            qos.m_lifespan = m_lifespan;
+            qos.m_liveliness = m_liveliness;
+            qos.m_liveliness_lease_duration = m_liveliness_lease_duration;
+            qos.m_avoid_ros_namespace_conventions = m_avoid_ros_namespace_conventions;
+            return qos;
+        }
+
+    private:
+        History m_history{History::KEEP_LAST};
+        uint64_t m_depth{10};
+        Reliability m_reliability{Reliability::RELIABLE};
+        Durability m_durability{Durability::VOLATILE};
+        Duration m_deadline{0, 0};
+        Duration m_lifespan{0, 0};
+        Liveliness m_liveliness{Liveliness::AUTOMATIC};
+        Duration m_liveliness_lease_duration{0, 0};
+        bool m_avoid_ros_namespace_conventions{false};
+    };
+
+public:
     Qos(const Qos&) = default;
     Qos(Qos&&) noexcept = default;
     auto operator=(const Qos&) -> Qos& = default;
@@ -84,61 +140,6 @@ public:
     auto enable_safe_overflow() const noexcept -> bool {
         return m_reliability == Reliability::BEST_EFFORT;
     }
-
-    class Builder
-    {
-    public:
-        void set_history(History history, uint64_t depth) noexcept {
-            m_history = history;
-            m_depth = depth;
-        }
-        void set_reliability(Reliability reliability) noexcept {
-            m_reliability = reliability;
-        }
-        void set_durability(Durability durability) noexcept {
-            m_durability = durability;
-        }
-        void set_deadline(Duration deadline) noexcept {
-            m_deadline = deadline;
-        }
-        void set_lifespan(Duration lifespan) noexcept {
-            m_lifespan = lifespan;
-        }
-        void set_liveliness(Liveliness liveliness, Duration lease) noexcept {
-            m_liveliness = liveliness;
-            m_liveliness_lease_duration = lease;
-        }
-        void set_avoid_ros_namespace_conventions(bool avoid) noexcept {
-            m_avoid_ros_namespace_conventions = avoid;
-        }
-
-        /// Consume the builder and produce the validated value.
-        auto build() && noexcept -> Qos {
-            // Nested class has private access to Qos.
-            Qos qos;
-            qos.m_history = m_history;
-            qos.m_depth = m_depth;
-            qos.m_reliability = m_reliability;
-            qos.m_durability = m_durability;
-            qos.m_deadline = m_deadline;
-            qos.m_lifespan = m_lifespan;
-            qos.m_liveliness = m_liveliness;
-            qos.m_liveliness_lease_duration = m_liveliness_lease_duration;
-            qos.m_avoid_ros_namespace_conventions = m_avoid_ros_namespace_conventions;
-            return qos;
-        }
-
-    private:
-        History m_history{History::KEEP_LAST};
-        uint64_t m_depth{10};
-        Reliability m_reliability{Reliability::RELIABLE};
-        Durability m_durability{Durability::VOLATILE};
-        Duration m_deadline{0, 0};
-        Duration m_lifespan{0, 0};
-        Liveliness m_liveliness{Liveliness::AUTOMATIC};
-        Duration m_liveliness_lease_duration{0, 0};
-        bool m_avoid_ros_namespace_conventions{false};
-    };
 
 private:
     Qos() = default;
