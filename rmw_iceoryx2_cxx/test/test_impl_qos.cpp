@@ -14,6 +14,7 @@
 #include "rmw/types.h"
 #include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos_codec.hpp"
 
 #include <cstring>
 #include <string>
@@ -23,17 +24,12 @@ namespace
 {
 
 using ::rmw::iox2::Convert;
-using ::rmw::iox2::Deadline;
-using ::rmw::iox2::Durability;
-using ::rmw::iox2::History;
-using ::rmw::iox2::Lifespan;
-using ::rmw::iox2::Liveliness;
 using ::rmw::iox2::ProfileKind;
 using ::rmw::iox2::Qos;
 using ::rmw::iox2::QosError;
 using ::rmw::iox2::read_attribute_value;
-using ::rmw::iox2::Reliability;
 using ::rmw::iox2::TryConvert;
+namespace codec = ::rmw::iox2::codec;
 
 class QosTest : public ::testing::Test
 {
@@ -371,12 +367,12 @@ void check_one(const Qos& requested, ::iox2::AttributeSetView existing, std::vec
 
 auto collect_mismatches(const Qos& requested, ::iox2::AttributeSetView existing) -> std::vector<CapturedMismatch> {
     std::vector<CapturedMismatch> diffs;
-    check_one<History>(requested, existing, diffs);
-    check_one<Reliability>(requested, existing, diffs);
-    check_one<Durability>(requested, existing, diffs);
-    check_one<Deadline>(requested, existing, diffs);
-    check_one<Lifespan>(requested, existing, diffs);
-    check_one<Liveliness>(requested, existing, diffs);
+    check_one<codec::History>(requested, existing, diffs);
+    check_one<codec::Reliability>(requested, existing, diffs);
+    check_one<codec::Durability>(requested, existing, diffs);
+    check_one<codec::Deadline>(requested, existing, diffs);
+    check_one<codec::Lifespan>(requested, existing, diffs);
+    check_one<codec::Liveliness>(requested, existing, diffs);
     return diffs;
 }
 } // namespace

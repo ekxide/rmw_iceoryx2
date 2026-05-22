@@ -12,6 +12,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos_codec.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -95,18 +96,18 @@ void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView attrs
         ++count;
     };
 
-    History::format(requested, requested_val, sizeof(requested_val));
-    diff(History::KEY);
-    Reliability::format(requested, requested_val, sizeof(requested_val));
-    diff(Reliability::KEY);
-    Durability::format(requested, requested_val, sizeof(requested_val));
-    diff(Durability::KEY);
-    Deadline::format(requested, requested_val, sizeof(requested_val));
-    diff(Deadline::KEY);
-    Lifespan::format(requested, requested_val, sizeof(requested_val));
-    diff(Lifespan::KEY);
-    Liveliness::format(requested, requested_val, sizeof(requested_val));
-    diff(Liveliness::KEY);
+    codec::History::format(requested, requested_val, sizeof(requested_val));
+    diff(codec::History::KEY);
+    codec::Reliability::format(requested, requested_val, sizeof(requested_val));
+    diff(codec::Reliability::KEY);
+    codec::Durability::format(requested, requested_val, sizeof(requested_val));
+    diff(codec::Durability::KEY);
+    codec::Deadline::format(requested, requested_val, sizeof(requested_val));
+    diff(codec::Deadline::KEY);
+    codec::Lifespan::format(requested, requested_val, sizeof(requested_val));
+    diff(codec::Lifespan::KEY);
+    codec::Liveliness::format(requested, requested_val, sizeof(requested_val));
+    diff(codec::Liveliness::KEY);
 
     if (count == 0) {
         // Shouldn't happen after OpenIncompatibleAttributes.

@@ -60,6 +60,7 @@ add_library(${PROJECT_NAME} SHARED
   src/impl/common/names.cpp
   src/impl/common/qos.cpp
   src/impl/common/qos_attributes.cpp
+  src/impl/common/qos_codec.cpp
   src/impl/common/qos_diagnostics.cpp
   src/impl/message/introspection.cpp
   src/impl/message/typesupport.cpp

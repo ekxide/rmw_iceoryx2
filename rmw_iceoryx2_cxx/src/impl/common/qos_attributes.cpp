@@ -7,14 +7,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+
 #include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
-
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos_codec.hpp"
 
-#include <charconv>
 #include <cstdio>
-#include <cstring>
-#include <system_error>
 #include <utility>
 
 namespace rmw::iox2
@@ -29,7 +27,6 @@ using ::iox2::AttributeSpecifier;
 using ::iox2::AttributeVerifier;
 using ::iox2::bb::err;
 using ::iox2::bb::Expected;
-using ::iox2::bb::NULLOPT;
 using ::iox2::bb::Optional;
 
 // Sentinel that means "match whatever other endpoints have" from rmw/types.h.
@@ -43,56 +40,6 @@ auto map_time(rmw_time_t time) -> Qos::Duration {
         return {0U, 0U};
     }
     return {time.sec, time.nsec};
-}
-
-// ----------------------------------------------------------------------------
-// Format / parse helpers
-// ----------------------------------------------------------------------------
-
-void write_duration(Qos::Duration duration, char* buf, size_t len) {
-    // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
-    std::snprintf(buf,
-                  len,
-                  "%llu:%llu",
-                  static_cast<unsigned long long>(duration.sec),
-                  static_cast<unsigned long long>(duration.nsec));
-}
-
-auto read_uint64(const char* first, const char* last, uint64_t& out, const char*& next) -> bool {
-    auto result = std::from_chars(first, last, out);
-    if (result.ec != std::errc{}) {
-        return false;
-    }
-    next = result.ptr;
-    return true;
-}
-
-auto read_duration(const char* str, Qos::Duration& out) -> bool {
-    const char* end = str + std::strlen(str);
-    const char* next = nullptr;
-    if (!read_uint64(str, end, out.sec, next) || next == end || *next != ':') {
-        return false;
-    }
-    const char* nsec_start = next + 1;
-    if (!read_uint64(nsec_start, end, out.nsec, next) || next != end) {
-        return false;
-    }
-    return true;
-}
-
-/// If `str` starts with `prefix` followed by ':', returns the pointer past
-/// the colon. Returns `nullptr` otherwise.
-auto strip_prefix(const char* str, const char* prefix) -> const char* {
-    size_t index = 0;
-    for (; prefix[index] != '\0'; ++index) {
-        if (str[index] != prefix[index]) {
-            return nullptr;
-        }
-    }
-    if (str[index] != ':') {
-        return nullptr;
-    }
-    return str + index + 1;
 }
 
 // ----------------------------------------------------------------------------
@@ -138,28 +85,28 @@ auto write_attribute(Target& target, const char* key, const char* value) -> bool
 template <typename Target>
 auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
     char buf[256];
-    History::format(qos, buf, sizeof(buf));
-    if (!write_attribute(target, History::KEY, buf)) {
+    codec::History::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, codec::History::KEY, buf)) {
         return false;
     }
-    Reliability::format(qos, buf, sizeof(buf));
-    if (!write_attribute(target, Reliability::KEY, buf)) {
+    codec::Reliability::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, codec::Reliability::KEY, buf)) {
         return false;
     }
-    Durability::format(qos, buf, sizeof(buf));
-    if (!write_attribute(target, Durability::KEY, buf)) {
+    codec::Durability::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, codec::Durability::KEY, buf)) {
         return false;
     }
-    Deadline::format(qos, buf, sizeof(buf));
-    if (!write_attribute(target, Deadline::KEY, buf)) {
+    codec::Deadline::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, codec::Deadline::KEY, buf)) {
         return false;
     }
-    Lifespan::format(qos, buf, sizeof(buf));
-    if (!write_attribute(target, Lifespan::KEY, buf)) {
+    codec::Lifespan::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, codec::Lifespan::KEY, buf)) {
         return false;
     }
-    Liveliness::format(qos, buf, sizeof(buf));
-    if (!write_attribute(target, Liveliness::KEY, buf)) {
+    codec::Liveliness::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, codec::Liveliness::KEY, buf)) {
         return false;
     }
     return true;
@@ -168,131 +115,11 @@ auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
 } // namespace
 
 // ----------------------------------------------------------------------------
-// Policy codecs
-// ----------------------------------------------------------------------------
-
-void History::format(const Qos& qos, char* buf, size_t len) {
-    // Qos guarantees KEEP_LAST.
-    // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
-    std::snprintf(buf, len, "%s:%llu", KEEP_LAST, static_cast<unsigned long long>(qos.depth()));
-}
-
-auto History::parse(const char* str) -> ::iox2::bb::Optional<uint64_t> {
-    const char* rest = strip_prefix(str, KEEP_LAST);
-    if (rest == nullptr) {
-        return NULLOPT;
-    }
-
-    const char* end = rest + std::strlen(rest);
-    uint64_t depth = 0;
-    auto result = std::from_chars(rest, end, depth);
-    if (result.ec != std::errc{} || result.ptr != end) {
-        return NULLOPT;
-    }
-    return depth;
-}
-
-void Reliability::format(const Qos& qos, char* buf, size_t len) {
-    const char* str = qos.reliability() == Qos::Reliability::RELIABLE ? RELIABLE : BEST_EFFORT;
-
-    // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
-    std::snprintf(buf, len, "%s", str);
-}
-
-auto Reliability::parse(const char* str) -> ::iox2::bb::Optional<Qos::Reliability> {
-    if (std::strcmp(str, RELIABLE) == 0) {
-        return Qos::Reliability::RELIABLE;
-    }
-
-    if (std::strcmp(str, BEST_EFFORT) == 0) {
-        return Qos::Reliability::BEST_EFFORT;
-    }
-
-    return NULLOPT;
-}
-
-void Durability::format(const Qos& qos, char* buf, size_t len) {
-    const char* str = qos.durability() == Qos::Durability::TRANSIENT_LOCAL ? TRANSIENT_LOCAL : VOLATILE;
-
-    // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
-    std::snprintf(buf, len, "%s", str);
-}
-
-auto Durability::parse(const char* str) -> ::iox2::bb::Optional<Qos::Durability> {
-    if (std::strcmp(str, VOLATILE) == 0) {
-        return Qos::Durability::VOLATILE;
-    }
-    if (std::strcmp(str, TRANSIENT_LOCAL) == 0) {
-        return Qos::Durability::TRANSIENT_LOCAL;
-    }
-
-    return NULLOPT;
-}
-
-void Deadline::format(const Qos& qos, char* buf, size_t len) {
-    write_duration(qos.deadline(), buf, len);
-}
-
-auto Deadline::parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration> {
-    Qos::Duration duration{};
-    if (!read_duration(str, duration)) {
-        return NULLOPT;
-    }
-
-    return duration;
-}
-
-void Lifespan::format(const Qos& qos, char* buf, size_t len) {
-    write_duration(qos.lifespan(), buf, len);
-}
-
-auto Lifespan::parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration> {
-    Qos::Duration duration{};
-    if (!read_duration(str, duration)) {
-        return NULLOPT;
-    }
-
-    return duration;
-}
-
-void Liveliness::format(const Qos& qos, char* buf, size_t len) {
-    const char* kind = qos.liveliness() == Qos::Liveliness::MANUAL_BY_TOPIC ? MANUAL_BY_TOPIC : AUTOMATIC;
-    auto lease = qos.liveliness_lease_duration();
-
-    // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
-    std::snprintf(buf,
-                  len,
-                  "%s:%llu:%llu",
-                  kind,
-                  static_cast<unsigned long long>(lease.sec),
-                  static_cast<unsigned long long>(lease.nsec));
-}
-
-auto Liveliness::parse(const char* str) -> ::iox2::bb::Optional<Liveliness::Value> {
-    Qos::Liveliness kind = Qos::Liveliness::AUTOMATIC;
-
-    const char* rest = strip_prefix(str, AUTOMATIC);
-    if (rest == nullptr) {
-        rest = strip_prefix(str, MANUAL_BY_TOPIC);
-        if (rest == nullptr) {
-            return NULLOPT;
-        }
-        kind = Qos::Liveliness::MANUAL_BY_TOPIC;
-    }
-    Qos::Duration lease{};
-    if (!read_duration(rest, lease)) {
-        return NULLOPT;
-    }
-
-    return Liveliness::Value{kind, lease};
-}
-
-// ----------------------------------------------------------------------------
 // Conversions
 // ----------------------------------------------------------------------------
 
 auto TryConvert<Qos>::from(const rmw_qos_profile_t& profile, ProfileKind kind) -> Expected<Qos, QosError> {
-    (void)kind; // pub/sub and service defaults are identical in v1
+    (void)kind;
 
     if (profile.history == RMW_QOS_POLICY_HISTORY_UNKNOWN || profile.reliability == RMW_QOS_POLICY_RELIABILITY_UNKNOWN
         || profile.durability == RMW_QOS_POLICY_DURABILITY_UNKNOWN
@@ -367,57 +194,57 @@ auto TryConvert<Qos>::from(AttributeSetView attrs, ProfileKind kind) -> Expected
         return err(QosError::ATTRIBUTE_DECODING_FAILURE);
     };
 
-    if (!read_attribute_value(attrs, History::KEY, buf, sizeof(buf))) {
-        return fail(History::KEY);
+    if (!read_attribute_value(attrs, codec::History::KEY, buf, sizeof(buf))) {
+        return fail(codec::History::KEY);
     }
-    auto depth = History::parse(buf);
+    auto depth = codec::History::parse(buf);
     if (!depth.has_value()) {
-        return fail(History::KEY);
+        return fail(codec::History::KEY);
     }
     builder.set_history(Qos::History::KEEP_LAST, depth.value());
 
-    if (!read_attribute_value(attrs, Reliability::KEY, buf, sizeof(buf))) {
-        return fail(Reliability::KEY);
+    if (!read_attribute_value(attrs, codec::Reliability::KEY, buf, sizeof(buf))) {
+        return fail(codec::Reliability::KEY);
     }
-    auto reliability = Reliability::parse(buf);
+    auto reliability = codec::Reliability::parse(buf);
     if (!reliability.has_value()) {
-        return fail(Reliability::KEY);
+        return fail(codec::Reliability::KEY);
     }
     builder.set_reliability(reliability.value());
 
-    if (!read_attribute_value(attrs, Durability::KEY, buf, sizeof(buf))) {
-        return fail(Durability::KEY);
+    if (!read_attribute_value(attrs, codec::Durability::KEY, buf, sizeof(buf))) {
+        return fail(codec::Durability::KEY);
     }
-    auto durability = Durability::parse(buf);
+    auto durability = codec::Durability::parse(buf);
     if (!durability.has_value()) {
-        return fail(Durability::KEY);
+        return fail(codec::Durability::KEY);
     }
     builder.set_durability(durability.value());
 
-    if (!read_attribute_value(attrs, Deadline::KEY, buf, sizeof(buf))) {
-        return fail(Deadline::KEY);
+    if (!read_attribute_value(attrs, codec::Deadline::KEY, buf, sizeof(buf))) {
+        return fail(codec::Deadline::KEY);
     }
-    auto deadline = Deadline::parse(buf);
+    auto deadline = codec::Deadline::parse(buf);
     if (!deadline.has_value()) {
-        return fail(Deadline::KEY);
+        return fail(codec::Deadline::KEY);
     }
     builder.set_deadline(deadline.value());
 
-    if (!read_attribute_value(attrs, Lifespan::KEY, buf, sizeof(buf))) {
-        return fail(Lifespan::KEY);
+    if (!read_attribute_value(attrs, codec::Lifespan::KEY, buf, sizeof(buf))) {
+        return fail(codec::Lifespan::KEY);
     }
-    auto lifespan = Lifespan::parse(buf);
+    auto lifespan = codec::Lifespan::parse(buf);
     if (!lifespan.has_value()) {
-        return fail(Lifespan::KEY);
+        return fail(codec::Lifespan::KEY);
     }
     builder.set_lifespan(lifespan.value());
 
-    if (!read_attribute_value(attrs, Liveliness::KEY, buf, sizeof(buf))) {
-        return fail(Liveliness::KEY);
+    if (!read_attribute_value(attrs, codec::Liveliness::KEY, buf, sizeof(buf))) {
+        return fail(codec::Liveliness::KEY);
     }
-    auto liveliness = Liveliness::parse(buf);
+    auto liveliness = codec::Liveliness::parse(buf);
     if (!liveliness.has_value()) {
-        return fail(Liveliness::KEY);
+        return fail(codec::Liveliness::KEY);
     }
     builder.set_liveliness(liveliness.value().kind, liveliness.value().lease);
 
