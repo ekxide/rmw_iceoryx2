@@ -127,17 +127,40 @@ auto define_or_require<AttributeVerifier>(AttributeVerifier& target,
 }
 
 template <typename Target>
+auto write_attribute(Target& target, const char* key, const char* value) -> bool {
+    auto key_obj = Attribute::Key::from_utf8_null_terminated_unchecked(key);
+    if (!key_obj.has_value()) {
+        return false;
+    }
+    return define_or_require(target, key_obj.value(), value);
+}
+
+template <typename Target>
 auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
     char buf[256];
-    for (const auto& policy : POLICIES) {
-        auto key = Attribute::Key::from_utf8_null_terminated_unchecked(policy.key);
-        if (!key.has_value()) {
-            return false;
-        }
-        policy.format(qos, buf, sizeof(buf));
-        if (!define_or_require(target, key.value(), buf)) {
-            return false;
-        }
+    History::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, History::KEY, buf)) {
+        return false;
+    }
+    Reliability::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, Reliability::KEY, buf)) {
+        return false;
+    }
+    Durability::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, Durability::KEY, buf)) {
+        return false;
+    }
+    Deadline::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, Deadline::KEY, buf)) {
+        return false;
+    }
+    Lifespan::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, Lifespan::KEY, buf)) {
+        return false;
+    }
+    Liveliness::format(qos, buf, sizeof(buf));
+    if (!write_attribute(target, Liveliness::KEY, buf)) {
+        return false;
     }
     return true;
 }
@@ -420,14 +443,8 @@ auto TryConvert<AttributeVerifier>::from(const Qos& qos) -> Expected<AttributeVe
 }
 
 // ----------------------------------------------------------------------------
-// Schema iteration helpers
+// Attribute helpers
 // ----------------------------------------------------------------------------
-
-void for_each_policy(const std::function<void(const PolicyCodec&)>& func) {
-    for (const auto& policy : POLICIES) {
-        func(policy);
-    }
-}
 
 auto read_attribute_value(::iox2::AttributeSetView attrs, const char* key, char* out, size_t out_size) -> bool {
     auto key_obj = Attribute::Key::from_utf8_null_terminated_unchecked(key);

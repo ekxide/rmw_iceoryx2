@@ -23,12 +23,16 @@ namespace
 {
 
 using ::rmw::iox2::Convert;
-using ::rmw::iox2::for_each_policy;
-using ::rmw::iox2::PolicyCodec;
+using ::rmw::iox2::Deadline;
+using ::rmw::iox2::Durability;
+using ::rmw::iox2::History;
+using ::rmw::iox2::Lifespan;
+using ::rmw::iox2::Liveliness;
 using ::rmw::iox2::ProfileKind;
+using ::rmw::iox2::Qos;
 using ::rmw::iox2::QosError;
 using ::rmw::iox2::read_attribute_value;
-using ::rmw::iox2::Qos;
+using ::rmw::iox2::Reliability;
 using ::rmw::iox2::TryConvert;
 
 class QosTest : public ::testing::Test
@@ -340,7 +344,7 @@ TEST_F(QosTest, to_resolved_qos_fails_on_empty_attribute_set) {
 }
 
 // ----------------------------------------------------------------------------
-// for_each_policy / read_attribute_value
+// Mismatch detection across all policies
 // ----------------------------------------------------------------------------
 
 namespace
@@ -352,20 +356,27 @@ struct CapturedMismatch
     std::string existing;
 };
 
-auto collect_mismatches(const Qos& requested,
-                        ::iox2::AttributeSetView existing) -> std::vector<CapturedMismatch> {
-    std::vector<CapturedMismatch> diffs;
+template <typename Policy>
+void check_one(const Qos& requested, ::iox2::AttributeSetView existing, std::vector<CapturedMismatch>& diffs) {
     char req[256];
     char exi[256];
-    for_each_policy([&](const PolicyCodec& policy) {
-        policy.format(requested, req, sizeof(req));
-        if (!read_attribute_value(existing, policy.key, exi, sizeof(exi))) {
-            return;
-        }
-        if (std::strcmp(req, exi) != 0) {
-            diffs.push_back(CapturedMismatch{policy.key, req, exi});
-        }
-    });
+    Policy::format(requested, req, sizeof(req));
+    if (!read_attribute_value(existing, Policy::KEY, exi, sizeof(exi))) {
+        return;
+    }
+    if (std::strcmp(req, exi) != 0) {
+        diffs.push_back(CapturedMismatch{Policy::KEY, req, exi});
+    }
+}
+
+auto collect_mismatches(const Qos& requested, ::iox2::AttributeSetView existing) -> std::vector<CapturedMismatch> {
+    std::vector<CapturedMismatch> diffs;
+    check_one<History>(requested, existing, diffs);
+    check_one<Reliability>(requested, existing, diffs);
+    check_one<Durability>(requested, existing, diffs);
+    check_one<Deadline>(requested, existing, diffs);
+    check_one<Lifespan>(requested, existing, diffs);
+    check_one<Liveliness>(requested, existing, diffs);
     return diffs;
 }
 } // namespace

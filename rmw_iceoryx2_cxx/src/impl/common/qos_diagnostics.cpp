@@ -67,12 +67,11 @@ void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView attrs
     char requested_val[256];
     char existing_val[256];
 
-    for_each_policy([&](const PolicyCodec& policy) {
+    auto diff = [&](const char* key) {
         if (offset >= sizeof(message)) {
             return;
         }
-        policy.format(requested, requested_val, sizeof(requested_val));
-        if (!read_attribute_value(attrs, policy.key, existing_val, sizeof(existing_val))) {
+        if (!read_attribute_value(attrs, key, existing_val, sizeof(existing_val))) {
             return;
         }
         if (std::strcmp(requested_val, existing_val) == 0) {
@@ -83,7 +82,7 @@ void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView attrs
                                     sizeof(message) - offset,
                                     "%s %s [existing=%s, requested=%s]",
                                     count == 0 ? "" : ";",
-                                    policy.key,
+                                    key,
                                     existing_val,
                                     requested_val);
         if (written <= 0) {
@@ -94,7 +93,20 @@ void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView attrs
             offset = sizeof(message) - 1;
         }
         ++count;
-    });
+    };
+
+    History::format(requested, requested_val, sizeof(requested_val));
+    diff(History::KEY);
+    Reliability::format(requested, requested_val, sizeof(requested_val));
+    diff(Reliability::KEY);
+    Durability::format(requested, requested_val, sizeof(requested_val));
+    diff(Durability::KEY);
+    Deadline::format(requested, requested_val, sizeof(requested_val));
+    diff(Deadline::KEY);
+    Lifespan::format(requested, requested_val, sizeof(requested_val));
+    diff(Lifespan::KEY);
+    Liveliness::format(requested, requested_val, sizeof(requested_val));
+    diff(Liveliness::KEY);
 
     if (count == 0) {
         // Shouldn't happen after OpenIncompatibleAttributes.

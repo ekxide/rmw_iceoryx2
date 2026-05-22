@@ -21,7 +21,6 @@
 #include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
 
 #include <cstdint>
-#include <functional>
 
 namespace rmw::iox2
 {
@@ -30,25 +29,17 @@ namespace rmw::iox2
 // Schema
 // ----------------------------------------------------------------------------
 
-/// One entry in the `rmw.qos.local.*` attribute schema: its key plus the
-/// function pointer that encodes a `Qos` field into the string
-/// stored in an iceoryx2 service attribute.
-///
-/// Decoding is type-specific (each policy returns its own value type) and
-/// lives as a `parse` static on the per-policy structs below; it is not
-/// part of this uniform table because no uniform return type fits.
-struct PolicyCodec
-{
-    const char* key;
-    void (*format)(const Qos& qos, char* buf, size_t len);
-};
+/// Per-policy codecs for the `rmw.qos.local.*` attribute namespace. Each
+/// struct owns its key, the sentinel constants of its value vocabulary,
+/// and the `format`/`parse` statics that translate between `Qos` and the
+/// string stored in an iceoryx2 service attribute.
 
 struct History
 {
     static constexpr char KEY[] = "rmw.qos.local.history";
     static constexpr char KEEP_LAST[] = "keep_last";
 
-    static void format(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     /// Parses the depth from a `keep_last:N` attribute string.
     static auto parse(const char* str) -> ::iox2::bb::Optional<uint64_t>;
 };
@@ -59,7 +50,7 @@ struct Reliability
     static constexpr char RELIABLE[] = "reliable";
     static constexpr char BEST_EFFORT[] = "best_effort";
 
-    static void format(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Reliability>;
 };
 
@@ -69,7 +60,7 @@ struct Durability
     static constexpr char VOLATILE[] = "volatile";
     static constexpr char TRANSIENT_LOCAL[] = "transient_local";
 
-    static void format(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Durability>;
 };
 
@@ -77,7 +68,7 @@ struct Deadline
 {
     static constexpr char KEY[] = "rmw.qos.local.deadline";
 
-    static void format(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration>;
 };
 
@@ -85,7 +76,7 @@ struct Lifespan
 {
     static constexpr char KEY[] = "rmw.qos.local.lifespan";
 
-    static void format(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     static auto parse(const char* str) -> ::iox2::bb::Optional<Qos::Duration>;
 };
 
@@ -104,19 +95,9 @@ struct Liveliness
     static constexpr char AUTOMATIC[] = "automatic";
     static constexpr char MANUAL_BY_TOPIC[] = "manual_by_topic";
 
-    static void format(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static void format(const Qos& qos, char* buf, size_t len);
     static auto parse(const char* str) -> ::iox2::bb::Optional<Value>;
 };
-
-inline constexpr PolicyCodec POLICIES[] = {
-    {History::KEY, &History::format},
-    {Reliability::KEY, &Reliability::format},
-    {Durability::KEY, &Durability::format},
-    {Deadline::KEY, &Deadline::format},
-    {Lifespan::KEY, &Lifespan::format},
-    {Liveliness::KEY, &Liveliness::format},
-};
-
 
 // ----------------------------------------------------------------------------
 // Conversions
@@ -146,15 +127,8 @@ struct RMW_PUBLIC TryConvert<::iox2::AttributeVerifier>
 };
 
 // ----------------------------------------------------------------------------
-// Schema iteration helpers
+// Attribute helpers
 // ----------------------------------------------------------------------------
-
-/// Iterate the `rmw.qos.local.*` policy schema in canonical order
-/// (history, reliability, durability, deadline, lifespan, liveliness).
-/// The callback receives each `PolicyCodec`; the caller decides what to do
-/// with it (format, parse, compare, encode, …).
-RMW_PUBLIC
-void for_each_policy(const std::function<void(const PolicyCodec&)>& on_policy);
 
 /// Copy the value of `key` from `attrs` into the caller-provided buffer
 /// (null-terminated). Returns false when the key is absent from `attrs`.
