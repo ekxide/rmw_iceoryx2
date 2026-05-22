@@ -36,6 +36,25 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
+    const auto& options = node.context().options();
+
+    // Adopt QoS settings from existing service in adoptive matching mode.
+    // If the service does not exist, use QoS provided by caller.
+    if (options.qos_matching_mode == QosMatchingMode::ADOPTIVE) {
+        if (auto existing = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(
+                m_service_name, Iceoryx2::MessagingPattern::PublishSubscribe);
+            existing.has_value()) {
+            auto adopted_qos =
+                TryConvert<Qos>::from(existing.value().static_details.attributes(), ProfileKind::PUBLISH_SUBSCRIBE);
+            if (!adopted_qos.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to decode attributes of existing service for adoption");
+                error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+                return;
+            }
+            m_qos = std::move(adopted_qos.value());
+        }
+    }
+
     auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos);
     if (!verifier.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to build QoS attribute verifier");
@@ -43,11 +62,6 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
-    const auto& options = node.context().options();
-
-    // TODO: branch on options.qos_matching_mode — STRICT uses the verifier
-    //       as today; ADOPTIVE first probes via lookup_service, decodes the
-    //       existing attributes into Qos, and substitutes m_qos.
     auto iox2_pubsub_service =
         node.iox2()
             .ipc()
