@@ -8,10 +8,10 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 
-#include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos_codec.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos_matching.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/codec.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
 
 #include <cstdio>
 

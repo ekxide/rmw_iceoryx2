@@ -7,8 +7,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_COMMON_QOS_MATCHING_HPP_
-#define RMW_IOX2_COMMON_QOS_MATCHING_HPP_
+#ifndef RMW_IOX2_QOS_MATCHING_HPP_
+#define RMW_IOX2_QOS_MATCHING_HPP_
 
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
@@ -23,6 +23,15 @@
 /// resolve to the same concrete values are compatible, even if those values
 /// were `SYSTEM_DEFAULT` on input. `UNKNOWN` cannot be resolved thus is
 /// a "cannot determine" condition.
+namespace rmw::iox2
+{
+
+/// Selects which default profile is used when resolving `*_SYSTEM_DEFAULT`
+/// for `rmw_qos_profile_t` inputs.
+enum class ProfileKind : uint8_t { PUBLISH_SUBSCRIBE, SERVICE };
+
+} // namespace rmw::iox2
+
 namespace rmw::iox2::matching
 {
 
@@ -56,4 +65,4 @@ RMW_PUBLIC auto resolve(rmw_time_t) -> rmw_time_t;
 
 } // namespace rmw::iox2::matching
 
-#endif // RMW_IOX2_COMMON_QOS_MATCHING_HPP_
+#endif // RMW_IOX2_QOS_MATCHING_HPP_

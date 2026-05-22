@@ -58,10 +58,10 @@ endforeach()
 
 add_library(${PROJECT_NAME} SHARED
   src/impl/common/names.cpp
-  src/impl/common/qos_attributes.cpp
-  src/impl/common/qos_codec.cpp
-  src/impl/common/qos_diagnostics.cpp
-  src/impl/common/qos_matching.cpp
+  src/impl/qos/attributes.cpp
+  src/impl/qos/codec.cpp
+  src/impl/qos/diagnostics.cpp
+  src/impl/qos/matching.cpp
   src/impl/message/introspection.cpp
   src/impl/message/typesupport.cpp
   src/impl/middleware/iceoryx2.cpp

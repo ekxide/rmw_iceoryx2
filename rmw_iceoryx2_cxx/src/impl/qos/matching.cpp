@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/impl/common/qos_matching.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
 
 namespace rmw::iox2::matching
 {

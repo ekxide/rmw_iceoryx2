@@ -7,8 +7,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_COMMON_QOS_HPP_
-#define RMW_IOX2_COMMON_QOS_HPP_
+#ifndef RMW_IOX2_QOS_HPP_
+#define RMW_IOX2_QOS_HPP_
 
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
@@ -17,9 +17,6 @@
 
 namespace rmw::iox2
 {
-
-/// Selects the default profile used to resolve `*_SYSTEM_DEFAULT`.
-enum class ProfileKind : uint8_t { PUBLISH_SUBSCRIBE, SERVICE };
 
 /// Validated QoS used throughout the C++ runtime wrappers.
 class RMW_PUBLIC Qos
@@ -163,4 +160,4 @@ private:
 
 } // namespace rmw::iox2
 
-#endif // RMW_IOX2_COMMON_QOS_HPP_
+#endif // RMW_IOX2_QOS_HPP_

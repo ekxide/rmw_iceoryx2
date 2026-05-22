@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/impl/common/qos_codec.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/codec.hpp"
 
 #include <charconv>
 #include <cstdio>

@@ -7,8 +7,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_COMMON_QOS_ATTRIBUTES_HPP_
-#define RMW_IOX2_COMMON_QOS_ATTRIBUTES_HPP_
+#ifndef RMW_IOX2_QOS_ATTRIBUTES_HPP_
+#define RMW_IOX2_QOS_ATTRIBUTES_HPP_
 
 #include "iox2/attribute_set.hpp"
 #include "iox2/attribute_specifier.hpp"
@@ -17,7 +17,8 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/convert.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 namespace rmw::iox2
 {
@@ -68,4 +69,4 @@ auto read_attribute_value(::iox2::AttributeSetView attributes, const char* key, 
 
 } // namespace rmw::iox2
 
-#endif // RMW_IOX2_COMMON_QOS_ATTRIBUTES_HPP_
+#endif // RMW_IOX2_QOS_ATTRIBUTES_HPP_

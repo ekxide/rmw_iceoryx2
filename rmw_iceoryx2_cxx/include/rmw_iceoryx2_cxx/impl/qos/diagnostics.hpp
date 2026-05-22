@@ -7,12 +7,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_COMMON_QOS_DIAGNOSTICS_HPP_
-#define RMW_IOX2_COMMON_QOS_DIAGNOSTICS_HPP_
+#ifndef RMW_IOX2_QOS_DIAGNOSTICS_HPP_
+#define RMW_IOX2_QOS_DIAGNOSTICS_HPP_
 
 #include "iox2/attribute_set.hpp"
 #include "rmw/visibility_control.h"
-#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 namespace rmw::iox2
 {
@@ -30,4 +30,4 @@ void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView exist
 
 } // namespace rmw::iox2
 
-#endif // RMW_IOX2_COMMON_QOS_DIAGNOSTICS_HPP_
+#endif // RMW_IOX2_QOS_DIAGNOSTICS_HPP_

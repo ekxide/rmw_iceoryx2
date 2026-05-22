@@ -7,12 +7,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_COMMON_QOS_CODEC_HPP_
-#define RMW_IOX2_COMMON_QOS_CODEC_HPP_
+#ifndef RMW_IOX2_QOS_CODEC_HPP_
+#define RMW_IOX2_QOS_CODEC_HPP_
 
 #include "iox2/bb/optional.hpp"
 #include "rmw/visibility_control.h"
-#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 #include <cstdint>
 
@@ -87,4 +87,4 @@ struct Liveliness
 
 } // namespace rmw::iox2::codec
 
-#endif // RMW_IOX2_COMMON_QOS_CODEC_HPP_
+#endif // RMW_IOX2_QOS_CODEC_HPP_

@@ -12,9 +12,9 @@
 #include "iox2/attribute_specifier.hpp"
 #include "rmw/qos_profiles.h"
 #include "rmw/types.h"
-#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos_codec.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/codec.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 #include <cstring>
 #include <string>

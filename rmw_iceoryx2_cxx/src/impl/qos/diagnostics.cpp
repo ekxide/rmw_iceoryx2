@@ -7,12 +7,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/impl/common/qos_diagnostics.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos_codec.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/codec.hpp"
 
 #include <cstdio>
 #include <cstring>

@@ -11,7 +11,7 @@
 #include "rmw/ret_types.h"
 #include "rmw/types.h"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos_matching.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
 
 #include <algorithm>
 #include <cstdint>
