@@ -43,21 +43,24 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
-    // TODO: branch on init_options qos_matching_mode (strict vs adoptive) once
-    //       qos_matching_mode is plumbed through rmw_init_options_t::impl.
-    // TODO: replace hardcoded max_publishers / max_subscribers with values
-    //       from rmw_init_options_t::impl.
-    auto iox2_pubsub_service = node.iox2()
-                                   .ipc()
-                                   .service_builder(iox2_service_name.value())
-                                   .publish_subscribe<Payload>()
-                                   .max_publishers(64)
-                                   .max_subscribers(64)
-                                   .history_size(m_qos.history_size())
-                                   .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
-                                   .enable_safe_overflow(m_qos.enable_safe_overflow())
-                                   .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
-                                   .open_or_create_with_attributes(verifier.value());
+    const auto& options = node.context().options();
+
+    // TODO: branch on options.qos_matching_mode — STRICT uses the verifier
+    //       as today; ADOPTIVE first probes via lookup_service, decodes the
+    //       existing attributes into Qos, and substitutes m_qos.
+    auto iox2_pubsub_service =
+        node.iox2()
+            .ipc()
+            .service_builder(iox2_service_name.value())
+            .publish_subscribe<Payload>()
+            .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
+            .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
+            .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
+            .history_size(m_qos.history_size())
+            .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
+            .enable_safe_overflow(m_qos.enable_safe_overflow())
+            .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
+            .open_or_create_with_attributes(verifier.value());
 
     if (!iox2_pubsub_service.has_value()) {
         if (iox2_pubsub_service.error() == ::iox2::PublishSubscribeOpenOrCreateError::OpenIncompatibleAttributes) {

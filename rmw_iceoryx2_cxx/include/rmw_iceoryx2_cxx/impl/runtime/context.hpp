@@ -68,8 +68,6 @@ public:
     ::iox2::bb::Optional<size_t> max_nodes_per_service;
 };
 
-const rmw_init_options_impl_s INITIALIZED_OPTIONS{};
-
 /// @brief Implementation of the RMW context for iceoryx2
 /// @details The context manages the lifetime of entities used to implement guard conditions
 class RMW_PUBLIC rmw_context_impl_s
@@ -85,7 +83,12 @@ public:
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] id ID to use for this context
-    rmw_context_impl_s(CreationLock lock, ::iox2::bb::Optional<ErrorType>& error, const uint32_t id);
+    /// @param[in] options Snapshot of init-time options that downstream
+    ///                    builders (Node, Publisher, Subscriber) consume
+    rmw_context_impl_s(CreationLock lock,
+                       ::iox2::bb::Optional<ErrorType>& error,
+                       const uint32_t id,
+                       const rmw_init_options_impl_s& options);
 
     // Move ops are required because `iox2::bb::Optional::emplace` uses
     // move-construct then move-assign internally.
@@ -103,6 +106,10 @@ public:
     /// @return Reference to the iceoryx handle
     auto iox2() -> Iceoryx2&;
 
+    /// @brief Get the init-time options snapshot
+    /// @return Reference to the options captured at rmw_init
+    auto options() const -> const rmw_init_options_impl_s&;
+
     /// @brief Generate a new unique identifier for a guard condition
     /// @return The generated guard condition ID
     auto generate_guard_condition_id() -> uint32_t;
@@ -113,6 +120,7 @@ private:
     // Do not mutate.
     uint32_t m_id;
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
+    rmw_init_options_impl_s m_options;
     std::atomic<uint32_t> m_guard_condition_counter{0};
 };
 }

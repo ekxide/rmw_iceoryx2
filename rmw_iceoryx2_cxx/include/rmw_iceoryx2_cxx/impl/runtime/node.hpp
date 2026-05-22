@@ -18,6 +18,8 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 
+#include <functional>
+
 namespace rmw::iox2
 {
 
@@ -58,11 +60,18 @@ public:
     /// @return Reference to the iceoryx handle
     auto iox2() -> Iceoryx2&;
 
+    /// @brief Get the owning context
+    /// @return Reference to the context
+    auto context() -> Context&;
+
     /// @brief Get the guard condition for notifying of graph events
     /// @return The guard condition for graph events
     auto graph_guard_condition() -> GuardCondition&;
 
 private:
+    // `reference_wrapper` so the class remains move-constructible, which
+    // iox2::bb::Optional's emplace path requires. Cannot be null by construction.
+    std::reference_wrapper<Context> m_context;
     std::string m_name;
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
     ::iox2::bb::Optional<GuardCondition> m_graph_guard_condition;

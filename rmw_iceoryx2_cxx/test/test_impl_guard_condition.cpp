@@ -37,8 +37,9 @@ TEST_F(GuardConditionTest, construction) {
     using ::rmw::iox2::GuardCondition;
     using ::rmw::iox2::GuardConditionError;
 
+    rmw_init_options_impl_s options;
     ::iox2::bb::Optional<Context> context_storage;
-    ASSERT_TRUE(create_in_place(context_storage, test_id()).has_value())
+    ASSERT_TRUE(create_in_place(context_storage, test_id(), options).has_value())
         << "failed to create context for guard condition creation";
     auto& context = context_storage.value();
 

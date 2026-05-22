@@ -34,8 +34,9 @@ TEST_F(WaitSetTest, construction) {
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::WaitSet;
 
+    rmw_init_options_impl_s options;
     ::iox2::bb::Optional<Context> context_storage;
-    ASSERT_TRUE(create_in_place(context_storage, test_id()).has_value())
+    ASSERT_TRUE(create_in_place(context_storage, test_id(), options).has_value())
         << "failed to create context for waitset creation";
     auto& context = context_storage.value();
 

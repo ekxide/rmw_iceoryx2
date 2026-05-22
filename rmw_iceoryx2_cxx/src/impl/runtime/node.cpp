@@ -17,7 +17,8 @@ namespace rmw::iox2
 {
 
 Node::Node(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context, const char* name, const char* ns)
-    : m_name{name} {
+    : m_context{context}
+    , m_name{name} {
     using ::rmw::iox2::create_in_place;
     namespace names = rmw::iox2::names;
 
@@ -40,6 +41,10 @@ auto Node::name() const -> const std::string& {
 
 auto Node::iox2() -> Iceoryx2& {
     return m_iox2.value();
+}
+
+auto Node::context() -> Context& {
+    return m_context.get();
 }
 
 auto Node::graph_guard_condition() -> GuardCondition& {

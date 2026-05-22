@@ -33,8 +33,9 @@ TEST_F(ContextTest, construction) {
     using ::rmw::iox2::Context;
     using ::rmw::iox2::create_in_place;
 
+    rmw_init_options_impl_s options;
     ::iox2::bb::Optional<Context> context_storage;
-    ASSERT_TRUE(create_in_place(context_storage, test_id()).has_value());
+    ASSERT_TRUE(create_in_place(context_storage, test_id(), options).has_value());
 }
 
 } // namespace

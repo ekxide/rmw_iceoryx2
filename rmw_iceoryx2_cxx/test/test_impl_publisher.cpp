@@ -45,8 +45,9 @@ TEST_F(PublisherTest, construction) {
     using ::rmw::iox2::TryConvert;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
+    rmw_init_options_impl_s options;
     ::iox2::bb::Optional<Context> context_storage;
-    ASSERT_TRUE(create_in_place(context_storage, test_id()).has_value())
+    ASSERT_TRUE(create_in_place(context_storage, test_id(), options).has_value())
         << "failed to create context for publisher creation";
     auto& context = context_storage.value();
 
