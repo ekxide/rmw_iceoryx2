@@ -13,7 +13,7 @@
 #include "iox2/bb/slice.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 
@@ -63,11 +63,12 @@ Publisher::Publisher(CreationLock,
 
     if (!iox2_pubsub_service.has_value()) {
         if (iox2_pubsub_service.error() == ::iox2::PublishSubscribeOpenOrCreateError::OpenIncompatibleAttributes) {
-            chain_attribute_mismatch_error(m_qos, iox2_service_name.value(), node.iox2().ipc().config(), topic);
+            // Caller (the rmw C API layer) formats the per-key diff.
+            error.emplace(ErrorType::QOS_INCOMPATIBLE);
         } else {
             RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
+            error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         }
-        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 

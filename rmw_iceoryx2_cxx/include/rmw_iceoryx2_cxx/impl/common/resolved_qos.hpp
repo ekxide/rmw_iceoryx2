@@ -10,18 +10,11 @@
 #ifndef RMW_IOX2_COMMON_RESOLVED_QOS_HPP_
 #define RMW_IOX2_COMMON_RESOLVED_QOS_HPP_
 
-#include "iox2/bb/expected.hpp"
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/convert.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 
 #include <cstdint>
-
-namespace iox2
-{
-class AttributeSetView;
-} // namespace iox2
 
 namespace rmw::iox2
 {
@@ -171,14 +164,6 @@ template <>
 struct RMW_PUBLIC Convert<rmw_qos_profile_t>
 {
     static auto from(const ResolvedQos& qos) noexcept -> rmw_qos_profile_t;
-};
-
-/// Fallible conversion to `ResolvedQos`.
-template <>
-struct RMW_PUBLIC TryConvert<ResolvedQos>
-{
-    static auto from(const rmw_qos_profile_t& profile, ProfileKind kind) -> ::iox2::bb::Expected<ResolvedQos, QosError>;
-    static auto from(::iox2::AttributeSetView attrs, ProfileKind kind) -> ::iox2::bb::Expected<ResolvedQos, QosError>;
 };
 
 } // namespace rmw::iox2

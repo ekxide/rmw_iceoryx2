@@ -12,6 +12,7 @@
 #include "iox2/bb/optional.hpp"
 #include "rmw/qos_profiles.h"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/qos_attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/resolved_qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"

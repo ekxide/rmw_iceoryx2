@@ -29,6 +29,14 @@ struct Error<rmw_context_impl_s>
     using Type = ContextError;
 };
 
+/// Controls how `rmw_create_*` reconciles requested QoS with an existing
+/// iceoryx2 service. Lives here because it will eventually be a member of
+/// `rmw_init_options_impl_s` (see TODOs in `runtime/{publisher,subscriber}.cpp`).
+enum class QosMatchMode : uint8_t {
+    STRICT, ///< require attribute equality (default)
+    ADOPT,  ///< substitute caller QoS with existing service attributes
+};
+
 } // namespace rmw::iox2
 
 extern "C" {
