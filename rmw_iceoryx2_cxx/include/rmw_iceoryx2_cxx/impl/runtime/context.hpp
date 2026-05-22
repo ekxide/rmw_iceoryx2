@@ -32,8 +32,8 @@ struct Error<rmw_context_impl_s>
 /// Controls how `rmw_create_*` reconciles requested QoS with an existing
 /// iceoryx2 service.
 enum class QosMatchingMode : uint8_t {
-    STRICT,   ///< require attribute equality (default)
-    ADOPTIVE, ///< substitute caller QoS with existing service attributes
+    STRICT,   /// require attribute equality (default)
+    ADOPTIVE, /// substitute caller QoS with existing service attributes
 };
 
 /// Defaults applied unless overriden by environment variable.
