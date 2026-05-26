@@ -64,10 +64,10 @@ enum class WaitSetError : uint8_t {
     WAIT_FAILURE
 };
 enum class QosError : uint8_t {
-    UNKNOWN_POLICY,               ///< any *_UNKNOWN value in the requested profile
-    UNSUPPORTED_HISTORY_POLICY,   ///< KEEP_ALL
-    ATTRIBUTE_DEFINITION_FAILURE, ///< iceoryx2 AttributeSpecifier/Verifier rejected a key/value
-    ATTRIBUTE_DECODING_FAILURE,   ///< service attributes missing or malformed
+    UNKNOWN_POLICY,
+    UNSUPPORTED_HISTORY_POLICY,
+    ATTRIBUTE_DEFINITION_FAILURE,
+    ATTRIBUTE_DECODING_FAILURE,
 };
 
 /**

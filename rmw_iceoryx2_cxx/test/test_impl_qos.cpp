@@ -13,7 +13,6 @@
 #include "rmw/qos_profiles.h"
 #include "rmw/types.h"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/codec.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 #include <cstring>
@@ -29,7 +28,7 @@ using ::rmw::iox2::Qos;
 using ::rmw::iox2::QosError;
 using ::rmw::iox2::read_attribute_value;
 using ::rmw::iox2::TryConvert;
-namespace codec = ::rmw::iox2::codec;
+namespace attributes = ::rmw::iox2::qos::attributes;
 
 class QosTest : public ::testing::Test
 {
@@ -352,29 +351,29 @@ struct CapturedMismatch
     std::string existing;
 };
 
-template <typename Codec>
-void check(const Qos& qos, ::iox2::AttributeSetView attributes, std::vector<CapturedMismatch>& diffs) {
+template <typename Attribute>
+void check(const Qos& qos, ::iox2::AttributeSetView attribute_set, std::vector<CapturedMismatch>& diffs) {
     char requested[256];
     char existing[256];
 
-    Codec::format(qos, requested, sizeof(requested));
-    if (!read_attribute_value(attributes, Codec::KEY, existing, sizeof(existing))) {
+    Attribute::encode(qos, requested, sizeof(requested));
+    if (!read_attribute_value(attribute_set, Attribute::KEY, existing, sizeof(existing))) {
         return;
     }
     if (std::strcmp(requested, existing) != 0) {
-        diffs.push_back(CapturedMismatch{Codec::KEY, requested, existing});
+        diffs.push_back(CapturedMismatch{Attribute::KEY, requested, existing});
     }
 }
 
-auto collect_mismatches(const Qos& qos, ::iox2::AttributeSetView attributes) -> std::vector<CapturedMismatch> {
+auto collect_mismatches(const Qos& qos, ::iox2::AttributeSetView attribute_set) -> std::vector<CapturedMismatch> {
     std::vector<CapturedMismatch> mismatches;
 
-    check<codec::History>(qos, attributes, mismatches);
-    check<codec::Reliability>(qos, attributes, mismatches);
-    check<codec::Durability>(qos, attributes, mismatches);
-    check<codec::Deadline>(qos, attributes, mismatches);
-    check<codec::Lifespan>(qos, attributes, mismatches);
-    check<codec::Liveliness>(qos, attributes, mismatches);
+    check<attributes::History>(qos, attribute_set, mismatches);
+    check<attributes::Reliability>(qos, attribute_set, mismatches);
+    check<attributes::Durability>(qos, attribute_set, mismatches);
+    check<attributes::Deadline>(qos, attribute_set, mismatches);
+    check<attributes::Lifespan>(qos, attribute_set, mismatches);
+    check<attributes::Liveliness>(qos, attribute_set, mismatches);
 
     return mismatches;
 }
