@@ -13,7 +13,7 @@
 namespace rmw::iox2
 {
 
-/// Trait-style template for infallible conversions.
+/// Template for infallible conversions.
 ///
 /// Specialize per destination type with a static `from(source, ...)` method
 /// returning the destination by value:
@@ -28,7 +28,7 @@ namespace rmw::iox2
 template <typename Dest>
 struct Convert;
 
-/// Trait-style template for fallible conversions.
+/// Template for fallible conversions.
 ///
 /// Specialize per destination type with a static `from(source, ...)` method
 /// returning `iox2::bb::Expected<Dest, ErrorType>`. Overload `from` on the

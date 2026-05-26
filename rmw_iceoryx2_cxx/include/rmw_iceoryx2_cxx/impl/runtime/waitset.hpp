@@ -263,8 +263,8 @@ private:
     /// @param[in] waitable_type The type of waitable entity that was triggered
     /// @param[in] storage_index The index where the triggered entity's listener is stored
     /// @return Success if all events were consumed successfully, error otherwise
-    auto process_trigger(const WaitableEntity waitable_type, const StorageIndex storage_index)
-        -> ::iox2::bb::Expected<void, ErrorType>;
+    auto process_trigger(const WaitableEntity waitable_type,
+                         const StorageIndex storage_index) -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Reference to RMW context that this WaitSet belongs to.
     auto context() -> Context&;

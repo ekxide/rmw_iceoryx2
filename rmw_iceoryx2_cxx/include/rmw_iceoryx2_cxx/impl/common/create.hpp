@@ -95,8 +95,8 @@ RMW_PUBLIC inline auto create_in_place(T* ptr, Args&&... args) -> ::iox2::bb::Ex
  *         On failure, the RMW error state is set with the cause.
  */
 template <typename T, typename... Args>
-RMW_PUBLIC inline auto create_in_place(::iox2::bb::Optional<T>& storage, Args&&... args)
-    -> ::iox2::bb::Expected<void, typename T::ErrorType> {
+RMW_PUBLIC inline auto create_in_place(::iox2::bb::Optional<T>& storage,
+                                       Args&&... args) -> ::iox2::bb::Expected<void, typename T::ErrorType> {
     using ::iox2::bb::err;
 
     static_assert(std::is_move_constructible<T>::value, "T must be move constructible");

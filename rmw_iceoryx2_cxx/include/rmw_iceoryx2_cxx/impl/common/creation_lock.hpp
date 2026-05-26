@@ -47,8 +47,8 @@ private:
     friend auto create_in_place(T* ptr, Args&&... args) -> ::iox2::bb::Expected<void, typename T::ErrorType>;
 
     template <typename T, typename... Args>
-    friend auto create_in_place(::iox2::bb::Optional<T>& storage, Args&&... args)
-        -> ::iox2::bb::Expected<void, typename T::ErrorType>;
+    friend auto create_in_place(::iox2::bb::Optional<T>& storage,
+                                Args&&... args) -> ::iox2::bb::Expected<void, typename T::ErrorType>;
 
     CreationLock() = default;
     static auto unlock() -> CreationLock {

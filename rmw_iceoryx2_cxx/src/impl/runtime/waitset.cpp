@@ -57,8 +57,9 @@ auto WaitSet::map(RmwIndex rmw_index, Subscriber& subscriber) -> ::iox2::bb::Exp
     }
 }
 
-auto WaitSet::map_stored_listener(WaitableEntity waitable_type, StorageIndex storage_index, RmwIndex rmw_index)
-    -> void {
+auto WaitSet::map_stored_listener(WaitableEntity waitable_type,
+                                  StorageIndex storage_index,
+                                  RmwIndex rmw_index) -> void {
     auto it = std::find_if(m_mapping.begin(), m_mapping.end(), [waitable_type, storage_index](const auto& staged) {
         return staged.waitable_type == waitable_type && staged.storage_index == storage_index;
     });
@@ -194,8 +195,8 @@ auto WaitSet::attach_mapped_listener(const RmwMapping& mapping) -> ::iox2::bb::E
     }
 }
 
-auto WaitSet::process_trigger(const WaitableEntity waitable_type, const StorageIndex storage_index)
-    -> ::iox2::bb::Expected<void, ErrorType> {
+auto WaitSet::process_trigger(const WaitableEntity waitable_type,
+                              const StorageIndex storage_index) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
     // Drain all events from the trigger.
