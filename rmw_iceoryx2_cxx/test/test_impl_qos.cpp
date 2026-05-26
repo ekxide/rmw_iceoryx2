@@ -26,7 +26,6 @@ using ::rmw::iox2::Convert;
 using ::rmw::iox2::ProfileKind;
 using ::rmw::iox2::Qos;
 using ::rmw::iox2::QosError;
-using ::rmw::iox2::read_attribute_value;
 using ::rmw::iox2::TryConvert;
 namespace attributes = ::rmw::iox2::qos::attributes;
 
@@ -354,15 +353,13 @@ struct CapturedMismatch
 template <typename Attribute>
 void check(const Qos& qos, ::iox2::AttributeSetView attribute_set, std::vector<CapturedMismatch>& diffs) {
     char requested[256];
-    char existing[256];
 
     Attribute::encode(qos, requested, sizeof(requested));
-    if (!read_attribute_value(attribute_set, Attribute::KEY, existing, sizeof(existing))) {
-        return;
-    }
-    if (std::strcmp(requested, existing) != 0) {
-        diffs.push_back(CapturedMismatch{Attribute::KEY, requested, existing});
-    }
+    attributes::visit_attribute_value(attribute_set, Attribute::KEY, [&](const char* value) {
+        if (std::strcmp(requested, value) != 0) {
+            diffs.push_back(CapturedMismatch{Attribute::KEY, requested, value});
+        }
+    });
 }
 
 auto collect_mismatches(const Qos& qos, ::iox2::AttributeSetView attribute_set) -> std::vector<CapturedMismatch> {

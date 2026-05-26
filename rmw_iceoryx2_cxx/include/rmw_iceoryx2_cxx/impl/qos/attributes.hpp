@@ -22,6 +22,7 @@
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 #include <cstdint>
+#include <utility>
 
 /// Per-policy descriptors for the `rmw.qos.local.*` attribute namespace.
 /// Each struct owns its attribute key, its allowed string values, and the
@@ -93,6 +94,22 @@ struct Liveliness
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Value>;
 };
 
+/// Invoke `callback(const char*)` with the raw value stored under `key`, if
+/// present. The pointer is valid only for the duration of the call. Does
+/// nothing when `key` is absent or its key form cannot be constructed.
+template <typename Callback>
+void visit_attribute_value(::iox2::AttributeSetView attribute_set, const char* key, Callback&& callback) {
+    auto key_obj = ::iox2::Attribute::Key::from_utf8_null_terminated_unchecked(key);
+    if (!key_obj.has_value()) {
+        return;
+    }
+    auto val = attribute_set.key_value(key_obj.value(), 0);
+    if (!val.has_value()) {
+        return;
+    }
+    std::forward<Callback>(callback)(val.value().unchecked_access().c_str());
+}
+
 } // namespace rmw::iox2::qos::attributes
 
 namespace rmw::iox2
@@ -132,15 +149,6 @@ struct RMW_PUBLIC TryConvert<::iox2::AttributeVerifier>
     /// Fallible conversion `Qos` → `iox2::AttributeVerifier`.
     static auto from(const Qos& qos) -> ::iox2::bb::Expected<::iox2::AttributeVerifier, QosError>;
 };
-
-// ----------------------------------------------------------------------------
-// Attribute helpers
-// ----------------------------------------------------------------------------
-
-/// Copy the value of `key` from attributes into the caller-provided buffer
-/// (null-terminated). Returns false when the key is absent from `attrs`.
-RMW_PUBLIC
-auto read_attribute_value(::iox2::AttributeSetView attributes, const char* key, char* out, size_t out_size) -> bool;
 
 } // namespace rmw::iox2
 

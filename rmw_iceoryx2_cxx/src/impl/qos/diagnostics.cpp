@@ -57,58 +57,56 @@ void log_unsupported_policies(const Qos& qos, const char* topic) noexcept {
 
 void log_attribute_mismatch(const Qos& qos, ::iox2::AttributeSetView attribute_set, const char* topic) noexcept {
     char message[rmw::iox2::MAX_ERROR_MSG_LENGTH];
+
     int written = std::snprintf(message, sizeof(message), "QoS mismatch on '%s':", topic);
     size_t offset = (written > 0) ? static_cast<size_t>(written) : 0;
     if (offset >= sizeof(message)) {
         offset = sizeof(message) - 1;
     }
 
-    size_t count = 0;
-    char requested[256];
-    char attribute[256];
-
-    auto diff = [&](const char* key) {
-        if (offset >= sizeof(message)) {
-            return;
-        }
-        if (!read_attribute_value(attribute_set, key, attribute, sizeof(attribute))) {
-            return;
-        }
-        if (std::strcmp(requested, attribute) == 0) {
-            return;
-        }
-        // NOLINTNEXTLINE(cert-err33-c) buffer sized at MAX_ERROR_MSG_LENGTH; trailing diffs truncate if exhausted
-        int written = std::snprintf(message + offset,
-                                    sizeof(message) - offset,
-                                    "%s %s [attribute=%s, requested=%s]",
-                                    count == 0 ? "" : ";",
-                                    key,
-                                    attribute,
-                                    requested);
-        if (written <= 0) {
-            return;
-        }
-        offset += static_cast<size_t>(written);
-        if (offset >= sizeof(message)) {
-            offset = sizeof(message) - 1;
-        }
-        ++count;
-    };
-
     namespace attributes = ::rmw::iox2::qos::attributes;
 
-    attributes::History::encode(qos, requested, sizeof(requested));
-    diff(attributes::History::KEY);
-    attributes::Reliability::encode(qos, requested, sizeof(requested));
-    diff(attributes::Reliability::KEY);
-    attributes::Durability::encode(qos, requested, sizeof(requested));
-    diff(attributes::Durability::KEY);
-    attributes::Deadline::encode(qos, requested, sizeof(requested));
-    diff(attributes::Deadline::KEY);
-    attributes::Lifespan::encode(qos, requested, sizeof(requested));
-    diff(attributes::Lifespan::KEY);
-    attributes::Liveliness::encode(qos, requested, sizeof(requested));
-    diff(attributes::Liveliness::KEY);
+    size_t count = 0;
+
+    auto check = [&](auto attribute_struct) {
+        using Attribute = decltype(attribute_struct);
+
+        if (offset >= sizeof(message) - 1) {
+            return;
+        }
+
+        char requested[256];
+        Attribute::encode(qos, requested, sizeof(requested));
+
+        attributes::visit_attribute_value(attribute_set, Attribute::KEY, [&](const char* value) {
+            if (std::strcmp(requested, value) == 0) {
+                return;
+            }
+            // NOLINTNEXTLINE(cert-err33-c) buffer sized at MAX_ERROR_MSG_LENGTH; trailing diffs truncate if exhausted
+            int written = std::snprintf(message + offset,
+                                        sizeof(message) - offset,
+                                        "%s %s [attribute=%s, requested=%s]",
+                                        count == 0 ? "" : ";",
+                                        Attribute::KEY,
+                                        value,
+                                        requested);
+            if (written <= 0) {
+                return;
+            }
+            offset += static_cast<size_t>(written);
+            if (offset >= sizeof(message)) {
+                offset = sizeof(message) - 1;
+            }
+            ++count;
+        });
+    };
+
+    check(attributes::History{});
+    check(attributes::Reliability{});
+    check(attributes::Durability{});
+    check(attributes::Deadline{});
+    check(attributes::Lifespan{});
+    check(attributes::Liveliness{});
 
     if (count == 0) {
         // Shouldn't happen after OpenIncompatibleAttributes.

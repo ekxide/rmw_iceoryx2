@@ -232,8 +232,9 @@ template <typename Target>
 auto define_or_require(Target& target, const Attribute::Key& key, const char* value) -> bool;
 
 template <>
-auto define_or_require<AttributeSpecifier>(AttributeSpecifier& target, const Attribute::Key& key, const char* value)
-    -> bool {
+auto define_or_require<AttributeSpecifier>(AttributeSpecifier& target,
+                                           const Attribute::Key& key,
+                                           const char* value) -> bool {
     auto val_obj = Attribute::Value::from_utf8_null_terminated_unchecked(value);
     if (!val_obj.has_value()) {
         return false;
@@ -243,8 +244,9 @@ auto define_or_require<AttributeSpecifier>(AttributeSpecifier& target, const Att
 }
 
 template <>
-auto define_or_require<AttributeVerifier>(AttributeVerifier& target, const Attribute::Key& key, const char* value)
-    -> bool {
+auto define_or_require<AttributeVerifier>(AttributeVerifier& target,
+                                          const Attribute::Key& key,
+                                          const char* value) -> bool {
     auto val_obj = Attribute::Value::from_utf8_null_terminated_unchecked(value);
     if (!val_obj.has_value()) {
         return false;
@@ -357,62 +359,61 @@ auto TryConvert<Qos>::from(AttributeSetView attribute_set, ProfileKind kind) -> 
     (void)kind;
 
     Qos::Builder builder;
-    char buf[256];
 
     auto fail = [](const char* key) -> Expected<Qos, QosError> {
         RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING("failed to decode attribute '%s'", key);
         return err(QosError::ATTRIBUTE_DECODING_FAILURE);
     };
 
-    if (!read_attribute_value(attribute_set, attributes::History::KEY, buf, sizeof(buf))) {
-        return fail(attributes::History::KEY);
-    }
-    auto depth = attributes::History::decode(buf);
+    Optional<uint64_t> depth;
+    attributes::visit_attribute_value(attribute_set, attributes::History::KEY, [&](const char* value) {
+        depth = attributes::History::decode(value);
+    });
     if (!depth.has_value()) {
         return fail(attributes::History::KEY);
     }
     builder.set_history(Qos::History::KEEP_LAST, depth.value());
 
-    if (!read_attribute_value(attribute_set, attributes::Reliability::KEY, buf, sizeof(buf))) {
-        return fail(attributes::Reliability::KEY);
-    }
-    auto reliability = attributes::Reliability::decode(buf);
+    Optional<Qos::Reliability> reliability;
+    attributes::visit_attribute_value(attribute_set, attributes::Reliability::KEY, [&](const char* value) {
+        reliability = attributes::Reliability::decode(value);
+    });
     if (!reliability.has_value()) {
         return fail(attributes::Reliability::KEY);
     }
     builder.set_reliability(reliability.value());
 
-    if (!read_attribute_value(attribute_set, attributes::Durability::KEY, buf, sizeof(buf))) {
-        return fail(attributes::Durability::KEY);
-    }
-    auto durability = attributes::Durability::decode(buf);
+    Optional<Qos::Durability> durability;
+    attributes::visit_attribute_value(attribute_set, attributes::Durability::KEY, [&](const char* value) {
+        durability = attributes::Durability::decode(value);
+    });
     if (!durability.has_value()) {
         return fail(attributes::Durability::KEY);
     }
     builder.set_durability(durability.value());
 
-    if (!read_attribute_value(attribute_set, attributes::Deadline::KEY, buf, sizeof(buf))) {
-        return fail(attributes::Deadline::KEY);
-    }
-    auto deadline = attributes::Deadline::decode(buf);
+    Optional<Qos::Duration> deadline;
+    attributes::visit_attribute_value(attribute_set, attributes::Deadline::KEY, [&](const char* value) {
+        deadline = attributes::Deadline::decode(value);
+    });
     if (!deadline.has_value()) {
         return fail(attributes::Deadline::KEY);
     }
     builder.set_deadline(deadline.value());
 
-    if (!read_attribute_value(attribute_set, attributes::Lifespan::KEY, buf, sizeof(buf))) {
-        return fail(attributes::Lifespan::KEY);
-    }
-    auto lifespan = attributes::Lifespan::decode(buf);
+    Optional<Qos::Duration> lifespan;
+    attributes::visit_attribute_value(attribute_set, attributes::Lifespan::KEY, [&](const char* value) {
+        lifespan = attributes::Lifespan::decode(value);
+    });
     if (!lifespan.has_value()) {
         return fail(attributes::Lifespan::KEY);
     }
     builder.set_lifespan(lifespan.value());
 
-    if (!read_attribute_value(attribute_set, attributes::Liveliness::KEY, buf, sizeof(buf))) {
-        return fail(attributes::Liveliness::KEY);
-    }
-    auto liveliness = attributes::Liveliness::decode(buf);
+    Optional<attributes::Liveliness::Value> liveliness;
+    attributes::visit_attribute_value(attribute_set, attributes::Liveliness::KEY, [&](const char* value) {
+        liveliness = attributes::Liveliness::decode(value);
+    });
     if (!liveliness.has_value()) {
         return fail(attributes::Liveliness::KEY);
     }
@@ -437,24 +438,6 @@ auto TryConvert<AttributeVerifier>::from(const Qos& qos) -> Expected<AttributeVe
         return err(QosError::ATTRIBUTE_DEFINITION_FAILURE);
     }
     return verifier;
-}
-
-// ----------------------------------------------------------------------------
-// Attribute helpers
-// ----------------------------------------------------------------------------
-
-auto read_attribute_value(::iox2::AttributeSetView attribute_set, const char* key, char* out, size_t out_size) -> bool {
-    auto key_obj = Attribute::Key::from_utf8_null_terminated_unchecked(key);
-    if (!key_obj.has_value()) {
-        return false;
-    }
-    auto val = attribute_set.key_value(key_obj.value(), 0);
-    if (!val.has_value()) {
-        return false;
-    }
-    // NOLINTNEXTLINE(cert-err33-c) source and destination both bounded by IOX2_ATTRIBUTE_VALUE_LENGTH
-    std::snprintf(out, out_size, "%s", val.value().unchecked_access().c_str());
-    return true;
 }
 
 } // namespace rmw::iox2
