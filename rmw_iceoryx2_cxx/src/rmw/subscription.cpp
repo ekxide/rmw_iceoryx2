@@ -18,7 +18,11 @@
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
@@ -51,11 +55,22 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
     using ::rmw::iox2::is_self_contained;
+    using ::rmw::iox2::ProfileKind;
+    using ::rmw::iox2::Qos;
+    using ::rmw::iox2::TryConvert;
+    using Iceoryx2 = ::rmw::iox2::Iceoryx2;
     using NodeImpl = ::rmw::iox2::Node;
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
 
     RMW_IOX2_LOG_DEBUG("Creating subscription to '%s'", topic_name);
+
+    auto resolved_qos = TryConvert<Qos>::from(*qos_profile, ProfileKind::PUBLISH_SUBSCRIBE);
+    if (!resolved_qos.has_value()) {
+        // Error already chained by TryConvert.
+        return nullptr;
+    }
+    ::rmw::iox2::log_unsupported_policies(resolved_qos.value(), topic_name);
 
     auto* rmw_subscription = rmw_subscription_allocate();
     if (rmw_subscription == nullptr) {
@@ -92,16 +107,29 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Subscriber");
         return nullptr;
     } else {
-        if (!create_in_place<SubscriberImpl>(subscriber_impl.value(), *node_impl.value(), topic_name, type_support)
-                 .has_value()) {
+        auto construct_result = create_in_place<SubscriberImpl>(
+            subscriber_impl.value(), *node_impl.value(), topic_name, type_support, resolved_qos.value());
+
+        if (!construct_result.has_value()) {
+            if (construct_result.error() == SubscriberImpl::ErrorType::QOS_INCOMPATIBLE) {
+                auto service_details = node_impl.value()->iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(
+                    ::rmw::iox2::names::topic(topic_name), Iceoryx2::MessagingPattern::PublishSubscribe);
+                if (!service_details.has_value()) {
+                    RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+                        "QoS mismatch on '%s' (failed to look up service details)", topic_name);
+                } else {
+                    ::rmw::iox2::log_attribute_mismatch(
+                        resolved_qos.value(), service_details.value().static_details.attributes(), topic_name);
+                }
+            } else {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Subscriber");
+            }
             destruct<SubscriberImpl>(subscriber_impl.value());
             deallocate<SubscriberImpl>(subscriber_impl.value());
             rmw_subscription_free(rmw_subscription);
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Subscriber");
             return nullptr;
-        } else {
-            rmw_subscription->data = subscriber_impl.value();
         }
+        rmw_subscription->data = subscriber_impl.value();
     }
 
     return rmw_subscription;
@@ -421,8 +449,18 @@ rmw_ret_t rmw_subscription_get_actual_qos(const rmw_subscription_t* rmw_subscrip
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
-    // ementation -------------------------------------------------------------------------------
-    *qos = rmw_qos_profile_default;
+    // Implementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::Convert;
+    using ::rmw::iox2::unsafe_cast;
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
+
+    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
+    if (!subscriber_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
+        return RMW_RET_ERROR;
+    }
+
+    *qos = Convert<rmw_qos_profile_t>::from(subscriber_impl.value()->qos());
 
     return RMW_RET_OK;
 }

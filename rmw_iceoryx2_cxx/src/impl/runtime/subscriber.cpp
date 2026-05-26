@@ -13,6 +13,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 
 namespace rmw::iox2
 {
@@ -21,10 +22,12 @@ Subscriber::Subscriber(CreationLock,
                        ::iox2::bb::Optional<ErrorType>& error,
                        Node& node,
                        const char* topic,
-                       const rosidl_message_type_support_t* type_support)
+                       const rosidl_message_type_support_t* type_support,
+                       const Qos& qos)
     : m_topic{topic}
     , m_typesupport{type_support}
-    , m_service_name{::rmw::iox2::names::topic(topic)} {
+    , m_service_name{::rmw::iox2::names::topic(topic)}
+    , m_qos{qos} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
 
     if (!iox2_service_name.has_value()) {
@@ -33,27 +36,59 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
-    auto iox2_pubsub_service = node.iox2()
-                                   .ipc()
-                                   .service_builder(iox2_service_name.value())
-                                   .publish_subscribe<Payload>()
-                                   // TODO: Replace hard-coded values with values from
-                                   //       `rmw_qos_profile_t`
-                                   .max_publishers(64)
-                                   .max_subscribers(64)
-                                   .history_size(10)
-                                   .subscriber_max_buffer_size(10)
-                                   .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
-                                   .open_or_create();    // TODO: set attribute for ROS typename
+    const auto& options = node.context().options();
 
-    if (!iox2_pubsub_service.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
+    // Adopt QoS settings from existing service in adoptive matching mode.
+    // If the service does not exist, use QoS provided by caller.
+    if (options.qos_matching_mode == QosMatchingMode::ADOPTIVE) {
+        if (auto existing = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(
+                m_service_name, Iceoryx2::MessagingPattern::PublishSubscribe);
+            existing.has_value()) {
+            auto adopted_qos =
+                TryConvert<Qos>::from(existing.value().static_details.attributes(), ProfileKind::PUBLISH_SUBSCRIBE);
+            if (!adopted_qos.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to decode attributes of existing service for adoption");
+                error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+                return;
+            }
+            m_qos = std::move(adopted_qos.value());
+        }
+    }
+
+    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos);
+    if (!verifier.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to build QoS attribute verifier");
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 
-    // TODO: Determine buffer_size from `rmw_qos_profile_t::depth`
-    auto iox2_subscriber = iox2_pubsub_service.value().subscriber_builder().buffer_size(10).create();
+    auto iox2_pubsub_service =
+        node.iox2()
+            .ipc()
+            .service_builder(iox2_service_name.value())
+            .publish_subscribe<Payload>()
+            .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
+            .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
+            .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
+            .history_size(m_qos.history_size())
+            .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
+            .enable_safe_overflow(m_qos.enable_safe_overflow())
+            .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
+            .open_or_create_with_attributes(verifier.value());
+
+    if (!iox2_pubsub_service.has_value()) {
+        if (iox2_pubsub_service.error() == ::iox2::PublishSubscribeOpenOrCreateError::OpenIncompatibleAttributes) {
+            // Caller (the rmw C API layer) formats the per-key diff.
+            error.emplace(ErrorType::QOS_INCOMPATIBLE);
+        } else {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
+            error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        }
+        return;
+    }
+
+    auto iox2_subscriber =
+        iox2_pubsub_service.value().subscriber_builder().buffer_size(m_qos.subscriber_max_buffer_size()).create();
 
     if (!iox2_subscriber.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_subscriber.error()));
@@ -80,6 +115,10 @@ auto Subscriber::typesupport() const -> const rosidl_message_type_support_t* {
 
 auto Subscriber::service_name() const -> const std::string& {
     return m_service_name;
+}
+
+auto Subscriber::qos() const -> const Qos& {
+    return m_qos;
 }
 
 auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<bool, ErrorType> {

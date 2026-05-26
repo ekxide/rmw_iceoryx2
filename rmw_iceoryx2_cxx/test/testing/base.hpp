@@ -16,6 +16,12 @@
 #include "rmw/rmw.h"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
+#include <cstdlib>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 namespace rmw::iox2::testing
 {
 
@@ -84,23 +90,31 @@ protected:
 
     template <typename MessageType>
     rmw_publisher_t* create_default_publisher(const std::string& topic_name) {
-        auto pub = rmw_create_publisher(test_node(),
-                                        test_type_support<MessageType>(),
-                                        topic_name.c_str(),
-                                        &rmw_qos_profile_default,
-                                        &m_publisher_options);
-        m_publishers.push_back(pub);
-        return pub;
+        return create_publisher<MessageType>(topic_name, rmw_qos_profile_default);
     }
 
     template <typename MessageType>
     rmw_subscription_t* create_default_subscriber(const std::string& topic_name) {
-        auto sub = rmw_create_subscription(test_node(),
-                                           test_type_support<MessageType>(),
-                                           topic_name.c_str(),
-                                           &rmw_qos_profile_default,
-                                           &m_subscriber_options);
-        m_subscribers.push_back(sub);
+        return create_subscriber<MessageType>(topic_name, rmw_qos_profile_default);
+    }
+
+    template <typename MessageType>
+    rmw_publisher_t* create_publisher(const std::string& topic_name, const rmw_qos_profile_t& qos) {
+        auto pub = rmw_create_publisher(
+            test_node(), test_type_support<MessageType>(), topic_name.c_str(), &qos, &m_publisher_options);
+        if (pub != nullptr) {
+            m_publishers.push_back(pub);
+        }
+        return pub;
+    }
+
+    template <typename MessageType>
+    rmw_subscription_t* create_subscriber(const std::string& topic_name, const rmw_qos_profile_t& qos) {
+        auto sub = rmw_create_subscription(
+            test_node(), test_type_support<MessageType>(), topic_name.c_str(), &qos, &m_subscriber_options);
+        if (sub != nullptr) {
+            m_subscribers.push_back(sub);
+        }
         return sub;
     }
 
@@ -139,8 +153,30 @@ protected:
 
     void print_rmw_errors() {
         if (rcutils_error_is_set()) {
-            std::cerr << rcutils_get_error_string().str;
+            std::cerr << rcutils_get_error_string().str << '\n';
+            rcutils_reset_error();
         }
+    }
+
+    /// Snapshot the current value of `name` and unset it for the test.
+    /// Restored via `restore_environment()`, typically from TearDown.
+    void unset_environment(const char* name) {
+        const char* current = std::getenv(name);
+        m_env_snapshots.emplace_back(
+            name, current == nullptr ? std::optional<std::string>{} : std::optional<std::string>{current});
+        unsetenv(name);
+    }
+
+    /// Restore every env var snapshotted by `unset_environment`.
+    void restore_environment() {
+        for (const auto& [name, value] : m_env_snapshots) {
+            if (value.has_value()) {
+                setenv(name.c_str(), value->c_str(), 1);
+            } else {
+                unsetenv(name.c_str());
+            }
+        }
+        m_env_snapshots.clear();
     }
 
 private:
@@ -150,6 +186,7 @@ private:
     rmw_node_t* m_test_node;
     std::string m_test_topic;
     std::vector<rmw_node_t*> m_nodes;
+    std::vector<std::pair<std::string, std::optional<std::string>>> m_env_snapshots;
     const rmw_publisher_options_t m_publisher_options{rmw_get_default_publisher_options()};
     std::vector<rmw_publisher_t*> m_publishers;
     const rmw_subscription_options_t m_subscriber_options{rmw_get_default_subscription_options()};

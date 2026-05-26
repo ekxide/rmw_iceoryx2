@@ -9,11 +9,15 @@
 
 #include <gtest/gtest.h>
 
+#include "rcutils/error_handling.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
+
+#include <cstdlib>
+#include <string>
 
 namespace
 {
@@ -32,7 +36,9 @@ protected:
     }
 };
 
-// ----- Copy API ----- //
+// ---------------------------------------------------------------------------
+// Copy API
+// ---------------------------------------------------------------------------
 
 TEST_F(RmwPublishSubscribeTest, take_self_contained_no_new_messages) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
@@ -106,7 +112,9 @@ TEST_F(RmwPublishSubscribeTest, take_non_self_contained_one_new_message) {
     free(recv_payload);
 }
 
-// ----- Loan API ----- //
+// ---------------------------------------------------------------------------
+// Loan API
+// ---------------------------------------------------------------------------
 
 TEST_F(RmwPublishSubscribeTest, take_loan_self_contained_no_new_messages) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
@@ -166,7 +174,9 @@ TEST_F(RmwPublishSubscribeTest, take_loan_self_contained_one_new_message) {
     ASSERT_RMW_OK(rmw_return_loaned_message_from_subscription(subscription, subscriber_loan));
 }
 
-// ----- Serialized Message API ----- //
+// ---------------------------------------------------------------------------
+// Serialized message API
+// ---------------------------------------------------------------------------
 
 TEST_F(RmwPublishSubscribeTest, take_serialized_no_new_messages) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
@@ -256,6 +266,172 @@ TEST_F(RmwPublishSubscribeTest, take_serialized_many_new_messages) {
         // Verify
         ASSERT_EQ(input, output);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Strict matching
+// ---------------------------------------------------------------------------
+
+TEST_F(RmwPublishSubscribeTest, reports_reliability_mismatch_when_subscriber_joins) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+
+    auto pub_profile = rmw_qos_profile_default;
+    pub_profile.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
+    ASSERT_NE(create_publisher<Defaults>(topic, pub_profile), nullptr);
+
+    auto sub_profile = rmw_qos_profile_default;
+    sub_profile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    EXPECT_EQ(create_subscriber<Defaults>(topic, sub_profile), nullptr);
+
+    ASSERT_TRUE(rcutils_error_is_set());
+    const std::string error{rcutils_get_error_string().str};
+    EXPECT_NE(error.find("reliability"), std::string::npos);
+    EXPECT_NE(error.find("RMW_IOX2_QOS_MATCHING=adoptive"), std::string::npos);
+}
+
+TEST_F(RmwPublishSubscribeTest, reports_reliability_mismatch_when_publisher_joins) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+
+    auto sub_profile = rmw_qos_profile_default;
+    sub_profile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    ASSERT_NE(create_subscriber<Defaults>(topic, sub_profile), nullptr);
+
+    auto pub_profile = rmw_qos_profile_default;
+    pub_profile.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
+    EXPECT_EQ(create_publisher<Defaults>(topic, pub_profile), nullptr);
+
+    ASSERT_TRUE(rcutils_error_is_set());
+    const std::string error{rcutils_get_error_string().str};
+    EXPECT_NE(error.find("reliability"), std::string::npos);
+}
+
+TEST_F(RmwPublishSubscribeTest, reports_durability_mismatch_when_publisher_joins) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+
+    auto sub_profile = rmw_qos_profile_default;
+    sub_profile.durability = RMW_QOS_POLICY_DURABILITY_VOLATILE;
+    ASSERT_NE(create_subscriber<Defaults>(topic, sub_profile), nullptr);
+
+    auto pub_profile = rmw_qos_profile_default;
+    pub_profile.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+    EXPECT_EQ(create_publisher<Defaults>(topic, pub_profile), nullptr);
+
+    ASSERT_TRUE(rcutils_error_is_set());
+    const std::string error{rcutils_get_error_string().str};
+    EXPECT_NE(error.find("durability"), std::string::npos);
+}
+
+TEST_F(RmwPublishSubscribeTest, reports_durability_mismatch_when_subscriber_joins) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+
+    auto pub_profile = rmw_qos_profile_default;
+    pub_profile.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+    ASSERT_NE(create_publisher<Defaults>(topic, pub_profile), nullptr);
+
+    auto sub_profile = rmw_qos_profile_default;
+    sub_profile.durability = RMW_QOS_POLICY_DURABILITY_VOLATILE;
+    EXPECT_EQ(create_subscriber<Defaults>(topic, sub_profile), nullptr);
+
+    ASSERT_TRUE(rcutils_error_is_set());
+    const std::string error{rcutils_get_error_string().str};
+    EXPECT_NE(error.find("durability"), std::string::npos);
+}
+
+TEST_F(RmwPublishSubscribeTest, reports_depth_mismatch_when_subscriber_joins) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+
+    auto pub_profile = rmw_qos_profile_default;
+    pub_profile.depth = 10;
+    ASSERT_NE(create_publisher<Defaults>(topic, pub_profile), nullptr);
+
+    auto sub_profile = rmw_qos_profile_default;
+    sub_profile.depth = 42;
+    EXPECT_EQ(create_subscriber<Defaults>(topic, sub_profile), nullptr);
+
+    ASSERT_TRUE(rcutils_error_is_set());
+    const std::string error{rcutils_get_error_string().str};
+    EXPECT_NE(error.find("history"), std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// Adoptive matching
+// ---------------------------------------------------------------------------
+
+class RmwPublishSubscribeQosEnvTest : public TestBase
+{
+protected:
+    void SetUp() override {
+        unset_environment("RMW_IOX2_QOS_MATCHING");
+        unset_environment("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC");
+        unset_environment("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC");
+        unset_environment("RMW_IOX2_MAX_NODES_PER_SERVICE");
+    }
+
+    void TearDown() override {
+        if (m_initialized) {
+            cleanup();
+        }
+        restore_environment();
+        print_rmw_errors();
+    }
+
+    void initialize_with_env() {
+        initialize();
+        m_initialized = true;
+    }
+
+private:
+    bool m_initialized{false};
+};
+
+TEST_F(RmwPublishSubscribeQosEnvTest, adoptive_subscriber_inherits_publisher_reliability) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    setenv("RMW_IOX2_QOS_MATCHING", "adoptive", 1);
+    initialize_with_env();
+
+    auto topic = create_test_topic();
+
+    auto pub_profile = rmw_qos_profile_default;
+    pub_profile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    ASSERT_NE(create_publisher<Defaults>(topic, pub_profile), nullptr);
+
+    auto* sub = create_default_subscriber<Defaults>(topic);
+    ASSERT_NE(sub, nullptr);
+
+    rmw_qos_profile_t actual = {};
+    ASSERT_RMW_OK(rmw_subscription_get_actual_qos(sub, &actual));
+    EXPECT_EQ(actual.reliability, RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
+}
+
+TEST_F(RmwPublishSubscribeQosEnvTest, adoptive_publisher_inherits_subscriber_durability) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    setenv("RMW_IOX2_QOS_MATCHING", "adoptive", 1);
+    initialize_with_env();
+
+    auto topic = create_test_topic();
+
+    auto sub_profile = rmw_qos_profile_default;
+    sub_profile.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+    ASSERT_NE(create_subscriber<Defaults>(topic, sub_profile), nullptr);
+
+    auto* pub = create_default_publisher<Defaults>(topic);
+    ASSERT_NE(pub, nullptr);
+
+    rmw_qos_profile_t actual = {};
+    ASSERT_RMW_OK(rmw_publisher_get_actual_qos(pub, &actual));
+    EXPECT_EQ(actual.durability, RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
 }
 
 } // namespace

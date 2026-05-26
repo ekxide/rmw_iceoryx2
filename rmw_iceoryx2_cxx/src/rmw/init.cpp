@@ -18,7 +18,60 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 
+#include <charconv>
+#include <cstdlib>
+#include <cstring>
+#include <system_error>
+
 constexpr const char* DEFAULT_ENCLAVE = "";
+
+namespace
+{
+
+/// Reads `name` from the environment. Empty or unset leaves `out` unchanged.
+/// Any non-numeric / out-of-range value is reported via the error chain.
+auto parse_size_env(const char* name, ::iox2::bb::Optional<size_t>& out) -> rmw_ret_t {
+    const char* raw = std::getenv(name);
+    if (raw == nullptr || raw[0] == '\0') {
+        return RMW_RET_OK;
+    }
+
+    const char* end = raw + std::strlen(raw);
+    size_t value = 0;
+    auto result = std::from_chars(raw, end, value);
+    if (result.ec != std::errc{} || result.ptr != end) {
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+            "%s has invalid value '%s'; expected a non-negative integer", name, raw);
+        return RMW_RET_INVALID_ARGUMENT;
+    }
+    out = value;
+
+    return RMW_RET_OK;
+}
+
+/// Reads `RMW_IOX2_QOS_MATCHING`. Empty or unset leaves `out` unchanged.
+/// Any value other than `strict` / `adoptive` is reported via the error chain.
+auto parse_qos_matching_env(::rmw::iox2::QosMatchingMode& out) -> rmw_ret_t {
+    const char* raw = std::getenv("RMW_IOX2_QOS_MATCHING");
+    if (raw == nullptr || raw[0] == '\0') {
+        return RMW_RET_OK;
+    }
+
+    if (std::strcmp(raw, "strict") == 0) {
+        out = ::rmw::iox2::QosMatchingMode::STRICT;
+        return RMW_RET_OK;
+    }
+    if (std::strcmp(raw, "adoptive") == 0) {
+        out = ::rmw::iox2::QosMatchingMode::ADOPTIVE;
+        return RMW_RET_OK;
+    }
+    RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+        "RMW_IOX2_QOS_MATCHING has invalid value '%s'; expected 'strict' or 'adoptive'", raw);
+
+    return RMW_RET_INVALID_ARGUMENT;
+}
+
+} // namespace
 
 extern "C" {
 
@@ -30,11 +83,50 @@ rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_alloca
     RMW_IOX2_ENSURE_ZERO_INITIALIZED(init_options, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
+    using rmw::iox2::allocate;
+    using rmw::iox2::construct;
+    using rmw::iox2::deallocate;
+
+    auto qos_matching_mode = ::rmw::iox2::QosMatchingMode::STRICT;
+    if (auto result = parse_qos_matching_env(qos_matching_mode); result != RMW_RET_OK) {
+        return result;
+    }
+    ::iox2::bb::Optional<size_t> max_publishers_per_topic;
+    if (auto result = parse_size_env("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC", max_publishers_per_topic);
+        result != RMW_RET_OK) {
+        return result;
+    }
+    ::iox2::bb::Optional<size_t> max_subscribers_per_topic;
+    if (auto result = parse_size_env("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC", max_subscribers_per_topic);
+        result != RMW_RET_OK) {
+        return result;
+    }
+    ::iox2::bb::Optional<size_t> max_nodes_per_service;
+    if (auto result = parse_size_env("RMW_IOX2_MAX_NODES_PER_SERVICE", max_nodes_per_service); result != RMW_RET_OK) {
+        return result;
+    }
+
+    auto impl_ptr = allocate<rmw_init_options_impl_s>();
+    if (!impl_ptr.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_init_options_impl_s");
+        return RMW_RET_BAD_ALLOC;
+    }
+    if (!construct<rmw_init_options_impl_s>(impl_ptr.value()).has_value()) {
+        deallocate(impl_ptr.value());
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to construct rmw_init_options_impl_s");
+        return RMW_RET_ERROR;
+    }
+
+    impl_ptr.value()->qos_matching_mode = qos_matching_mode;
+    impl_ptr.value()->max_publishers_per_topic = max_publishers_per_topic;
+    impl_ptr.value()->max_subscribers_per_topic = max_subscribers_per_topic;
+    impl_ptr.value()->max_nodes_per_service = max_nodes_per_service;
+
     init_options->implementation_identifier = rmw_get_implementation_identifier();
     init_options->allocator = allocator;
     init_options->instance_id = 0;
     init_options->enclave = rcutils_strdup(DEFAULT_ENCLAVE, allocator);
-    init_options->impl = const_cast<rmw_init_options_impl_t*>(&INITIALIZED_OPTIONS);
+    init_options->impl = impl_ptr.value();
 
     return RMW_RET_OK;
 }
@@ -48,7 +140,33 @@ rmw_ret_t rmw_init_options_copy(const rmw_init_options_t* src, rmw_init_options_
     RMW_IOX2_ENSURE_IMPLEMENTATION(src->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
+    using rmw::iox2::allocate;
+    using rmw::iox2::construct;
+    using rmw::iox2::deallocate;
+    using rmw::iox2::destruct;
+
+    auto impl_ptr = allocate<rmw_init_options_impl_s>();
+    if (!impl_ptr.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_init_options_impl_s");
+        return RMW_RET_BAD_ALLOC;
+    }
+    if (!construct<rmw_init_options_impl_s>(impl_ptr.value(), *src->impl).has_value()) {
+        deallocate(impl_ptr.value());
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to copy-construct rmw_init_options_impl_s");
+        return RMW_RET_ERROR;
+    }
+
+    char* enclave = rcutils_strdup(src->enclave, src->allocator);
+    if (enclave == nullptr) {
+        destruct<rmw_init_options_impl_s>(impl_ptr.value());
+        deallocate(impl_ptr.value());
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to duplicate enclave string");
+        return RMW_RET_BAD_ALLOC;
+    }
+
     *dst = *src;
+    dst->impl = impl_ptr.value();
+    dst->enclave = enclave;
 
     return RMW_RET_OK;
 }
@@ -61,6 +179,17 @@ rmw_ret_t rmw_init_options_fini(rmw_init_options_t* rmw_init_options) {
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_init_options->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
+    using rmw::iox2::deallocate;
+    using rmw::iox2::destruct;
+
+    if (rmw_init_options->enclave != nullptr) {
+        rmw_init_options->allocator.deallocate(rmw_init_options->enclave, rmw_init_options->allocator.state);
+    }
+    if (rmw_init_options->impl != nullptr) {
+        destruct<rmw_init_options_impl_s>(rmw_init_options->impl);
+        deallocate(rmw_init_options->impl);
+    }
+
     *rmw_init_options = rmw_get_zero_initialized_init_options();
 
     return RMW_RET_OK;
@@ -93,7 +222,7 @@ rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* co
         return RMW_RET_ERROR;
     }
 
-    if (!create_in_place<rmw_context_impl_s>(ptr.value(), context->instance_id).has_value()) {
+    if (!create_in_place<rmw_context_impl_s>(ptr.value(), context->instance_id, *rmw_init_options->impl).has_value()) {
         destruct<rmw_context_impl_s>(ptr.value());
         deallocate(ptr.value());
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct rmw_context_impl_s");

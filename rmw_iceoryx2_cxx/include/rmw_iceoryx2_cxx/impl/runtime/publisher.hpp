@@ -17,6 +17,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
@@ -60,12 +61,14 @@ public:
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] node The node that owns this publisher
     /// @param[in] topic The topic name to publish to
-    /// @param[in] typesupport The message typesupport
+    /// @param[in] type_support The message typesupport
+    /// @param[in] qos The resolved QoS for this publisher
     Publisher(CreationLock,
               ::iox2::bb::Optional<ErrorType>& error,
               Node& node,
               const char* topic,
-              const rosidl_message_type_support_t* type_support);
+              const rosidl_message_type_support_t* type_support,
+              const Qos& qos);
 
     /// @brief Get the unique identifier of this publisher
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
@@ -86,6 +89,10 @@ public:
     /// @brief Get the service name used internally, required for matching via iceoryx2
     /// @return The service name as string
     auto service_name() const -> const std::string&;
+
+    /// @brief Get the resolved QoS used to create this publisher
+    /// @return Reference to the resolved QoS
+    auto qos() const -> const Qos&;
 
     /// @brief Loan memory for zero-copy publishing
     /// @return Expected containing pointer to loaned memory or error
@@ -109,13 +116,15 @@ public:
     auto publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
-    // m_topic, m_unserialized_size, and m_service_name are logically const after
-    // construction. The `const` qualifier is omitted only because storing this class
-    // in `iox2::bb::Optional` requires it to be move-assignable. Do not mutate them.
+    // m_topic, m_unserialized_size, m_service_name, and m_qos are logically
+    // const after construction. The `const` qualifier is omitted only because
+    // storing this class in `iox2::bb::Optional` requires it to be
+    // move-assignable. Do not mutate them.
     std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
     uint64_t m_unserialized_size;
     std::string m_service_name;
+    Qos m_qos;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;

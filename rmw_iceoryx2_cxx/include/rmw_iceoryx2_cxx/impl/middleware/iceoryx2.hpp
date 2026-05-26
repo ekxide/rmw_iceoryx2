@@ -13,6 +13,7 @@
 #include "iox2/bb/optional.hpp"
 #include "iox2/legacy/type_traits.hpp"
 #include "iox2/listener.hpp"
+#include "iox2/messaging_pattern.hpp"
 #include "iox2/node.hpp"
 #include "iox2/notifier.hpp"
 #include "iox2/publisher.hpp"
@@ -21,6 +22,7 @@
 #include "iox2/sample_mut_uninit.hpp"
 #include "iox2/service.hpp"
 #include "iox2/service_builder.hpp"
+#include "iox2/service_name.hpp"
 #include "iox2/service_type.hpp"
 #include "iox2/subscriber.hpp"
 #include "iox2/waitset.hpp"
@@ -70,7 +72,11 @@ public:
 
     using ServiceType = ::iox2::ServiceType;
     using ServiceName = ::iox2::ServiceName;
+    using MessagingPattern = ::iox2::MessagingPattern;
     using EventId = ::iox2::EventId;
+
+    template <ServiceType S>
+    using ServiceDetails = ::iox2::ServiceDetails<S>;
 
     struct Local
     {
@@ -144,6 +150,18 @@ public:
     template <::iox2::ServiceType ServiceType>
     auto service_builder(const std::string& service_name) -> ::iox2::ServiceBuilder<ServiceType>;
 
+    /// @brief Look up an existing service by name on this instance.
+    /// @tparam S `Local` or `Ipc`; the corresponding handle's config is
+    /// used for the lookup.
+    /// @param[in] service_name Name of the service (e.g. produced by `names::topic`)
+    /// @param[in] pattern Messaging pattern of the service to look up
+    /// @return Service details if the service exists; `nullopt` when the
+    /// name is malformed, the iceoryx2 registry cannot be read, or no
+    /// service with that name exists.
+    template <ServiceType S>
+    auto lookup_service(const std::string& service_name,
+                        MessagingPattern pattern) -> ::iox2::bb::Optional<ServiceDetails<S>>;
+
 private:
     ::iox2::bb::Optional<Local::Handle> m_local;
     ::iox2::bb::Optional<InterProcess::Handle> m_ipc;
@@ -164,6 +182,29 @@ auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::Servi
     } else {
         static_assert(::iox2::legacy::always_false_v<decltype(S)>, "Attempted to build a service of unknown type");
     }
+}
+
+template <::iox2::ServiceType S>
+auto Iceoryx2::lookup_service(const std::string& service_name,
+                              MessagingPattern pattern) -> ::iox2::bb::Optional<ServiceDetails<S>> {
+    auto name = ::iox2::ServiceName::create(service_name.c_str());
+    if (!name.has_value()) {
+        return ::iox2::bb::NULLOPT;
+    }
+    auto details = [&]() {
+        if constexpr (S == ::iox2::ServiceType::Local) {
+            return ::iox2::Service<S>::details(name.value(), local().config(), pattern);
+        } else if constexpr (S == ::iox2::ServiceType::Ipc) {
+            return ::iox2::Service<S>::details(name.value(), ipc().config(), pattern);
+        } else {
+            static_assert(::iox2::legacy::always_false_v<decltype(S)>,
+                          "Attempted to look up a service of unknown type");
+        }
+    }();
+    if (!details.has_value()) {
+        return ::iox2::bb::NULLOPT;
+    }
+    return std::move(details.value());
 }
 
 } // namespace rmw::iox2

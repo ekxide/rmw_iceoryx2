@@ -58,6 +58,9 @@ endforeach()
 
 add_library(${PROJECT_NAME} SHARED
   src/impl/common/names.cpp
+  src/impl/qos/attributes.cpp
+  src/impl/qos/diagnostics.cpp
+  src/impl/qos/matching.cpp
   src/impl/message/introspection.cpp
   src/impl/message/typesupport.cpp
   src/impl/middleware/iceoryx2.cpp
@@ -156,6 +159,7 @@ if(BUILD_TESTING)
     test/test_impl_message_introspection.cpp
     test/test_impl_node.cpp
     test/test_impl_publisher.cpp
+    test/test_impl_qos.cpp
     test/test_impl_sample_registry.cpp
     test/test_impl_subscriber.cpp
     test/test_impl_waitset.cpp
@@ -167,6 +171,7 @@ if(BUILD_TESTING)
     test/test_rmw_logging.cpp
     test/test_rmw_node.cpp
     test/test_rmw_publisher.cpp
+    test/test_rmw_qos.cpp
     test/test_rmw_serialize.cpp
     test/test_rmw_subscription.cpp
     test/test_rmw_publish_subscribe.cpp
