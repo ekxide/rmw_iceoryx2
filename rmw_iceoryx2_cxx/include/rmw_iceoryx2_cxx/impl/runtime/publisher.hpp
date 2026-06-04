@@ -21,6 +21,7 @@
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
+#include "rmw_iceoryx2_interoperability/rmw_iceoryx2_interoperability.h"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
 namespace rmw::iox2
@@ -45,6 +46,7 @@ class RMW_PUBLIC Publisher
 {
 public:
     using Payload = ::iox2::bb::Slice<::iox2::CustomPayloadMarker>;
+    using UserHeader = ::rmw_iceoryx2_interoperability::MessageInfoHeader;
     using ErrorType = Error<Publisher>::Type;
 
 private:
@@ -52,8 +54,8 @@ private:
     using IdType = ::iox2::UniquePublisherId;
 
     using IceoryxNotifier = Iceoryx2::InterProcess::Notifier;
-    using IceoryxPublisher = Iceoryx2::InterProcess::Publisher<Payload>;
-    using IceoryxSample = Iceoryx2::InterProcess::SampleMutUninit<Payload>;
+    using IceoryxPublisher = Iceoryx2::InterProcess::Publisher<Payload, UserHeader>;
+    using IceoryxSample = Iceoryx2::InterProcess::SampleMutUninit<Payload, UserHeader>;
     using IceoryxSampleRegistry = SampleRegistry<IceoryxSample>;
 
 public:
@@ -117,6 +119,9 @@ public:
     auto publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
+    /// @brief Populate the user-header message info (source timestamp, sequence number) before sending.
+    void populate_message_info(UserHeader& header);
+
     // m_topic, m_unserialized_size, m_service_name, and m_qos are logically
     // const after construction. The `const` qualifier is omitted only because
     // storing this class in `iox2::bb::Optional` requires it to be
@@ -131,6 +136,7 @@ private:
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
     ::iox2::bb::Optional<IceoryxPublisher> m_iox2_publisher;
     IceoryxSampleRegistry m_registry;
+    uint64_t m_publication_sequence_number{0};
 };
 
 } // namespace rmw::iox2

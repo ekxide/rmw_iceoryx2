@@ -7,6 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "rcutils/time.h"
 #include "rmw/allocators.h"
 #include "rmw/dynamic_message_type_support.h"
 #include "rmw/get_network_flow_endpoints.h"
@@ -25,6 +26,131 @@
 #include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
+
+namespace
+{
+
+void populate_message_info(rmw_message_info_t* message_info,
+                           const ::rmw_iceoryx2_interoperability::MessageInfoHeader& header) {
+    rcutils_time_point_value_t received = 0;
+    if (rcutils_system_time_now(&received) != RCUTILS_RET_OK) {
+        received = 0;
+    }
+    message_info->source_timestamp = header.source_timestamp;
+    message_info->received_timestamp = received;
+    message_info->publication_sequence_number = header.publication_sequence_number;
+    message_info->reception_sequence_number = RMW_MESSAGE_INFO_SEQUENCE_NUMBER_UNSUPPORTED;
+    message_info->from_intra_process = false;
+}
+
+// Shared take implementation; `message_info` is populated when not null.
+rmw_ret_t take_impl(const rmw_subscription_t* rmw_subscription,
+                    void* ros_message,
+                    bool* taken,
+                    rmw_message_info_t* message_info) {
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
+    using ::rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_LOG_DEBUG("Taking from '%s'", rmw_subscription->topic_name);
+
+    auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
+        return RMW_RET_ERROR;
+    }
+    auto subscriber_impl = result.value();
+
+    if (rmw_subscription->can_loan_messages) {
+        // Self-contained. Copy payload into message.
+        auto take_result = subscriber_impl->take_copy(ros_message);
+        if (!take_result.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to take copy from subscriber");
+            return RMW_RET_ERROR;
+        }
+        auto& header = take_result.value();
+        *taken = header.has_value();
+        if (header.has_value() && message_info != nullptr) {
+            populate_message_info(message_info, header.value());
+        }
+    } else {
+        // Non-self-contained. Deserialize payload into message.
+        auto loan_result = subscriber_impl->take_loan();
+        if (!loan_result.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to take loan from subscriber");
+            return RMW_RET_ERROR;
+        }
+        auto sample = std::move(loan_result.value());
+        *taken = sample.has_value();
+
+        if (sample.has_value()) {
+            auto typesupport = subscriber_impl->typesupport();
+            auto loan = std::move(sample.value());
+
+            auto serialized_message = rmw_serialized_message_t{
+                loan.bytes, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
+
+            if (auto deser = rmw_deserialize(&serialized_message, typesupport, ros_message); deser != RMW_RET_OK) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received message");
+                return RMW_RET_ERROR;
+            }
+
+            if (message_info != nullptr) {
+                populate_message_info(message_info, loan.message_info);
+            }
+
+            if (auto ret = subscriber_impl->return_loan(loan.bytes); !ret.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned serialized payload");
+                return RMW_RET_ERROR;
+            }
+        }
+    }
+
+    return RMW_RET_OK;
+}
+
+// Shared loaned-take implementation; `message_info` is populated when not null.
+rmw_ret_t take_loaned_impl(const rmw_subscription_t* rmw_subscription,
+                           void** loaned_message,
+                           bool* taken,
+                           rmw_message_info_t* message_info) {
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
+    using ::rmw::iox2::unsafe_cast;
+
+    if (!rmw_subscription->can_loan_messages) {
+        RMW_IOX2_CHAIN_ERROR_MSG("attempted to take loan from subscription that does not support loaning");
+        return RMW_RET_UNSUPPORTED;
+    }
+
+    RMW_IOX2_LOG_DEBUG("Taking loan from '%s'", rmw_subscription->topic_name);
+
+    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
+    if (!subscriber_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
+        return RMW_RET_ERROR;
+    }
+
+    auto loan = subscriber_impl.value()->take_loan();
+    if (!loan.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
+        return RMW_RET_ERROR;
+    }
+
+    auto payload = std::move(loan.value());
+    if (payload.has_value()) {
+        *loaned_message = static_cast<void*>(
+            const_cast<uint8_t*>(static_cast<const uint8_t*>(payload->bytes))); // const cast forced by RMW API
+        *taken = true;
+        if (message_info != nullptr) {
+            populate_message_info(message_info, payload->message_info);
+        }
+    } else {
+        *taken = false;
+    }
+
+    return RMW_RET_OK;
+}
+
+} // namespace
 
 extern "C" {
 
@@ -169,58 +295,8 @@ rmw_ret_t rmw_take(const rmw_subscription_t* rmw_subscription,
     RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    using SubscriberImpl = ::rmw::iox2::Subscriber;
-    using ::rmw::iox2::unsafe_cast;
-
-    RMW_IOX2_LOG_DEBUG("Taking from '%s'", rmw_subscription->topic_name);
-
-    if (auto result = unsafe_cast<SubscriberImpl*>(rmw_subscription->data); !result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
-        return RMW_RET_ERROR;
-    } else {
-        auto subscriber_impl = result.value();
-
-        if (rmw_subscription->can_loan_messages) {
-            // Self-contained. Copy payload into message.
-            auto take_result = subscriber_impl->take_copy(ros_message);
-            if (!take_result.has_value()) {
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to take copy from subscriber");
-                return RMW_RET_ERROR;
-            }
-            *taken = take_result.value();
-        } else {
-            // Non-self-contained. Deserialize payload into message
-            auto loan_result = subscriber_impl->take_loan();
-            if (!loan_result.has_value()) {
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to take loan from subscriber");
-                return RMW_RET_ERROR;
-            } else {
-                auto sample = std::move(loan_result.value());
-                *taken = sample.has_value();
-
-                if (sample.has_value()) {
-                    auto typesupport = subscriber_impl->typesupport();
-                    auto loan = std::move(sample.value());
-
-                    auto serialized_message = rmw_serialized_message_t{
-                        loan.bytes, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
-
-                    if (auto result = rmw_deserialize(&serialized_message, typesupport, ros_message);
-                        result != RMW_RET_OK) {
-                        RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received message");
-                        return RMW_RET_ERROR;
-                    }
-
-                    if (auto result = subscriber_impl->return_loan(loan.bytes); !result.has_value()) {
-                        RMW_IOX2_CHAIN_ERROR_MSG("failed to return loaned serialized payload");
-                        return RMW_RET_ERROR;
-                    }
-                }
-            }
-        }
-    }
-
-    return RMW_RET_OK;
+    (void)allocation;
+    return take_impl(rmw_subscription, ros_message, taken, nullptr);
 }
 
 rmw_ret_t rmw_take_with_info(const rmw_subscription_t* rmw_subscription,
@@ -236,7 +312,8 @@ rmw_ret_t rmw_take_with_info(const rmw_subscription_t* rmw_subscription,
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
-    return rmw_take(rmw_subscription, ros_message, taken, allocation);
+    (void)allocation;
+    return take_impl(rmw_subscription, ros_message, taken, message_info);
 }
 
 rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* rmw_subscription,
@@ -251,45 +328,9 @@ rmw_ret_t rmw_take_loaned_message(const rmw_subscription_t* rmw_subscription,
     RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NULL(*loaned_message, RMW_RET_INVALID_ARGUMENT);
 
-    if (!rmw_subscription->can_loan_messages) {
-        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained messages do not support loaning");
-        return RMW_RET_INVALID_ARGUMENT;
-    }
-
     // Implementation -------------------------------------------------------------------------------
-    using SubscriberImpl = ::rmw::iox2::Subscriber;
-    using ::rmw::iox2::unsafe_cast;
-    (void)allocation; // not used
-
-    if (!rmw_subscription->can_loan_messages) {
-        RMW_IOX2_CHAIN_ERROR_MSG("attempted to take loan from subscription that does not support loaning");
-        return RMW_RET_UNSUPPORTED;
-    }
-
-    RMW_IOX2_LOG_DEBUG("Taking loan from from '%s'", rmw_subscription->topic_name);
-
-    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
-    if (!subscriber_impl.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
-        return RMW_RET_ERROR;
-    }
-
-    auto loan = subscriber_impl.value()->take_loan();
-    if (!loan.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to take sample from subscriber");
-        return RMW_RET_ERROR;
-    }
-
-    auto payload = std::move(loan.value());
-    if (payload.has_value()) {
-        *loaned_message = static_cast<void*>(
-            const_cast<uint8_t*>(static_cast<const uint8_t*>(payload->bytes))); // const cast forced by RMW API
-        *taken = true;
-    } else {
-        *taken = false;
-    }
-
-    return RMW_RET_OK;
+    (void)allocation;
+    return take_loaned_impl(rmw_subscription, loaned_message, taken, nullptr);
 }
 
 rmw_ret_t rmw_take_loaned_message_with_info(const rmw_subscription_t* rmw_subscription,
@@ -302,11 +343,13 @@ rmw_ret_t rmw_take_loaned_message_with_info(const rmw_subscription_t* rmw_subscr
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_CAN_LOAN(rmw_subscription, RMW_RET_UNSUPPORTED);
     RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NULL(*loaned_message, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(message_info, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    (void)message_info; // TODO: support this
-
-    return rmw_take_loaned_message(rmw_subscription, loaned_message, taken, allocation);
+    (void)allocation;
+    return take_loaned_impl(rmw_subscription, loaned_message, taken, message_info);
 }
 
 rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* rmw_subscription,

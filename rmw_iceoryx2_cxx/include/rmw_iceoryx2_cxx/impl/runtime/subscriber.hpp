@@ -16,6 +16,7 @@
 #include "iox2/custom_payload_marker.hpp"
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_interoperability/rmw_iceoryx2_interoperability.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
@@ -37,6 +38,7 @@ struct SubscriberLoan
 {
     uint8_t* bytes;
     size_t number_of_bytes;
+    ::rmw_iceoryx2_interoperability::MessageInfoHeader message_info;
 };
 
 /// @brief Implementation of the RMW subscriber for iceoryx2
@@ -50,12 +52,13 @@ class RMW_PUBLIC Subscriber
 public:
     using ErrorType = Error<Subscriber>::Type;
     using Payload = ::iox2::bb::Slice<::iox2::CustomPayloadMarker>;
+    using UserHeader = ::rmw_iceoryx2_interoperability::MessageInfoHeader;
 
 private:
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniqueSubscriberId;
-    using IceoryxSubscriber = Iceoryx2::InterProcess::Subscriber<Payload>;
-    using IceoryxSample = Iceoryx2::InterProcess::Sample<Payload>;
+    using IceoryxSubscriber = Iceoryx2::InterProcess::Subscriber<Payload, UserHeader>;
+    using IceoryxSample = Iceoryx2::InterProcess::Sample<Payload, UserHeader>;
     using IceoryxSampleRegistry = SampleRegistry<IceoryxSample>;
 
 public:
@@ -93,10 +96,10 @@ public:
     /// @return Reference to the resolved QoS
     auto qos() const -> const Qos&;
 
-    /// @brief Take a message by copying it to the destination buffer
+    /// @brief Take a message by copying its payload to the destination buffer
     /// @param[out] dest Pointer to the destination buffer
-    /// @return Expected containing true if a message was taken, false if no message available
-    auto take_copy(void* dest) -> ::iox2::bb::Expected<bool, ErrorType>;
+    /// @return Expected containing the sample's user header if a message was taken, empty otherwise
+    auto take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType>;
 
     /// @brief Take a loaned message without copying
     /// @return Expected containing optional pointer to the loaned message memory

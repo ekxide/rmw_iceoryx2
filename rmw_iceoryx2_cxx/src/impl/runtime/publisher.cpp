@@ -13,9 +13,11 @@
 #include "iox2/bb/slice.hpp"
 #include "iox2/message_type_details.hpp"
 #include "iox2/type_variant.hpp"
+#include "rcutils/time.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 
@@ -75,8 +77,9 @@ Publisher::Publisher(CreationLock,
             .ipc()
             .service_builder(iox2_service_name.value())
             .publish_subscribe<Payload>()
-            .set_payload_type_details(::iox2::TypeDetail(
-                ::iox2::TypeVariant::FixedSize, payload_type_name.c_str(), m_unserialized_size, 8))
+            .set_payload_type_details(
+                ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize, payload_type_name.c_str(), m_unserialized_size, 8))
+            .user_header<UserHeader>()
             .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
             .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
@@ -194,7 +197,9 @@ auto Publisher::publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, 
         RMW_IOX2_CHAIN_ERROR_MSG("invalid payload pointer");
         return err(ErrorType::INVALID_PAYLOAD);
     }
-    if (auto result = Iceoryx2::InterProcess::send<Payload>(std::move(sample.value())); !result.has_value()) {
+    populate_message_info(sample.value().user_header_mut());
+    if (auto result = Iceoryx2::InterProcess::send<Payload, UserHeader>(std::move(sample.value()));
+        !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::SEND_FAILURE);
     }
@@ -218,8 +223,10 @@ auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::io
         return err(ErrorType::LOAN_FAILURE);
     }
     std::memcpy(sample.value().payload_mut().data(), data, number_of_bytes);
+    populate_message_info(sample.value().user_header_mut());
 
-    if (auto result = Iceoryx2::InterProcess::send<Payload>(std::move(sample.value())); !result.has_value()) {
+    if (auto result = Iceoryx2::InterProcess::send<Payload, UserHeader>(std::move(sample.value()));
+        !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::SEND_FAILURE);
     }
@@ -231,6 +238,15 @@ auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::io
     }
 
     return {};
+}
+
+void Publisher::populate_message_info(UserHeader& header) {
+    rcutils_time_point_value_t now = 0;
+    if (rcutils_system_time_now(&now) != RCUTILS_RET_OK) {
+        now = 0;
+    }
+    header.source_timestamp = now;
+    header.publication_sequence_number = m_publication_sequence_number++;
 }
 
 } // namespace rmw::iox2

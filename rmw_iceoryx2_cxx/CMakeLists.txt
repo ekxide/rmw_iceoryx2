@@ -41,6 +41,7 @@ set(AMENT_PACKAGES
     rcutils
     rcpputils
     rmw
+    rmw_iceoryx2_interoperability
     rosidl_runtime_cpp
     rosidl_typesupport_introspection_c
     rosidl_typesupport_introspection_cpp
@@ -93,6 +94,7 @@ target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
+    ${rmw_iceoryx2_interoperability_INCLUDE_DIRS}
 )
 
 # Manual linking required as iceoryx2 is not an ament package

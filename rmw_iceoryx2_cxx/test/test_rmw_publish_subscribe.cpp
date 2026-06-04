@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "rcutils/error_handling.h"
+#include "rcutils/time.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.hpp"
@@ -266,6 +267,71 @@ TEST_F(RmwPublishSubscribeTest, take_serialized_many_new_messages) {
         // Verify
         ASSERT_EQ(input, output);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Message info
+// ---------------------------------------------------------------------------
+
+TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    rcutils_time_point_value_t before_publish{0};
+    ASSERT_EQ(rcutils_system_time_now(&before_publish), RCUTILS_RET_OK);
+
+    auto send_payload = Defaults{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+
+    void* recv_payload = malloc(sizeof(Defaults));
+    bool taken{false};
+    rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+    ASSERT_RMW_OK(rmw_take_with_info(subscription, recv_payload, &taken, &message_info, nullptr));
+    ASSERT_TRUE(taken);
+
+    rcutils_time_point_value_t after_take{0};
+    ASSERT_EQ(rcutils_system_time_now(&after_take), RCUTILS_RET_OK);
+
+    // source_timestamp is stamped at publish, received_timestamp at take; both fall within the
+    // bounding window and are ordered.
+    EXPECT_GE(message_info.source_timestamp, before_publish);
+    EXPECT_LE(message_info.source_timestamp, message_info.received_timestamp);
+    EXPECT_LE(message_info.received_timestamp, after_take);
+    EXPECT_EQ(message_info.publication_sequence_number, 0u);
+    EXPECT_FALSE(message_info.from_intra_process);
+
+    free(recv_payload);
+}
+
+TEST_F(RmwPublishSubscribeTest, take_with_info_publication_sequence_number_increments) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    constexpr uint64_t NUM_MESSAGES = 3;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    for (uint64_t i = 0; i < NUM_MESSAGES; ++i) {
+        auto send_payload = Defaults{};
+        ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+    }
+
+    void* recv_payload = malloc(sizeof(Defaults));
+    for (uint64_t i = 0; i < NUM_MESSAGES; ++i) {
+        bool taken{false};
+        rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+        ASSERT_RMW_OK(rmw_take_with_info(subscription, recv_payload, &taken, &message_info, nullptr));
+        ASSERT_TRUE(taken);
+        EXPECT_EQ(message_info.publication_sequence_number, i);
+    }
+
+    free(recv_payload);
 }
 
 // ---------------------------------------------------------------------------
