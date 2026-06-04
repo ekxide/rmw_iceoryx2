@@ -13,6 +13,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
+#include "iox2/custom_payload_marker.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -43,7 +44,7 @@ struct Error<Publisher>
 class RMW_PUBLIC Publisher
 {
 public:
-    using Payload = ::iox2::bb::Slice<uint8_t>;
+    using Payload = ::iox2::bb::Slice<::iox2::CustomPayloadMarker>;
     using ErrorType = Error<Publisher>::Type;
 
 private:

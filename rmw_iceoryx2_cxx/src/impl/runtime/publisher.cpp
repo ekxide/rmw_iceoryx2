@@ -11,11 +11,15 @@
 
 #include "iox2/bb/into.hpp"
 #include "iox2/bb/slice.hpp"
+#include "iox2/message_type_details.hpp"
+#include "iox2/type_variant.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+
+#include <cstring>
 
 namespace rmw::iox2
 {
@@ -64,11 +68,15 @@ Publisher::Publisher(CreationLock,
         return;
     }
 
+    const auto payload_type_name = ::rmw::iox2::message_type_name(m_typesupport);
+
     auto iox2_pubsub_service =
         node.iox2()
             .ipc()
             .service_builder(iox2_service_name.value())
             .publish_subscribe<Payload>()
+            .set_payload_type_details(::iox2::TypeDetail(
+                ::iox2::TypeVariant::FixedSize, payload_type_name.c_str(), m_unserialized_size, 8))
             .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
             .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
@@ -151,7 +159,10 @@ auto Publisher::qos() const -> const Qos& {
 auto Publisher::loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType> {
     using ::iox2::bb::err;
 
-    auto sample = m_iox2_publisher->loan_slice_uninit(number_of_bytes);
+    // The payload is a single fixed-size element (the message struct), so one element is loaned;
+    // its byte size is the payload type details size set on the service.
+    static_cast<void>(number_of_bytes);
+    auto sample = m_iox2_publisher->loan_slice_uninit(1);
     if (!sample.has_value()) {
         return err(ErrorType::LOAN_FAILURE);
     }
@@ -199,12 +210,16 @@ auto Publisher::publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, 
 
 auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
-    using ::iox2::bb::ImmutableSlice;
 
-    // Send
-    auto payload = ImmutableSlice<uint8_t>{static_cast<const uint8_t*>(data), number_of_bytes};
+    // The custom payload has no copy-send path, so loan a single element, copy into it, and send.
+    auto sample = m_iox2_publisher->loan_slice_uninit(1);
+    if (!sample.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(sample.error()));
+        return err(ErrorType::LOAN_FAILURE);
+    }
+    std::memcpy(sample.value().payload_mut().data(), data, number_of_bytes);
 
-    if (auto result = m_iox2_publisher->send_slice_copy(payload); !result.has_value()) {
+    if (auto result = Iceoryx2::InterProcess::send<Payload>(std::move(sample.value())); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::SEND_FAILURE);
     }

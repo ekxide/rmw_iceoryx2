@@ -47,9 +47,9 @@ public:
     /// @param[in] sample The sample to store
     /// @return Pointer to the payload data that can also be used to retrieve/release the sample later
     auto store(SampleType&& sample) -> uint8_t* {
-        // const_cast required to work with Sample and SamplMut
-        // Should be adapted to handle both cases without casting (when functional)
-        auto payload_ptr = const_cast<uint8_t*>(sample.payload().data());
+        // const_cast required to work with Sample and SampleMut; reinterpret_cast to obtain a byte
+        // pointer regardless of the payload element type (e.g. the CustomPayloadMarker).
+        auto payload_ptr = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(sample.payload().data()));
         m_samples.emplace(payload_ptr, std::move(sample));
         return payload_ptr;
     }

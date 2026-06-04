@@ -10,8 +10,11 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
 #include "iox2/bb/into.hpp"
+#include "iox2/message_type_details.hpp"
+#include "iox2/type_variant.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 
@@ -62,11 +65,15 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
+    const auto payload_type_name = ::rmw::iox2::message_type_name(m_typesupport);
+
     auto iox2_pubsub_service =
         node.iox2()
             .ipc()
             .service_builder(iox2_service_name.value())
             .publish_subscribe<Payload>()
+            .set_payload_type_details(::iox2::TypeDetail(
+                ::iox2::TypeVariant::FixedSize, payload_type_name.c_str(), ::rmw::iox2::message_size(m_typesupport), 8))
             .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
             .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
@@ -152,12 +159,13 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
     auto sample = std::move(result.value());
 
     if (sample.has_value()) {
-        auto data = sample->payload().data();
+        // reinterpret_cast to obtain a byte pointer from the CustomPayloadMarker element type;
+        // const_cast required because of the RMW API.
+        auto* data = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(sample->payload().data()));
         auto number_of_bytes = sample->payload().number_of_bytes();
         m_registry.store(std::move(sample.value()));
 
-        // Const cast required because of RMW API
-        return Optional<SubscriberLoan>(SubscriberLoan{const_cast<uint8_t*>(data), number_of_bytes});
+        return Optional<SubscriberLoan>(SubscriberLoan{data, number_of_bytes});
     } else {
         return Optional<SubscriberLoan>{::iox2::bb::NULLOPT};
     }
