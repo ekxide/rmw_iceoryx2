@@ -115,3 +115,19 @@ publication sequence number and one-way latency (`source_timestamp` minus receiv
 time). The latency is only meaningful when publisher and subscriber share a clock,
 i.e. on the same host.
 
+## Connection bootstrap
+
+iceoryx2 establishes a publisher↔subscriber connection lazily, and a subscriber
+opens its side of the connection only inside `receive()`. A purely event-driven
+subscriber calls `receive()` only in response to a notification, so the *first*
+sample races with connection setup: the publisher sends it before the subscriber's
+side is open, and it is dropped (the triggering notification arrives too late to
+open the connection in time). This is iceoryx2 working as designed — a polling
+subscriber, whose `receive()` runs continuously, sees the first sample — not a lost
+message in the wire contract.
+
+The iceoryx2 `subscriber` here avoids the drop by also attaching a periodic interval
+to its `WaitSet` (`CONNECTION_PRIME_INTERVAL`) and calling `receive()` on every tick.
+That keeps the connection primed, so it is open before a newly-started publisher's
+first send. ROS 2 subscribers are unaffected — the rmw manages this internally.
+
