@@ -36,16 +36,28 @@ zero-copy. Any publisher interoperates with any subscriber.
 
 ## Wire contract
 
-The ROS topic maps to the iceoryx2 service the vanilla app uses:
+The ROS topic maps to the iceoryx2 service the vanilla app uses. The
+identity-bearing definitions (rosidl type name, message-info header) come from the
+shared `rmw_iceoryx2_interoperability` crate, which the rmw also consumes via a
+cbindgen-generated C header.
 
 - Service name: `ros2://topics/transmission_data` (ROS topic `/transmission_data`)
-- Payload: slice of `u8` (`Slice<uint8_t>` ⇄ `[u8]`), no user header
-- Bytes: the `#[repr(C)]` `TransmissionData` struct, unserialized
-- The iceoryx2 publisher signals the topic's event service on every send (the rmw
-  subscriber wakes on notification, not by polling)
+- Payload: one fixed-size element, the unserialized `#[repr(C)]` `TransmissionData`
+  struct. It is identified by the rosidl type name
+  `iceoryx2_interoperation_demo_msgs/msg/TransmissionData` with alignment 8; the
+  rmw and the vanilla peer must agree on name, size, and alignment or iceoryx2
+  rejects the connection as incompatible
+- User header: `MessageInfoHeader` (type name `rmw_iceoryx2/MessageInfoHeader`,
+  `int64 source_timestamp` + `uint64 publication_sequence_number`) carries the
+  sender-originated `rmw_message_info_t` fields from publisher to subscriber
+- The publisher signals the topic's event service on every send (the subscriber
+  wakes on notification, not by polling)
 - Service static config and QoS attributes mirror rclcpp's **default** profile
-  (`KeepLast` depth 10, reliable). Using a non-default ROS QoS requires updating
-  `open_or_create_service` in `iceoryx2_interoperation_demo_nodes`
+  (`KeepLast` depth 10, reliable): six `rmw.qos.local.*` attributes plus a static
+  config of `max_publishers`/`max_subscribers`/`max_nodes` = 32, history and
+  subscriber buffer = 10, `safe_overflow` disabled. Using a non-default ROS QoS
+  requires updating the QoS and static-config consts in `publisher.rs` and
+  `subscriber.rs`
 
 ## Prerequisites
 
@@ -97,4 +109,9 @@ Run any one publisher with any one subscriber:
 | `publisher` (iceoryx2) | `ros2_subscriber`         |
 | `ros2_publisher`       | `ros2_subscriber`         |
 | `publisher` (iceoryx2) | `subscriber` (iceoryx2)   |
+
+The iceoryx2 `subscriber` reads the `MessageInfoHeader` and prints each sample's
+publication sequence number and one-way latency (`source_timestamp` minus receive
+time). The latency is only meaningful when publisher and subscriber share a clock,
+i.e. on the same host.
 

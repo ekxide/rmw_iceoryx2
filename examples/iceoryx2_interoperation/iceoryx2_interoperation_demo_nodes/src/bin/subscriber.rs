@@ -1,5 +1,5 @@
 use iceoryx2::prelude::*;
-use iceoryx2_interoperation_demo_nodes::{Payload, SERVICE_NAME};
+use iceoryx2_interoperation_demo_nodes::{system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME};
 
 // Must match the values rmw_iceoryx2 uses (DEFAULT_MAX_* and rclcpp's default QoS depth).
 const PAYLOAD_ALIGNMENT: usize = 8;
@@ -45,6 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service = node
         .service_builder(&SERVICE_NAME.try_into()?)
         .publish_subscribe::<Payload>()
+        .user_header::<MessageInfoHeader>()
         .payload_alignment(Alignment::new(PAYLOAD_ALIGNMENT).unwrap())
         .max_publishers(MAX_PUBLISHERS)
         .max_subscribers(MAX_SUBSCRIBERS)
@@ -69,7 +70,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Drain all notifications, otherwise the WaitSet wakes us again immediately (busy loop).
         listener.try_wait_all(|_| {}).unwrap();
         while let Some(sample) = subscriber.receive().unwrap() {
-            println!("received: {:?}", sample.payload().0);
+            let info = sample.user_header();
+            // source_timestamp is on the publisher's system clock; the difference is the one-way
+            // latency only if both peers share a clock (e.g. same host).
+            let latency_us = (system_time_nanos() - info.source_timestamp) as f64 / 1000.0;
+            println!(
+                "received: {:?} (seq={}, latency={:.1}us)",
+                sample.payload().0,
+                info.publication_sequence_number,
+                latency_us,
+            );
         }
         CallbackProgression::Continue
     };

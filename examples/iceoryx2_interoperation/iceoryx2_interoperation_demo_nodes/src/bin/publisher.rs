@@ -2,7 +2,7 @@ use core::time::Duration;
 
 use iceoryx2::prelude::*;
 use iceoryx2_interoperation_demo_msgs::msg::rmw::TransmissionData;
-use iceoryx2_interoperation_demo_nodes::{Payload, SERVICE_NAME};
+use iceoryx2_interoperation_demo_nodes::{system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME};
 
 const CYCLE_TIME: Duration = Duration::from_secs(1);
 
@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service = node
         .service_builder(&SERVICE_NAME.try_into()?)
         .publish_subscribe::<Payload>()
+        .user_header::<MessageInfoHeader>()
         .payload_alignment(Alignment::new(PAYLOAD_ALIGNMENT).unwrap())
         .max_publishers(MAX_PUBLISHERS)
         .max_subscribers(MAX_SUBSCRIBERS)
@@ -76,7 +77,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             funky: f64::from(counter) * 812.12,
         };
 
-        let sample = publisher.loan_uninit()?;
+        // Stamp the message info the same way rmw_iceoryx2 does, so a ROS 2 subscriber sees a
+        // populated source_timestamp and publication sequence number.
+        let mut sample = publisher.loan_uninit()?;
+        *sample.user_header_mut() = MessageInfoHeader {
+            source_timestamp: system_time_nanos(),
+            publication_sequence_number: (counter - 1) as u64,
+        };
         sample.write_payload(Payload(data.clone())).send()?;
         notifier.notify()?;
 

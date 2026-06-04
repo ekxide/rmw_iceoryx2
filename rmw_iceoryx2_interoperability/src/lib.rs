@@ -17,3 +17,12 @@ pub struct MessageInfoHeader {
     /// Per-publisher monotonically increasing sample counter.
     pub publication_sequence_number: u64,
 }
+
+// Lets the header be used as an iceoryx2 user header. The type name must match the one the C++
+// rmw stamps (MESSAGE_INFO_HEADER_TYPE_NAME) so the service's header type is compatible across
+// peers.
+unsafe impl iceoryx2::prelude::ZeroCopySend for MessageInfoHeader {
+    unsafe fn type_name() -> &'static str {
+        MESSAGE_INFO_HEADER_TYPE_NAME
+    }
+}
