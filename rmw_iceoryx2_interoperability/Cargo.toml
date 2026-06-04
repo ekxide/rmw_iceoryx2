@@ -1,0 +1,11 @@
+[package]
+name = "rmw_iceoryx2_interoperability"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[build-dependencies]
+cbindgen = "0.29"
