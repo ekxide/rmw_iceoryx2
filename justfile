@@ -3,16 +3,81 @@
 
 ws := invocation_directory()
 rmw := "rmw_iceoryx2_cxx"
+examples := justfile_directory() / "examples"
 
 # rmw_iceoryx2 + ROS 2 CLI packages
-packages := "ros2cli_common_extensions rmw_iceoryx2_cxx"
+minimal_packages := "ros2cli_common_extensions rmw_iceoryx2_cxx"
 
 _default:
     @just --justfile {{justfile()}} --list
 
 # Build rmw_iceoryx2 and the ROS 2 CLI.
-build *args:
+build *extra_packages:
     #!/usr/bin/env bash
     set -euo pipefail
+
     cd "{{ws}}"
-    RMW_IMPLEMENTATION={{rmw}} colcon build --symlink-install --packages-up-to {{packages}} {{args}}
+    RMW_IMPLEMENTATION={{rmw}} colcon build --symlink-install --packages-up-to {{minimal_packages}} {{extra_packages}}
+
+# Build the packages required to run an example.
+build-example example:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cd "{{ws}}"
+    example_justfile="{{examples}}/{{example}}/justfile"
+    [[ -f "$example_justfile" ]] || { echo "unknown example '{{example}}'" >&2; exit 1; }
+
+    just -f "$example_justfile" build
+    mkdir -p build && touch "build/.{{example}}.built"
+
+# Run an example with the given configuration (see list-examples).
+run-example example config="":
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cd "{{ws}}"
+    tmux_dir="{{examples}}/{{example}}/tmux"
+    [[ -d "$tmux_dir" ]] || { echo "unknown example '{{example}}'" >&2; exit 1; }
+
+    if [[ ! -f "build/.{{example}}.built" ]]; then
+        echo "example '{{example}}' not built - run: just -f {{justfile()}} build-example {{example}}" >&2
+        exit 1
+    fi
+    if ! command -v tmux >/dev/null; then
+        echo "tmux is required to run examples" >&2
+        exit 1
+    fi
+
+    mapfile -t configs < <(find "$tmux_dir" -maxdepth 1 -name '*.tmux' -printf '%f\n' | sed 's/\.tmux$//' | sort)
+    [[ ${#configs[@]} -gt 0 ]] || { echo "no configurations defined for '{{example}}'" >&2; exit 1; }
+    config="{{config}}"
+    if [[ -z "$config" ]]; then
+        if [[ ${#configs[@]} -eq 1 ]]; then
+            config="${configs[0]}"
+        else
+            echo "example '{{example}}' has multiple configurations:" >&2
+            printf '  %s\n' "${configs[@]}" >&2
+            echo "specify one: just -f {{justfile()}} run-example {{example}} <config>" >&2
+            exit 1
+        fi
+    fi
+
+    script="$tmux_dir/$config.tmux"
+    [[ -f "$script" ]] || { echo "unknown configuration '$config' for '{{example}}'" >&2; exit 1; }
+
+    WORKSPACE_ROOT="{{ws}}" exec bash "$script"
+
+# List the runnable examples and their configurations.
+list-examples:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    shopt -s nullglob
+
+    printf '\033[2mexample\n    config\033[0m\n\n'
+    for tmux_dir in "{{examples}}"/*/tmux; do
+        printf '\033[1m%s\033[0m\n' "$(basename "$(dirname "$tmux_dir")")"
+        for config in "$tmux_dir"/*.tmux; do
+            echo "    $(basename "${config%.tmux}")"
+        done
+    done
