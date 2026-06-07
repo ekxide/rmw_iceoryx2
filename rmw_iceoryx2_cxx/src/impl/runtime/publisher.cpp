@@ -19,6 +19,7 @@
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
 #include <cstring>
 
@@ -34,6 +35,7 @@ Publisher::Publisher(CreationLock,
     : m_topic{topic}
     , m_typesupport{type_support}
     , m_unserialized_size{::rmw::iox2::message_size(type_support)}
+    , m_is_self_contained{::rmw::iox2::is_self_contained(type_support)}
     , m_service_name{::rmw::iox2::names::topic(topic)}
     , m_qos{qos} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
@@ -70,6 +72,16 @@ Publisher::Publisher(CreationLock,
     }
 
     const auto payload_type_name = ::rmw::iox2::message_type_name(m_typesupport);
+    const auto payload_type_details = m_is_self_contained ? ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,
+                                                                               payload_type_name.c_str(),
+                                                                               m_unserialized_size,
+                                                                               SELF_CONTAINED_PAYLOAD_ALIGNMENT)
+                                                          : ::iox2::TypeDetail(::iox2::TypeVariant::Dynamic,
+                                                                               payload_type_name.c_str(),
+                                                                               SERIALIZED_PAYLOAD_ELEMENT_SIZE,
+                                                                               SERIALIZED_PAYLOAD_ALIGNMENT);
+    const uint64_t payload_alignment =
+        m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ALIGNMENT : SERIALIZED_PAYLOAD_ALIGNMENT;
 
     auto service_builder = node.iox2()
                                .ipc()
@@ -83,9 +95,7 @@ Publisher::Publisher(CreationLock,
                            ::rmw_iceoryx2_interoperability::MESSAGE_INFO_HEADER_TYPE_NAME,
                            sizeof(MessageInfo),
                            alignof(MessageInfo)));
-    ::iox2::set_payload_type_details(
-        service_builder,
-        ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize, payload_type_name.c_str(), m_unserialized_size, 8));
+    ::iox2::set_payload_type_details(service_builder, payload_type_details);
 
     auto iox2_pubsub_service =
         service_builder.resume_build()
@@ -95,7 +105,7 @@ Publisher::Publisher(CreationLock,
             .history_size(m_qos.history_size())
             .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
             .enable_safe_overflow(m_qos.enable_safe_overflow())
-            .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
+            .payload_alignment(payload_alignment)
             .open_or_create_with_attributes(verifier.value());
 
     if (!iox2_pubsub_service.has_value()) {
@@ -109,11 +119,12 @@ Publisher::Publisher(CreationLock,
         return;
     }
 
-    auto iox2_publisher = iox2_pubsub_service.value()
-                              .publisher_builder()
-                              .initial_max_slice_len(::rmw::iox2::message_size(m_typesupport))
-                              .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
-                              .create();
+    auto iox2_publisher =
+        iox2_pubsub_service.value()
+            .publisher_builder()
+            .initial_max_slice_len(m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : m_unserialized_size)
+            .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
+            .create();
 
     if (!iox2_publisher.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_publisher.error()));
@@ -167,14 +178,11 @@ auto Publisher::qos() const -> const Qos& {
     return m_qos;
 }
 
-// TODO: Make return uint8_t
 auto Publisher::loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType> {
     using ::iox2::bb::err;
 
-    // The payload is a single fixed-size element (the message struct), so one element is loaned;
-    // its byte size is the payload type details size set on the service.
-    static_cast<void>(number_of_bytes);
-    auto sample = m_iox2_publisher->loan_slice_uninit(1);
+    const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
+    auto sample = m_iox2_publisher->loan_slice_uninit(number_of_elements);
     if (!sample.has_value()) {
         return err(ErrorType::LOAN_FAILURE);
     }
@@ -227,8 +235,8 @@ auto Publisher::publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, 
 auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
-    // The custom payload has no copy-send path, so loan a single element, copy into it, and send.
-    auto sample = m_iox2_publisher->loan_slice_uninit(1);
+    const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
+    auto sample = m_iox2_publisher->loan_slice_uninit(number_of_elements);
     if (!sample.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(sample.error()));
         return err(ErrorType::LOAN_FAILURE);

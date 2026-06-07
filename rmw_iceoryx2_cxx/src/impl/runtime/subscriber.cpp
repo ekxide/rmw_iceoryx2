@@ -17,6 +17,7 @@
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
 namespace rmw::iox2
 {
@@ -65,7 +66,18 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
+    const bool is_self_contained = ::rmw::iox2::is_self_contained(m_typesupport);
     const auto payload_type_name = ::rmw::iox2::message_type_name(m_typesupport);
+    const auto payload_type_details = is_self_contained ? ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,
+                                                                             payload_type_name.c_str(),
+                                                                             ::rmw::iox2::message_size(m_typesupport),
+                                                                             SELF_CONTAINED_PAYLOAD_ALIGNMENT)
+                                                        : ::iox2::TypeDetail(::iox2::TypeVariant::Dynamic,
+                                                                             payload_type_name.c_str(),
+                                                                             SERIALIZED_PAYLOAD_ELEMENT_SIZE,
+                                                                             SERIALIZED_PAYLOAD_ALIGNMENT);
+    const uint64_t payload_alignment =
+        is_self_contained ? SELF_CONTAINED_PAYLOAD_ALIGNMENT : SERIALIZED_PAYLOAD_ALIGNMENT;
 
     auto service_builder = node.iox2()
                                .ipc()
@@ -79,10 +91,7 @@ Subscriber::Subscriber(CreationLock,
                            ::rmw_iceoryx2_interoperability::MESSAGE_INFO_HEADER_TYPE_NAME,
                            sizeof(MessageInfo),
                            alignof(MessageInfo)));
-    ::iox2::set_payload_type_details(
-        service_builder,
-        ::iox2::TypeDetail(
-            ::iox2::TypeVariant::FixedSize, payload_type_name.c_str(), ::rmw::iox2::message_size(m_typesupport), 8));
+    ::iox2::set_payload_type_details(service_builder, payload_type_details);
 
     auto iox2_pubsub_service =
         service_builder.resume_build()
@@ -92,7 +101,7 @@ Subscriber::Subscriber(CreationLock,
             .history_size(m_qos.history_size())
             .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
             .enable_safe_overflow(m_qos.enable_safe_overflow())
-            .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
+            .payload_alignment(payload_alignment)
             .open_or_create_with_attributes(verifier.value());
 
     if (!iox2_pubsub_service.has_value()) {

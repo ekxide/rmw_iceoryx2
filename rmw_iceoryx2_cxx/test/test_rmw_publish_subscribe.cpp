@@ -113,6 +113,32 @@ TEST_F(RmwPublishSubscribeTest, take_non_self_contained_one_new_message) {
     free(recv_payload);
 }
 
+TEST_F(RmwPublishSubscribeTest, take_non_self_contained_message_larger_than_struct) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    // A string long enough that the serialized payload exceeds the message struct size, forcing the
+    // byte-granular loan to grow past its initial slice length.
+    auto send_payload = Strings{};
+    send_payload.string_value = std::string(sizeof(Strings) * 4, 'x');
+    ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+
+    void* recv_payload = malloc(sizeof(Strings));
+    new (recv_payload) Strings{};
+
+    bool taken{false};
+    ASSERT_RMW_OK(rmw_take(subscription, recv_payload, &taken, nullptr));
+    ASSERT_TRUE(taken);
+
+    ASSERT_EQ(*reinterpret_cast<Strings*>(recv_payload), send_payload);
+
+    free(recv_payload);
+}
+
 // ---------------------------------------------------------------------------
 // Loan API
 // ---------------------------------------------------------------------------
@@ -306,6 +332,44 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info) {
 
     free(recv_payload);
 }
+
+TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info_non_self_contained) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    rcutils_time_point_value_t before_publish{0};
+    ASSERT_EQ(rcutils_system_time_now(&before_publish), RCUTILS_RET_OK);
+
+    auto send_payload = Strings{};
+    send_payload.string_value = "GloryToHypnoToad";
+    ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+
+    void* recv_payload = malloc(sizeof(Strings));
+    new (recv_payload) Strings{};
+    bool taken{false};
+    rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+    ASSERT_RMW_OK(rmw_take_with_info(subscription, recv_payload, &taken, &message_info, nullptr));
+    ASSERT_TRUE(taken);
+
+    rcutils_time_point_value_t after_take{0};
+    ASSERT_EQ(rcutils_system_time_now(&after_take), RCUTILS_RET_OK);
+
+    // Message info is carried in the user header for serialized (non-self-contained) payloads too.
+    EXPECT_GE(message_info.source_timestamp, before_publish);
+    EXPECT_LE(message_info.source_timestamp, message_info.received_timestamp);
+    EXPECT_LE(message_info.received_timestamp, after_take);
+    EXPECT_EQ(message_info.publication_sequence_number, 0u);
+    EXPECT_FALSE(message_info.from_intra_process);
+
+    ASSERT_EQ(*reinterpret_cast<Strings*>(recv_payload), send_payload);
+
+    free(recv_payload);
+}
+
 
 TEST_F(RmwPublishSubscribeTest, take_with_info_publication_sequence_number_increments) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
