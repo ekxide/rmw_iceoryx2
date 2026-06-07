@@ -1,9 +1,5 @@
 # iceoryx2 interoperation demo
 
-A ROS 2 application (running on `rmw_iceoryx2_cxx`) and a vanilla iceoryx2 Rust
-application exchanging `TransmissionData` over shared memory — no DDS, no CDR, raw
-zero-copy. Any publisher interoperates with any subscriber.
-
 > [!WARNING]
 > Work in progress. This example only demonstrates that ROS 2 ↔ iceoryx2
 > interoperation is feasible. The iceoryx2-side setup shown here (manually
@@ -11,6 +7,10 @@ zero-copy. Any publisher interoperates with any subscriber.
 > deliberately low-level and will be made ergonomic before it is recommended for
 > general use. As a ROS 2 user you do not need any of this — run the ROS nodes as
 > usual; only the native iceoryx2 peer carries the boilerplate for now.
+
+A ROS 2 application (running on `rmw_iceoryx2_cxx`) and a vanilla iceoryx2 Rust
+application exchanging `TransmissionData` over shared memory.
+
 
 ## Packages
 
@@ -20,66 +20,62 @@ zero-copy. Any publisher interoperates with any subscriber.
 | `rmw_iceoryx2_interoperation_demo_nodes` | colcon | ROS 2 nodes (rclcpp)                      |
 | `iceoryx2_interoperation_demo_nodes`     | cargo  | native iceoryx2 apps (no `package.xml`)   |
 
-## Message
-
-`iceoryx2_interoperation_demo_msgs/msg/TransmissionData`: `int32 x`, `int32 y`,
-`float64 funky`. Fixed-size POD (no strings/sequences).
 
 ## Binaries
 
-| Binary            | Package                                  | Role                                     |
-| ----------------- | ---------------------------------------- | ---------------------------------------- |
-| `ros2_publisher`  | `rmw_iceoryx2_interoperation_demo_nodes` | ROS 2 publisher on `/transmission_data`  |
-| `ros2_subscriber` | `rmw_iceoryx2_interoperation_demo_nodes` | ROS 2 subscriber on `/transmission_data` |
-| `publisher`       | `iceoryx2_interoperation_demo_nodes`     | iceoryx2 publisher                       |
-| `subscriber`      | `iceoryx2_interoperation_demo_nodes`     | iceoryx2 subscriber                      |
+All operate on the iceoryx2 service name `ros2://topics/transmission_data` (ROS topic
+`/transmission_data`): a publish-subscribe service for the payload and an event service
+for send notifications.
 
-## Wire contract
+| Binary            | Package                                  | iceoryx2 services                              |
+| ----------------- | ---------------------------------------- | --------------------------------------------- |
+| `ros2_publisher`  | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe publisher, event notifier   |
+| `ros2_subscriber` | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe subscriber, event listener  |
+| `publisher`       | `iceoryx2_interoperation_demo_nodes`     | publish-subscribe publisher, event notifier   |
+| `subscriber`      | `iceoryx2_interoperation_demo_nodes`     | publish-subscribe subscriber, event listener  |
 
-The ROS topic maps to the iceoryx2 service the vanilla app uses. The
-identity-bearing definitions (rosidl type name, message-info header) come from the
-shared `rmw_iceoryx2_interoperability` crate, which the rmw also consumes via a
-cbindgen-generated C header.
-
-- Service name: `ros2://topics/transmission_data` (ROS topic `/transmission_data`)
-- Payload: one fixed-size element, the unserialized `#[repr(C)]` `TransmissionData`
-  struct. It is identified by the rosidl type name
-  `iceoryx2_interoperation_demo_msgs/msg/TransmissionData` with alignment 8; the
-  rmw and the vanilla peer must agree on name, size, and alignment or iceoryx2
-  rejects the connection as incompatible
-- User header: `MessageInfoHeader` (type name `rmw_iceoryx2/MessageInfoHeader`,
-  `int64 source_timestamp` + `uint64 publication_sequence_number`) carries the
-  sender-originated `rmw_message_info_t` fields from publisher to subscriber
-- The publisher signals the topic's event service on every send (the subscriber
-  wakes on notification, not by polling)
-- Service static config and QoS attributes mirror rclcpp's **default** profile
-  (`KeepLast` depth 10, reliable): six `rmw.qos.local.*` attributes plus a static
-  config of `max_publishers`/`max_subscribers`/`max_nodes` = 32, history and
-  subscriber buffer = 10, `safe_overflow` disabled. Using a non-default ROS QoS
-  requires updating the QoS and static-config consts in `publisher.rs` and
-  `subscriber.rs`
 
 ## Prerequisites
 
 - Workspace built (ROS 2 from source, `rmw_iceoryx2_cxx`, `iceoryx2`).
-- Network access on the first Rust build (fetches `rosidl_runtime_rs` from crates.io).
 - All processes run on the same host with the same iceoryx2 configuration.
+- `just` and `tmux` for the scripted run below (the manual steps need neither).
 
-## Build
+## Build and run with `just`
+
+The `justfile` at `src/rmw_iceoryx2/justfile` wraps the build and run steps. Run all
+commands from the **workspace root**, passing the justfile with `-f`.
 
 ```sh
-# workspace root
+# list the available examples and their configurations
+just -f src/rmw_iceoryx2/justfile list-examples
+
+# build the ROS 2 packages and native iceoryx2 nodes for this example
+just -f src/rmw_iceoryx2/justfile build-example iceoryx2_interoperation
+
+# run a configuration (opens a tmux session: subscriber left, publisher right)
+just -f src/rmw_iceoryx2/justfile run-example iceoryx2_interoperation ros2_to_iceoryx2
+just -f src/rmw_iceoryx2/justfile run-example iceoryx2_interoperation iceoryx2_to_ros2
+```
+
+Two configurations are available, covering both cross-language directions
+(`ros2_to_iceoryx2` = ROS 2 publisher → iceoryx2 subscriber, and the reverse). To mix
+any other publisher/subscriber combination, use the manual steps below.
+
+## Build and run manually
+
+Build — from the workspace root:
+
+```sh
 colcon build --packages-up-to rmw_iceoryx2_interoperation_demo_nodes
 source install/setup.bash
 
-# vanilla iceoryx2 Rust app — the environment MUST be sourced
+# native iceoryx2 Rust app — the environment MUST be sourced first
 cargo build --release --manifest-path \
   src/rmw_iceoryx2/examples/iceoryx2_interoperation/iceoryx2_interoperation_demo_nodes/Cargo.toml
 ```
 
-## Run
-
-One process per terminal. In every terminal:
+Run — one process per terminal. In every terminal:
 
 ```sh
 source install/setup.bash
@@ -93,7 +89,7 @@ ros2 run rmw_iceoryx2_interoperation_demo_nodes ros2_publisher
 ros2 run rmw_iceoryx2_interoperation_demo_nodes ros2_subscriber
 ```
 
-Vanilla iceoryx2 app:
+Native iceoryx2 app:
 
 ```sh
 IOX2_NODES=src/rmw_iceoryx2/examples/iceoryx2_interoperation/iceoryx2_interoperation_demo_nodes/target/release
@@ -110,24 +106,4 @@ Run any one publisher with any one subscriber:
 | `ros2_publisher`       | `ros2_subscriber`         |
 | `publisher` (iceoryx2) | `subscriber` (iceoryx2)   |
 
-The iceoryx2 `subscriber` reads the `MessageInfoHeader` and prints each sample's
-publication sequence number and one-way latency (`source_timestamp` minus receive
-time). The latency is only meaningful when publisher and subscriber share a clock,
-i.e. on the same host.
-
-## Connection bootstrap
-
-iceoryx2 establishes a publisher↔subscriber connection lazily, and a subscriber
-opens its side of the connection only inside `receive()`. A purely event-driven
-subscriber calls `receive()` only in response to a notification, so the *first*
-sample races with connection setup: the publisher sends it before the subscriber's
-side is open, and it is dropped (the triggering notification arrives too late to
-open the connection in time). This is iceoryx2 working as designed — a polling
-subscriber, whose `receive()` runs continuously, sees the first sample — not a lost
-message in the wire contract.
-
-The iceoryx2 `subscriber` here avoids the drop by also attaching a periodic interval
-to its `WaitSet` (`CONNECTION_PRIME_INTERVAL`) and calling `receive()` on every tick.
-That keeps the connection primed, so it is open before a newly-started publisher's
-first send. ROS 2 subscribers are unaffected — the rmw manages this internally.
 
