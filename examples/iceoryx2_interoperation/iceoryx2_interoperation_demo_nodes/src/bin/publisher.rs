@@ -1,7 +1,7 @@
 use core::time::Duration;
 
 use iceoryx2::prelude::*;
-use iceoryx2_interoperation_demo_msgs::msg::rmw::TransmissionData;
+use rmw_iceoryx2_interoperation_demo_msgs::msg::rmw::TransmissionData;
 use iceoryx2_interoperation_demo_nodes::{system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME};
 
 const CYCLE_TIME: Duration = Duration::from_secs(1);

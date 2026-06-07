@@ -83,7 +83,7 @@ bindings to the Rust core.
 
     ```console
     cd ~/workspace/
-    RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_cxx_demo_nodes
+    RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_talker_demo_nodes
     ```
 
 1. Verify the build:
@@ -105,14 +105,14 @@ bindings to the Rust core.
 
         ```console
         source ~/workspace/install/setup.zsh # or setup.bash
-        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes listener_basic_types
+        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_talker_demo_nodes listener_basic_types
         ```
 
     1. Terminal 2
 
         ```console
         source ~/workspace/install/setup.zsh # or setup.bash
-        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes talker_basic_types
+        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_talker_demo_nodes talker_basic_types
         ```
 
 ## FAQ

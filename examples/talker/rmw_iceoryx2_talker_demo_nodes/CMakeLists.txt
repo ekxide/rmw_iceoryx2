@@ -8,7 +8,7 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 cmake_minimum_required(VERSION 3.8)
-project(rmw_iceoryx2_cxx_demo_nodes)
+project(rmw_iceoryx2_talker_demo_nodes)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)

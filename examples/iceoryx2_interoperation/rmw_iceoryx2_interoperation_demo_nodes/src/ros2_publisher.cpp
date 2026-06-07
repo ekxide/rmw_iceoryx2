@@ -8,7 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rclcpp/rclcpp.hpp"
-#include "iceoryx2_interoperation_demo_msgs/msg/transmission_data.hpp"
+#include "rmw_iceoryx2_interoperation_demo_msgs/msg/transmission_data.hpp"
 
 using namespace std::chrono_literals;
 
@@ -16,7 +16,7 @@ class TransmissionDataTalker : public rclcpp::Node {
 public:
   explicit TransmissionDataTalker(const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
       : Node("ros2_publisher", options) {
-    m_publisher = create_publisher<iceoryx2_interoperation_demo_msgs::msg::TransmissionData>(
+    m_publisher = create_publisher<rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>(
         "transmission_data", 10);
 
     auto publish = [this]() {
@@ -36,7 +36,7 @@ public:
 
 private:
   rclcpp::TimerBase::SharedPtr m_timer;
-  rclcpp::Publisher<iceoryx2_interoperation_demo_msgs::msg::TransmissionData>::SharedPtr m_publisher;
+  rclcpp::Publisher<rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>::SharedPtr m_publisher;
   int32_t m_count{0};
 };
 

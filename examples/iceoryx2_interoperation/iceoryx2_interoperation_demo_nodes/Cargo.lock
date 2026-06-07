@@ -530,19 +530,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "iceoryx2_interoperation_demo_msgs"
-version = "0.1.0"
-dependencies = [
- "rosidl_runtime_rs",
-]
-
-[[package]]
 name = "iceoryx2_interoperation_demo_nodes"
 version = "0.1.0"
 dependencies = [
  "iceoryx2",
- "iceoryx2_interoperation_demo_msgs",
  "rmw_iceoryx2_interoperability",
+ "rmw_iceoryx2_interoperation_demo_msgs",
  "rosidl_runtime_rs",
 ]
 
@@ -734,6 +727,13 @@ version = "0.1.0"
 dependencies = [
  "cbindgen",
  "iceoryx2",
+]
+
+[[package]]
+name = "rmw_iceoryx2_interoperation_demo_msgs"
+version = "0.1.0"
+dependencies = [
+ "rosidl_runtime_rs",
 ]
 
 [[package]]

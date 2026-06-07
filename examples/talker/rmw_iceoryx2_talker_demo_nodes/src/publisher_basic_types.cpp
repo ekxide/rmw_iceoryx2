@@ -40,8 +40,8 @@ public:
       msg.int64_value = static_cast<int64_t>(m_count);
       msg.uint64_value = static_cast<uint64_t>(m_count);
 
-      RCLCPP_DEBUG(this->get_logger(), "Publishing message");
-      RCLCPP_DEBUG(this->get_logger(),
+      RCLCPP_INFO(this->get_logger(), "Publishing message");
+      RCLCPP_INFO(this->get_logger(),
                    "Message content:\n"
                    "  bool_value: %d\n"
                    "  byte_value: %u\n"
@@ -77,7 +77,7 @@ private:
 };
 
 int main(int argc, char *argv[]) {
-  rcutils_logging_set_default_logger_level(RCUTILS_LOG_SEVERITY_DEBUG);
+  rcutils_logging_set_default_logger_level(RCUTILS_LOG_SEVERITY_INFO);
 
   rclcpp::NodeOptions options;
   options.start_parameter_services(false);

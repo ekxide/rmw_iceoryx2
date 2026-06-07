@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(iceoryx2_interoperation_demo_msgs)
+project(rmw_iceoryx2_interoperation_demo_msgs)
 
 find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)

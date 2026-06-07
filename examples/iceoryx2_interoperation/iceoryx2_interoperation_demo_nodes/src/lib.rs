@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use iceoryx2::prelude::*;
-use iceoryx2_interoperation_demo_msgs::msg::rmw::TransmissionData;
+use rmw_iceoryx2_interoperation_demo_msgs::msg::rmw::TransmissionData;
 use rosidl_runtime_rs::RmwMessage;
 
 pub use rmw_iceoryx2_interoperability::MessageInfoHeader;

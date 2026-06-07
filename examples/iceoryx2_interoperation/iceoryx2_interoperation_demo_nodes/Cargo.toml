@@ -6,6 +6,6 @@ publish = false
 
 [dependencies]
 iceoryx2 = { path = "../../../../iceoryx2/iceoryx2" }
-iceoryx2_interoperation_demo_msgs = { path = "../../../../../install/iceoryx2_interoperation_demo_msgs/share/iceoryx2_interoperation_demo_msgs/rust" }
+rmw_iceoryx2_interoperation_demo_msgs = { path = "../../../../../install/rmw_iceoryx2_interoperation_demo_msgs/share/rmw_iceoryx2_interoperation_demo_msgs/rust" }
 rmw_iceoryx2_interoperability = { path = "../../../rmw_iceoryx2_interoperability" }
 rosidl_runtime_rs = "0.6"

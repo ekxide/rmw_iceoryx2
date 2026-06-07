@@ -1,0 +1,13 @@
+# Build the talker/listener demo.
+# Invoked by the root build-example recipe; runnable directly from the workspace root.
+
+ws := invocation_directory()
+root := justfile_directory() / "../../justfile"
+
+# Build the ROS 2 demo nodes.
+build:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cd "{{ws}}"
+    just -f "{{root}}" build rmw_iceoryx2_talker_demo_nodes

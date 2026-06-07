@@ -19,8 +19,8 @@ public:
     auto on_msg =
         [this](
             rmw_iceoryx2_cxx_test_msgs::msg::Strings::UniquePtr msg) -> void {
-      RCLCPP_DEBUG(this->get_logger(), "Got message");
-      RCLCPP_DEBUG(this->get_logger(),
+      RCLCPP_INFO(this->get_logger(), "Got message");
+      RCLCPP_INFO(this->get_logger(),
                    "Message content:\n"
                    "%s",
                    msg->string_value.c_str());
@@ -36,7 +36,7 @@ private:
 };
 
 int main(int argc, char *argv[]) {
-  rcutils_logging_set_default_logger_level(RCUTILS_LOG_SEVERITY_DEBUG);
+  rcutils_logging_set_default_logger_level(RCUTILS_LOG_SEVERITY_INFO);
 
   rclcpp::NodeOptions options;
   options.start_parameter_services(false);

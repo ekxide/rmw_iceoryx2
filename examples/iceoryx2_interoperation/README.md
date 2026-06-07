@@ -14,11 +14,11 @@ application exchanging `TransmissionData` over shared memory.
 
 ## Packages
 
-| Package                                  | Build  | Contents                                  |
-| ---------------------------------------- | ------ | ----------------------------------------- |
-| `iceoryx2_interoperation_demo_msgs`      | colcon | `TransmissionData` interface (shared)     |
-| `rmw_iceoryx2_interoperation_demo_nodes` | colcon | ROS 2 nodes (rclcpp)                      |
-| `iceoryx2_interoperation_demo_nodes`     | cargo  | native iceoryx2 apps (no `package.xml`)   |
+| Package                                      | Build  | Contents                                |
+| -------------------------------------------- | ------ | --------------------------------------- |
+| `rmw_iceoryx2_interoperation_demo_msgs`      | colcon | `TransmissionData` interface (shared)   |
+| `rmw_iceoryx2_interoperation_demo_nodes`     | colcon | ROS 2 nodes (rclcpp)                    |
+| `iceoryx2_interoperation_demo_nodes`         | cargo  | native iceoryx2 apps (no `package.xml`) |
 
 
 ## Binaries
