@@ -79,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let on_event = |id: WaitSetAttachmentId<ipc::Service>| -> CallbackProgression {
         // Drain the listener when it fired, otherwise the WaitSet wakes us again immediately.
         if id.has_event_from(&listener_guard) {
-            listener.try_wait_all(|_| {}).unwrap();
+            listener.try_wait(|_| {}).unwrap();
         }
         // Receive on every wake, including periodic ticks: the tick-driven `receive()` opens the
         // connection to a new publisher before its first send, and draining here handles samples.

@@ -202,7 +202,7 @@ auto WaitSet::process_trigger(const WaitableEntity waitable_type,
     // Drain all events from the trigger.
     // The value nor number of triggers is irrelevant, so no callback logic required.
     auto drain_events = [](auto& listener) -> ::iox2::bb::Expected<void, ErrorType> {
-        if (auto result = listener.try_wait_all([&](auto) {}); !result.has_value()) {
+        if (auto result = listener.try_wait([&](auto) {}); !result.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve events from listener");
             return err(ErrorType::LISTENER_FAILURE);
         }
