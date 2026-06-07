@@ -43,7 +43,9 @@ void populate_message_info(rmw_message_info_t* message_info,
     message_info->from_intra_process = false;
 }
 
-// Shared take implementation; `message_info` is populated when not null.
+// Shared implementation for rmw_take and rmw_take_with_info. Invoked only after the rmw entry
+// points have validated their arguments via RMW_IOX2_ENSURE_*, so preconditions are assumed met.
+// `message_info` is populated when not null.
 rmw_ret_t take_impl(const rmw_subscription_t* rmw_subscription,
                     void* ros_message,
                     bool* taken,
@@ -108,18 +110,16 @@ rmw_ret_t take_impl(const rmw_subscription_t* rmw_subscription,
     return RMW_RET_OK;
 }
 
-// Shared loaned-take implementation; `message_info` is populated when not null.
+// Shared implementation for rmw_take_loaned_message and rmw_take_loaned_message_with_info. Invoked
+// only after the rmw entry points have validated their arguments via RMW_IOX2_ENSURE_*, including
+// RMW_IOX2_ENSURE_CAN_LOAN, so the subscription is assumed to support loaning.
+// `message_info` is populated when not null.
 rmw_ret_t take_loaned_impl(const rmw_subscription_t* rmw_subscription,
                            void** loaned_message,
                            bool* taken,
                            rmw_message_info_t* message_info) {
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
-
-    if (!rmw_subscription->can_loan_messages) {
-        RMW_IOX2_CHAIN_ERROR_MSG("attempted to take loan from subscription that does not support loaning");
-        return RMW_RET_UNSUPPORTED;
-    }
 
     RMW_IOX2_LOG_DEBUG("Taking loan from '%s'", rmw_subscription->topic_name);
 
@@ -359,11 +359,6 @@ rmw_ret_t rmw_return_loaned_message_from_subscription(const rmw_subscription_t* 
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_CAN_LOAN(rmw_subscription, RMW_RET_UNSUPPORTED);
     RMW_IOX2_ENSURE_NOT_NULL(loaned_message, RMW_RET_INVALID_ARGUMENT);
-
-    if (!rmw_subscription->can_loan_messages) {
-        RMW_IOX2_CHAIN_ERROR_MSG("non-self-contained messages do not support loaning");
-        return RMW_RET_INVALID_ARGUMENT;
-    }
 
     // Implementation -------------------------------------------------------------------------------
     using SubscriberImpl = ::rmw::iox2::Subscriber;
