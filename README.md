@@ -115,6 +115,33 @@ bindings to the Rust core.
         ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_talker_demo_nodes talker_basic_types
         ```
 
+## Examples
+
+Examples live in [`examples/`](examples/) and are built and run via the root `justfile`.
+Requires [`just`](https://github.com/casey/just#installation) and `tmux`.
+
+Run all commands from the workspace root:
+
+```console
+# list the examples and their configurations
+just -f src/rmw_iceoryx2/justfile list-examples
+
+# build an example's packages
+just -f src/rmw_iceoryx2/justfile build-example <example>
+
+# run a configuration (opens a tmux session)
+just -f src/rmw_iceoryx2/justfile run-example <example> <config>
+```
+
+For example, the basic talker/listener demo:
+
+```console
+just -f src/rmw_iceoryx2/justfile build-example talker
+just -f src/rmw_iceoryx2/justfile run-example talker basic_types
+```
+
+See [`examples/README.md`](examples/README.md) for the full list and how to add an example.
+
 ## FAQ
 
 ### Why another RMW implementation?

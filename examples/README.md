@@ -9,8 +9,14 @@ just -f src/rmw_iceoryx2/justfile build-example <example>    # build the example
 just -f src/rmw_iceoryx2/justfile run-example <example> <config>
 ```
 
-`build-example`/`run-example`/`list-examples` discover examples by directory — adding
-one requires **no edits to the root justfile**.
+`build-example`/`run-example`/`list-examples` discover examples by directory.
+
+## Available examples
+
+| Example | Configurations | Description |
+| ------- | -------------- | ----------- |
+| `talker` | `basic_types`, `strings` | Basic ROS 2 talker/listener on `rmw_iceoryx2_cxx`. |
+| [`iceoryx2_interoperation`](iceoryx2_interoperation/README.md) | `ros2_to_iceoryx2`, `iceoryx2_to_ros2` | ROS 2 ↔ native iceoryx2 exchanging messages over shared memory. |
 
 ## Layout
 
