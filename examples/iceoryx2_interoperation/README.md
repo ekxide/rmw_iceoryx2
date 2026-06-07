@@ -11,6 +11,21 @@
 A ROS 2 application (running on `rmw_iceoryx2_cxx`) and a vanilla iceoryx2 Rust
 application exchanging `TransmissionData` over shared memory.
 
+## Topology
+
+```text
+   ROS 2 application                                           iceoryx2 application
+   (rclcpp -> rmw_iceoryx2_cxx -> iceoryx2)                    (iceoryx2)
+
+   ros2_publisher  --+                                         +--  publisher
+   ros2_subscriber --+                                         +--  subscriber
+                     |                                         |
+                     v                                         v
+   +----------------------------------------------------------------+
+   |               iceoryx2 shared memory                           |
+   |               service: ros2://topics/transmission_data         |
+   +----------------------------------------------------------------+
+```
 
 ## Packages
 
