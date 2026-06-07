@@ -13,6 +13,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
+#include "iox2/custom_header_marker.hpp"
 #include "iox2/custom_payload_marker.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
@@ -45,8 +46,9 @@ struct Error<Publisher>
 class RMW_PUBLIC Publisher
 {
 public:
+    using UserHeader = ::iox2::CustomHeaderMarker;
+    using MessageInfo = ::rmw_iceoryx2_interoperability::MessageInfoHeader;
     using Payload = ::iox2::bb::Slice<::iox2::CustomPayloadMarker>;
-    using UserHeader = ::rmw_iceoryx2_interoperability::MessageInfoHeader;
     using ErrorType = Error<Publisher>::Type;
 
 private:
@@ -119,8 +121,8 @@ public:
     auto publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
-    /// @brief Populate the user-header message info (source timestamp, sequence number) before sending.
-    void populate_message_info(UserHeader& header);
+    /// @brief Populate the user-header message info for sending.
+    void populate_message_info(MessageInfo& header);
 
     // m_topic, m_unserialized_size, m_service_name, and m_qos are logically
     // const after construction. The `const` qualifier is omitted only because

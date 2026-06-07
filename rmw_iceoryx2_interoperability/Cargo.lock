@@ -364,6 +364,7 @@ dependencies = [
  "iceoryx2-bb-elementary-traits",
  "iceoryx2-log",
  "iceoryx2-pal-concurrency-sync",
+ "serde",
 ]
 
 [[package]]

@@ -15,7 +15,6 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
-#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 
@@ -68,14 +67,25 @@ Subscriber::Subscriber(CreationLock,
 
     const auto payload_type_name = ::rmw::iox2::message_type_name(m_typesupport);
 
+    auto service_builder = node.iox2()
+                               .ipc()
+                               .service_builder(iox2_service_name.value())
+                               .publish_subscribe<Payload>()
+                               .user_header<UserHeader>();
+
+    ::iox2::set_user_header_type_details(
+        service_builder,
+        ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,
+                           ::rmw_iceoryx2_interoperability::MESSAGE_INFO_HEADER_TYPE_NAME,
+                           sizeof(MessageInfo),
+                           alignof(MessageInfo)));
+    ::iox2::set_payload_type_details(
+        service_builder,
+        ::iox2::TypeDetail(
+            ::iox2::TypeVariant::FixedSize, payload_type_name.c_str(), ::rmw::iox2::message_size(m_typesupport), 8));
+
     auto iox2_pubsub_service =
-        node.iox2()
-            .ipc()
-            .service_builder(iox2_service_name.value())
-            .publish_subscribe<Payload>()
-            .set_payload_type_details(::iox2::TypeDetail(
-                ::iox2::TypeVariant::FixedSize, payload_type_name.c_str(), ::rmw::iox2::message_size(m_typesupport), 8))
-            .user_header<UserHeader>()
+        service_builder.resume_build()
             .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
             .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
@@ -130,7 +140,7 @@ auto Subscriber::qos() const -> const Qos& {
     return m_qos;
 }
 
-auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType> {
+auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<MessageInfo>, ErrorType> {
     using ::iox2::bb::err;
     using ::iox2::bb::Optional;
 
@@ -142,12 +152,14 @@ auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optio
     auto sample = std::move(result.value());
 
     if (!sample.has_value()) {
-        return Optional<UserHeader>{::iox2::bb::NULLOPT};
+        return Optional<MessageInfo>{::iox2::bb::NULLOPT};
     }
 
     auto payload = sample.value().payload();
     std::memcpy(dest, payload.data(), payload.number_of_bytes());
-    return Optional<UserHeader>(sample.value().user_header());
+
+    // The user header type is fixed.
+    return Optional<MessageInfo>(reinterpret_cast<const MessageInfo&>(sample.value().user_header()));
 }
 
 auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<SubscriberLoan>, ErrorType> {
@@ -166,7 +178,9 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
         // const_cast required because of the RMW API.
         auto* data = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(sample->payload().data()));
         auto number_of_bytes = sample->payload().number_of_bytes();
-        auto message_info = sample->user_header();
+
+        // The user header type is fixed.
+        auto message_info = reinterpret_cast<const MessageInfo&>(sample->user_header());
         m_registry.store(std::move(sample.value()));
 
         return Optional<SubscriberLoan>(SubscriberLoan{data, number_of_bytes, message_info});

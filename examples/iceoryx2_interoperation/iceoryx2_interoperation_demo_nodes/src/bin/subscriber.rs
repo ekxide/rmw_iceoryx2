@@ -1,7 +1,9 @@
 use core::time::Duration;
 
 use iceoryx2::prelude::*;
-use iceoryx2_interoperation_demo_nodes::{system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME};
+use iceoryx2_interoperation_demo_nodes::{
+    system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME,
+};
 
 // Must match the values rmw_iceoryx2 uses (DEFAULT_MAX_* and rclcpp's default QoS depth).
 const PAYLOAD_ALIGNMENT: usize = 8;
