@@ -15,6 +15,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
@@ -85,12 +86,6 @@ Subscriber::Subscriber(CreationLock,
                                .publish_subscribe<Payload>()
                                .user_header<UserHeader>();
 
-    ::iox2::set_user_header_type_details(
-        service_builder,
-        ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,
-                           ::rmw_iceoryx2_interoperability::MESSAGE_INFO_HEADER_TYPE_NAME,
-                           sizeof(MessageInfo),
-                           alignof(MessageInfo)));
     ::iox2::set_payload_type_details(service_builder, payload_type_details);
 
     auto iox2_pubsub_service =
@@ -149,7 +144,7 @@ auto Subscriber::qos() const -> const Qos& {
     return m_qos;
 }
 
-auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<MessageInfo>, ErrorType> {
+auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType> {
     using ::iox2::bb::err;
     using ::iox2::bb::Optional;
 
@@ -161,14 +156,12 @@ auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optio
     auto sample = std::move(result.value());
 
     if (!sample.has_value()) {
-        return Optional<MessageInfo>{::iox2::bb::NULLOPT};
+        return Optional<UserHeader>{::iox2::bb::NULLOPT};
     }
 
     auto payload = sample.value().payload();
     std::memcpy(dest, payload.data(), payload.number_of_bytes());
-
-    // The user header type is fixed.
-    return Optional<MessageInfo>(reinterpret_cast<const MessageInfo&>(sample.value().user_header()));
+    return Optional<UserHeader>(sample.value().user_header());
 }
 
 auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<SubscriberLoan>, ErrorType> {
@@ -187,9 +180,7 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
         // const_cast required because of the RMW API.
         auto* data = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(sample->payload().data()));
         auto number_of_bytes = sample->payload().number_of_bytes();
-
-        // The user header type is fixed.
-        auto message_info = reinterpret_cast<const MessageInfo&>(sample->user_header());
+        auto message_info = sample->user_header();
         m_registry.store(std::move(sample.value()));
 
         return Optional<SubscriberLoan>(SubscriberLoan{data, number_of_bytes, message_info});

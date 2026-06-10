@@ -17,6 +17,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
@@ -89,12 +90,6 @@ Publisher::Publisher(CreationLock,
                                .publish_subscribe<Payload>()
                                .user_header<UserHeader>();
 
-    ::iox2::set_user_header_type_details(
-        service_builder,
-        ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,
-                           ::rmw_iceoryx2_interoperability::MESSAGE_INFO_HEADER_TYPE_NAME,
-                           sizeof(MessageInfo),
-                           alignof(MessageInfo)));
     ::iox2::set_payload_type_details(service_builder, payload_type_details);
 
     auto iox2_pubsub_service =
@@ -215,7 +210,7 @@ auto Publisher::publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, 
         return err(ErrorType::INVALID_PAYLOAD);
     }
 
-    populate_message_info(reinterpret_cast<MessageInfo&>(sample.value().user_header_mut()));
+    populate_message_info(sample.value().user_header_mut());
 
     if (auto result = Iceoryx2::InterProcess::send<Payload, UserHeader>(std::move(sample.value()));
         !result.has_value()) {
@@ -242,7 +237,7 @@ auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::io
         return err(ErrorType::LOAN_FAILURE);
     }
 
-    populate_message_info(reinterpret_cast<MessageInfo&>(sample.value().user_header_mut()));
+    populate_message_info(sample.value().user_header_mut());
     std::memcpy(sample.value().payload_mut().data(), data, number_of_bytes);
 
     if (auto result = Iceoryx2::InterProcess::send<Payload, UserHeader>(std::move(sample.value()));
@@ -260,7 +255,7 @@ auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::io
     return {};
 }
 
-void Publisher::populate_message_info(MessageInfo& header) {
+void Publisher::populate_message_info(UserHeader& header) {
     rcutils_time_point_value_t now = 0;
     if (rcutils_system_time_now(&now) != RCUTILS_RET_OK) {
         now = 0;

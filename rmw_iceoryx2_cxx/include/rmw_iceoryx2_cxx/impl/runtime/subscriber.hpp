@@ -13,7 +13,6 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
-#include "iox2/custom_header_marker.hpp"
 #include "iox2/custom_payload_marker.hpp"
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
@@ -51,9 +50,8 @@ struct SubscriberLoan
 class RMW_PUBLIC Subscriber
 {
 public:
-    using UserHeader = ::iox2::CustomHeaderMarker;
-    using MessageInfo = ::rmw_iceoryx2_interoperability::MessageInfoHeader;
     using Payload = ::iox2::bb::Slice<::iox2::CustomPayloadMarker>;
+    using UserHeader = ::rmw_iceoryx2_interoperability::MessageInfoHeader;
     using ErrorType = Error<Subscriber>::Type;
 
 private:
@@ -100,8 +98,8 @@ public:
 
     /// @brief Take a message by copying its payload to the destination buffer
     /// @param[out] dest Pointer to the destination buffer
-    /// @return Expected containing the sample's message info if a message was taken, empty otherwise
-    auto take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<MessageInfo>, ErrorType>;
+    /// @return Expected containing the sample's user header if a message was taken, empty otherwise
+    auto take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType>;
 
     /// @brief Take a loaned message without copying
     /// @return Expected containing optional pointer to the loaned message memory
