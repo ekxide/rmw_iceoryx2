@@ -9,6 +9,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.hpp"
+#include "rmw_iceoryx2_talker_demo_nodes/pretty.hpp"
 
 using namespace std::chrono_literals;
 
@@ -27,11 +28,10 @@ public:
       auto &msg = loan.get();
       msg.string_value = "Hello " + std::to_string(m_count);
 
-      RCLCPP_INFO(this->get_logger(), "Publishing message");
-      RCLCPP_INFO(this->get_logger(),
-                   "Message content:\n"
-                   "%s",
-                   msg.string_value.c_str());
+      RCLCPP_INFO(this->get_logger(), "%s",
+                  pretty::frame(pretty::Direction::Sent, "",
+                                {{"string_value", msg.string_value}})
+                      .c_str());
 
       m_publisher->publish(std::move(loan));
       m_count++;

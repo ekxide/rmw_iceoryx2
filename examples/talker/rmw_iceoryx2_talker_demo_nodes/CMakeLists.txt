@@ -24,21 +24,25 @@ find_package(rclcpp REQUIRED)
 find_package(rmw_iceoryx2_cxx_test_msgs REQUIRED)
 
 add_executable(talker_basic_types src/publisher_basic_types.cpp)
+target_include_directories(talker_basic_types PRIVATE include)
 target_link_libraries(talker_basic_types PRIVATE
   rclcpp::rclcpp
   rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs)
 
 add_executable(listener_basic_types src/subscriber_basic_types.cpp)
+target_include_directories(listener_basic_types PRIVATE include)
 target_link_libraries(listener_basic_types PRIVATE
   rclcpp::rclcpp
   rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs)
 
 add_executable(talker_strings src/publisher_strings.cpp)
+target_include_directories(talker_strings PRIVATE include)
 target_link_libraries(talker_strings PRIVATE
   rclcpp::rclcpp
   rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs)
 
 add_executable(listener_strings src/subscriber_strings.cpp)
+target_include_directories(listener_strings PRIVATE include)
 target_link_libraries(listener_strings PRIVATE
   rclcpp::rclcpp
   rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs)

@@ -9,6 +9,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.hpp"
+#include "rmw_iceoryx2_talker_demo_nodes/pretty.hpp"
 
 class StringsListenerNode : public rclcpp::Node {
 public:
@@ -17,13 +18,16 @@ public:
       : Node("listener_strings", options) {
 
     auto on_msg =
-        [this](
-            rmw_iceoryx2_cxx_test_msgs::msg::Strings::UniquePtr msg) -> void {
-      RCLCPP_INFO(this->get_logger(), "Got message");
-      RCLCPP_INFO(this->get_logger(),
-                   "Message content:\n"
-                   "%s",
-                   msg->string_value.c_str());
+        [this](rmw_iceoryx2_cxx_test_msgs::msg::Strings::UniquePtr msg,
+               const rclcpp::MessageInfo &info) -> void {
+      const auto meta =
+          "seq " + std::to_string(
+                       info.get_rmw_message_info().publication_sequence_number);
+
+      RCLCPP_INFO(this->get_logger(), "%s",
+                  pretty::frame(pretty::Direction::Received, meta,
+                                {{"string_value", msg->string_value}})
+                      .c_str());
     };
     subscription_ =
         this->create_subscription<rmw_iceoryx2_cxx_test_msgs::msg::Strings>(
