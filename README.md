@@ -42,9 +42,10 @@ bindings to the Rust core.
 ## Performance
 
 > [!NOTE]
+>
 > * The latency measurement can be reproduced with [these instructions](benchmark)
 > * The measurements were taken on a Ryzen 3950X without a fine-tuned OS - lower latency could be expected on a fine-tuned target
-> * The [`performance_test`](https://gitlab.com/ApexAI/performance_test/-/tree/master/performance_test) tool uses `rmw_iceoryx2` through 
+> * The [`performance_test`](https://gitlab.com/ApexAI/performance_test/-/tree/master/performance_test) tool uses `rmw_iceoryx2` through
 >   the ROS 2 stack, which naturally introduces some overhead compared to pure `iceoryx2`
 > * The minimal possible latency achievable with `iceoryx2` is [in the nanosecond range](https://github.com/eclipse-iceoryx/iceoryx2/tree/main?tab=readme-ov-file#comparision-of-mechanisms)
 
@@ -118,7 +119,8 @@ bindings to the Rust core.
 ## Examples
 
 Examples live in [`examples/`](examples/) and are built and run via the root `justfile`.
-Requires [`just`](https://github.com/casey/just#installation) and `tmux`.
+Requires [`just`](https://github.com/casey/just#installation) and [`tmux`](
+https://github.com/tmux/tmux#installation).
 
 Run all commands from the workspace root:
 
@@ -157,8 +159,8 @@ ASIL certification of `rmw_iceoryx2` is currently not a priority. Reason being t
 a certified flavour of ROS 2 would additionally be required to produce a fully certified application, which is
 a large undertaking and not in scope for us.
 
-The `iceoryx2` implementation, however, is prepared for and targeting ASIL-D certification. With interoperability between `iceoryx2` 
-and `rmw_iceoryx2`, safety-critical components built on `iceoryx2` (which may be certified up to ASIL-D) can communicate 
+The `iceoryx2` implementation, however, is prepared for and targeting ASIL-D certification. With interoperability between `iceoryx2`
+and `rmw_iceoryx2`, safety-critical components built on `iceoryx2` (which may be certified up to ASIL-D) can communicate
 with ROS 2 components which may not be certified, or certified at a lower rating (e.g. Quality Management (QM)), thus taking
 advantage of the vast development ecosystem offered by ROS 2.
 
@@ -170,8 +172,8 @@ We would be happy to discuss your use-case and explore the options together.
 In its current form, `rmw_iceoryx2` only supports communication within a single host. However, `iceoryx2` has so-called `Gateways`
 and `Tunnels` on the roadmap which will support this use-case and should be available in the coming months.
 
-A `Gateway` bridges between hosts using a host-to-host-capable middleware with a defined on-wire protocol, such as 
-[`zenoh`](https://github.com/eclipse-zenoh/zenoh), which runs in an isolated process and exchanges payloads via `iceoryx2` 
+A `Gateway` bridges between hosts using a host-to-host-capable middleware with a defined on-wire protocol, such as
+[`zenoh`](https://github.com/eclipse-zenoh/zenoh), which runs in an isolated process and exchanges payloads via `iceoryx2`
 shared-memory communication. This keeps network communication isolated from safety-critical software.
 
 A `Tunnel` provides a more direct approach to host-to-host communication while maintaining the same process isolation model.
@@ -181,7 +183,7 @@ offering lower latency but requiring more careful handling of network communicat
 
 ### What is a self-contained message?
 
-A message definition that does not contain any pointers or references to addresses in a process's virtual 
+A message definition that does not contain any pointers or references to addresses in a process's virtual
 address space i.e. satisfy [`TriviallyCopyable` named requirement](https://en.cppreference.com/w/cpp/named_req/TriviallyCopyable).
 
 Self-contained messages can be stored in shared memory without any serialization and subsequently read by
