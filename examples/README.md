@@ -64,6 +64,9 @@ Conventions (see the reference example):
   prelude into each pane.
 - Name the session/window after the config (`basename "${BASH_SOURCE[0]}" .tmux`).
 - Verify required binaries exist; otherwise print the build command and exit non-zero.
+- Place the publisher pane on the left, the subscriber on the right. Start the
+  subscriber first and split the publisher pane off with `split-window -h -b`,
+  which puts it on the left without changing the start order.
 
 ## Multiple configurations
 

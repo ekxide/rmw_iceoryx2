@@ -68,7 +68,7 @@ just -f src/rmw_iceoryx2/justfile list-examples
 # build the ROS 2 packages and native iceoryx2 nodes for this example
 just -f src/rmw_iceoryx2/justfile build-example iceoryx2_interoperation
 
-# run a configuration (opens a tmux session: subscriber left, publisher right)
+# run a configuration (opens a tmux session: publisher left, subscriber right)
 just -f src/rmw_iceoryx2/justfile run-example iceoryx2_interoperation ros2_to_iceoryx2
 just -f src/rmw_iceoryx2/justfile run-example iceoryx2_interoperation iceoryx2_to_ros2
 ```

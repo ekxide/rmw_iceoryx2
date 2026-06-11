@@ -23,7 +23,7 @@ bash_bin="$(command -v bash)"
 tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
 tmux new-session -d -s "$SESSION_NAME" -n "$SESSION_NAME" "$bash_bin"
 tmux send-keys -t "$SESSION_NAME" "$prelude; '$SUBSCRIBER'" C-m
-tmux split-window -h -t "$SESSION_NAME" "$bash_bin"
+tmux split-window -h -b -t "$SESSION_NAME" "$bash_bin"
 tmux send-keys -t "$SESSION_NAME" "$prelude; ros2 run rmw_iceoryx2_interoperation_demo_nodes ros2_publisher" C-m
 tmux select-layout -t "$SESSION_NAME" even-horizontal
 tmux attach-session -t "$SESSION_NAME"
