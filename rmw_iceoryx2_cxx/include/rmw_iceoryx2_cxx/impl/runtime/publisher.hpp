@@ -13,6 +13,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
+#include "iox2/custom_payload_marker.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -20,6 +21,7 @@
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
+#include "rmw_iceoryx2_interoperability/rmw_iceoryx2_interoperability.h"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
 namespace rmw::iox2
@@ -43,7 +45,8 @@ struct Error<Publisher>
 class RMW_PUBLIC Publisher
 {
 public:
-    using Payload = ::iox2::bb::Slice<uint8_t>;
+    using Payload = ::iox2::bb::Slice<::iox2::CustomPayloadMarker>;
+    using UserHeader = ::rmw_iceoryx2_interoperability::MessageInfoHeader;
     using ErrorType = Error<Publisher>::Type;
 
 private:
@@ -51,8 +54,8 @@ private:
     using IdType = ::iox2::UniquePublisherId;
 
     using IceoryxNotifier = Iceoryx2::InterProcess::Notifier;
-    using IceoryxPublisher = Iceoryx2::InterProcess::Publisher<Payload>;
-    using IceoryxSample = Iceoryx2::InterProcess::SampleMutUninit<Payload>;
+    using IceoryxPublisher = Iceoryx2::InterProcess::Publisher<Payload, UserHeader>;
+    using IceoryxSample = Iceoryx2::InterProcess::SampleMutUninit<Payload, UserHeader>;
     using IceoryxSampleRegistry = SampleRegistry<IceoryxSample>;
 
 public:
@@ -94,7 +97,10 @@ public:
     /// @return Reference to the resolved QoS
     auto qos() const -> const Qos&;
 
-    /// @brief Loan memory for zero-copy publishing
+    /// @brief Loan memory for publishing
+    /// @param[in] number_of_bytes Required buffer size in bytes. Honored for serialized payloads;
+    ///            ignored for self-contained payloads, which always loan the size of the
+    ///            fixed message struct.
     /// @return Expected containing pointer to loaned memory or error
     auto loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType>;
 
@@ -116,13 +122,17 @@ public:
     auto publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
-    // m_topic, m_unserialized_size, m_service_name, and m_qos are logically
+    /// @brief Populate the user-header message info (source timestamp, sequence number) before sending.
+    void populate_message_info(UserHeader& header);
+
+    // m_topic, m_unserialized_size, m_is_self_contained, m_service_name, and m_qos are logically
     // const after construction. The `const` qualifier is omitted only because
     // storing this class in `iox2::bb::Optional` requires it to be
     // move-assignable. Do not mutate them.
     std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
     uint64_t m_unserialized_size;
+    bool m_is_self_contained;
     std::string m_service_name;
     Qos m_qos;
 
@@ -130,6 +140,7 @@ private:
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
     ::iox2::bb::Optional<IceoryxPublisher> m_iox2_publisher;
     IceoryxSampleRegistry m_registry;
+    uint64_t m_publication_sequence_number{0};
 };
 
 } // namespace rmw::iox2

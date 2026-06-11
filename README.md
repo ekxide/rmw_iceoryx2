@@ -4,6 +4,8 @@
 1. [Feature Completeness](#feature-completeness)
 1. [Performance](#performance)
 1. [Setup](#setup)
+1. [Examples](#examples)
+1. [Benchmarks](#benchmarks)
 1. [FAQ](#faq)
 1. [Commercial Support](#commercial-support)
 1. [Maintainers](#maintainers)
@@ -42,13 +44,14 @@ bindings to the Rust core.
 ## Performance
 
 > [!NOTE]
-> * The latency measurement can be reproduced with [these instructions](benchmark)
+>
+> * The latency measurement can be reproduced with [these instructions](performance_test)
 > * The measurements were taken on a Ryzen 3950X without a fine-tuned OS - lower latency could be expected on a fine-tuned target
-> * The [`performance_test`](https://gitlab.com/ApexAI/performance_test/-/tree/master/performance_test) tool uses `rmw_iceoryx2` through 
+> * The [`performance_test`](https://gitlab.com/ApexAI/performance_test/-/tree/master/performance_test) tool uses `rmw_iceoryx2` through
 >   the ROS 2 stack, which naturally introduces some overhead compared to pure `iceoryx2`
 > * The minimal possible latency achievable with `iceoryx2` is [in the nanosecond range](https://github.com/eclipse-iceoryx/iceoryx2/tree/main?tab=readme-ov-file#comparision-of-mechanisms)
 
-![Latency vs. Message Size v0.1.0](benchmark/figure/v0.1.0.png)
+![Latency vs. Message Size v0.1.0](performance_test/figure/v0.1.0.png)
 
 ## Setup
 
@@ -83,7 +86,7 @@ bindings to the Rust core.
 
     ```console
     cd ~/workspace/
-    RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_cxx_demo_nodes
+    RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_talker_demo_nodes
     ```
 
 1. Verify the build:
@@ -105,15 +108,70 @@ bindings to the Rust core.
 
         ```console
         source ~/workspace/install/setup.zsh # or setup.bash
-        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes listener_basic_types
+        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_talker_demo_nodes listener_basic_types
         ```
 
     1. Terminal 2
 
         ```console
         source ~/workspace/install/setup.zsh # or setup.bash
-        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_cxx_demo_nodes talker_basic_types
+        ROS_DISABLE_LOANED_MESSAGES=0 ros2 run rmw_iceoryx2_talker_demo_nodes talker_basic_types
         ```
+
+## Examples
+
+Examples live in [`examples/`](examples/) and are built and run via the root `justfile`.
+Requires [`just`](https://github.com/casey/just#installation) and [`tmux`](
+https://github.com/tmux/tmux#installation) for convenient orchestration.
+
+Run all commands from the workspace root:
+
+```console
+# list the examples and their configurations
+just -f src/rmw_iceoryx2/justfile list-examples
+
+# build an example's packages
+just -f src/rmw_iceoryx2/justfile build-example <example>
+
+# run a configuration (opens a tmux session)
+just -f src/rmw_iceoryx2/justfile run-example <example> <config>
+```
+
+For example, the basic talker/listener demo:
+
+```console
+just -f src/rmw_iceoryx2/justfile build-example talker
+just -f src/rmw_iceoryx2/justfile run-example talker basic_types
+```
+
+See [`examples/README.md`](examples/README.md) for the full list and how to add an example.
+
+## Benchmarks
+
+Targeted latency benchmarks live in [`benchmark/`](benchmark/).
+Requires [`just`](https://github.com/casey/just#installation) for convenient
+orchestration.
+
+They measure the one-way latency of `rmw_iceoryx2` at a configurable publish
+rate for every pairing of ROS 2 and native `iceoryx2` endpoints. The
+benchmark isolates overhead of the `rclcpp` layer across publish rates, not
+latency across payload sizes.
+
+Run from the workspace root:
+
+```console
+# build the benchmark packages
+just -f src/rmw_iceoryx2/justfile build-benchmark
+
+# list the available pairings and their parameters
+just -f src/rmw_iceoryx2/justfile list-benchmarks
+
+# run a pairing
+just -f src/rmw_iceoryx2/justfile run-benchmark ros2-to-ros2 rate=1000 count=10000
+```
+
+See [`benchmark/README.md`](benchmark/README.md) for the pairings, parameters,
+methodology, and how to interpret the results.
 
 ## FAQ
 
@@ -130,8 +188,8 @@ ASIL certification of `rmw_iceoryx2` is currently not a priority. Reason being t
 a certified flavour of ROS 2 would additionally be required to produce a fully certified application, which is
 a large undertaking and not in scope for us.
 
-The `iceoryx2` implementation, however, is prepared for and targeting ASIL-D certification. With interoperability between `iceoryx2` 
-and `rmw_iceoryx2`, safety-critical components built on `iceoryx2` (which may be certified up to ASIL-D) can communicate 
+The `iceoryx2` implementation, however, is prepared for and targeting ASIL-D certification. With interoperability between `iceoryx2`
+and `rmw_iceoryx2`, safety-critical components built on `iceoryx2` (which may be certified up to ASIL-D) can communicate
 with ROS 2 components which may not be certified, or certified at a lower rating (e.g. Quality Management (QM)), thus taking
 advantage of the vast development ecosystem offered by ROS 2.
 
@@ -143,8 +201,8 @@ We would be happy to discuss your use-case and explore the options together.
 In its current form, `rmw_iceoryx2` only supports communication within a single host. However, `iceoryx2` has so-called `Gateways`
 and `Tunnels` on the roadmap which will support this use-case and should be available in the coming months.
 
-A `Gateway` bridges between hosts using a host-to-host-capable middleware with a defined on-wire protocol, such as 
-[`zenoh`](https://github.com/eclipse-zenoh/zenoh), which runs in an isolated process and exchanges payloads via `iceoryx2` 
+A `Gateway` bridges between hosts using a host-to-host-capable middleware with a defined on-wire protocol, such as
+[`zenoh`](https://github.com/eclipse-zenoh/zenoh), which runs in an isolated process and exchanges payloads via `iceoryx2`
 shared-memory communication. This keeps network communication isolated from safety-critical software.
 
 A `Tunnel` provides a more direct approach to host-to-host communication while maintaining the same process isolation model.
@@ -154,7 +212,7 @@ offering lower latency but requiring more careful handling of network communicat
 
 ### What is a self-contained message?
 
-A message definition that does not contain any pointers or references to addresses in a process's virtual 
+A message definition that does not contain any pointers or references to addresses in a process's virtual
 address space i.e. satisfy [`TriviallyCopyable` named requirement](https://en.cppreference.com/w/cpp/named_req/TriviallyCopyable).
 
 Self-contained messages can be stored in shared memory without any serialization and subsequently read by

@@ -92,20 +92,21 @@ public:
         using Notifier = ::iox2::Notifier<::iox2::ServiceType::Ipc>;
         using Listener = ::iox2::Listener<::iox2::ServiceType::Ipc>;
 
-        template <typename Payload>
-        using Sample = ::iox2::Sample<::iox2::ServiceType::Ipc, Payload, void>;
-        template <typename Payload>
-        using SampleMut = ::iox2::SampleMut<::iox2::ServiceType::Ipc, Payload, void>;
-        template <typename Payload>
-        using SampleMutUninit = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, void>;
-        template <typename Payload>
-        using Publisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, void>;
-        template <typename Payload>
-        using Subscriber = ::iox2::Subscriber<::iox2::ServiceType::Ipc, Payload, void>;
+        template <typename Payload, typename UserHeader = void>
+        using Sample = ::iox2::Sample<::iox2::ServiceType::Ipc, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader = void>
+        using SampleMut = ::iox2::SampleMut<::iox2::ServiceType::Ipc, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader = void>
+        using SampleMutUninit = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader = void>
+        using Publisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader = void>
+        using Subscriber = ::iox2::Subscriber<::iox2::ServiceType::Ipc, Payload, UserHeader>;
 
-        template <typename Payload>
-        static inline auto send =
-            [](SampleMutUninit<Payload>&& sample) { return ::iox2::send(::iox2::assume_init(std::move(sample))); };
+        template <typename Payload, typename UserHeader = void>
+        static inline auto send = [](SampleMutUninit<Payload, UserHeader>&& sample) {
+            return ::iox2::send(::iox2::assume_init(std::move(sample)));
+        };
     };
 
     struct WaitSet

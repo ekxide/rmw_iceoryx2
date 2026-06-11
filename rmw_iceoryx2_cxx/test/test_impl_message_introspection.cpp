@@ -63,4 +63,15 @@ TEST_F(MessageIntrospectionTest, self_containted_messages_properly_classified) {
     ASSERT_FALSE(is_self_contained(test_type_support<MultiNested>()));
 }
 
+TEST_F(MessageIntrospectionTest, message_type_name_uses_rosidl_canonical_name) {
+    using rmw::iox2::message_type_name;
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    using rmw_iceoryx2_cxx_test_msgs::msg::Nested;
+
+    // test_type_support provides the C++ typesupport, whose namespace separator is `::`; the
+    // canonical rosidl name (matching rosidl_generator_rs) uses `/`.
+    ASSERT_EQ(message_type_name(test_type_support<Defaults>()), "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    ASSERT_EQ(message_type_name(test_type_support<Nested>()), "rmw_iceoryx2_cxx_test_msgs/msg/Nested");
+}
+
 } // namespace

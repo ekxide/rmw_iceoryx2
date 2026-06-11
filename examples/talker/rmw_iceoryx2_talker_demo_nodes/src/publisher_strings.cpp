@@ -9,6 +9,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.hpp"
+#include "rmw_iceoryx2_talker_demo_nodes/pretty.hpp"
 
 using namespace std::chrono_literals;
 
@@ -23,7 +24,15 @@ public:
 
     auto publish = [this]() -> void {
       auto loan = m_publisher->borrow_loaned_message();
-      loan.get().string_value = "Hello " + std::to_string(m_count);
+
+      auto &msg = loan.get();
+      msg.string_value = "Hello " + std::to_string(m_count);
+
+      RCLCPP_INFO(this->get_logger(), "%s",
+                  pretty::frame(pretty::Direction::Sent, "",
+                                {{"string_value", msg.string_value}})
+                      .c_str());
+
       m_publisher->publish(std::move(loan));
       m_count++;
     };
@@ -39,7 +48,7 @@ private:
 };
 
 int main(int argc, char *argv[]) {
-  rcutils_logging_set_default_logger_level(RCUTILS_LOG_SEVERITY_DEBUG);
+  rcutils_logging_set_default_logger_level(RCUTILS_LOG_SEVERITY_INFO);
 
   rclcpp::NodeOptions options;
   options.start_parameter_services(false);

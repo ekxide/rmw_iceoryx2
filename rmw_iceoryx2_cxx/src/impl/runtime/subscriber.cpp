@@ -10,10 +10,15 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
 #include "iox2/bb/into.hpp"
+#include "iox2/message_type_details.hpp"
+#include "iox2/type_variant.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
 namespace rmw::iox2
 {
@@ -62,18 +67,36 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
+    const bool is_self_contained = ::rmw::iox2::is_self_contained(m_typesupport);
+    const auto payload_type_name = ::rmw::iox2::message_type_name(m_typesupport);
+    const auto payload_type_details = is_self_contained ? ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,
+                                                                             payload_type_name.c_str(),
+                                                                             ::rmw::iox2::message_size(m_typesupport),
+                                                                             SELF_CONTAINED_PAYLOAD_ALIGNMENT)
+                                                        : ::iox2::TypeDetail(::iox2::TypeVariant::Dynamic,
+                                                                             payload_type_name.c_str(),
+                                                                             SERIALIZED_PAYLOAD_ELEMENT_SIZE,
+                                                                             SERIALIZED_PAYLOAD_ALIGNMENT);
+    const uint64_t payload_alignment =
+        is_self_contained ? SELF_CONTAINED_PAYLOAD_ALIGNMENT : SERIALIZED_PAYLOAD_ALIGNMENT;
+
+    auto service_builder = node.iox2()
+                               .ipc()
+                               .service_builder(iox2_service_name.value())
+                               .publish_subscribe<Payload>()
+                               .user_header<UserHeader>();
+
+    ::iox2::set_payload_type_details(service_builder, payload_type_details);
+
     auto iox2_pubsub_service =
-        node.iox2()
-            .ipc()
-            .service_builder(iox2_service_name.value())
-            .publish_subscribe<Payload>()
+        service_builder.resume_build()
             .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
             .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
             .history_size(m_qos.history_size())
             .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
             .enable_safe_overflow(m_qos.enable_safe_overflow())
-            .payload_alignment(8) // All ROS2 messages have alignment 8. Maybe?
+            .payload_alignment(payload_alignment)
             .open_or_create_with_attributes(verifier.value());
 
     if (!iox2_pubsub_service.has_value()) {
@@ -121,23 +144,24 @@ auto Subscriber::qos() const -> const Qos& {
     return m_qos;
 }
 
-auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<bool, ErrorType> {
+auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType> {
     using ::iox2::bb::err;
+    using ::iox2::bb::Optional;
 
-    if (auto result = m_iox2_subscriber->receive(); !result.has_value()) {
+    auto result = m_iox2_subscriber->receive();
+    if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);
-    } else {
-        auto sample = std::move(result.value());
-
-        if (sample.has_value()) {
-            auto payload = sample.value().payload();
-            auto number_of_bytes = payload.number_of_bytes();
-            std::memcpy(dest, payload.data(), number_of_bytes);
-        }
-
-        return sample.has_value();
     }
+    auto sample = std::move(result.value());
+
+    if (!sample.has_value()) {
+        return Optional<UserHeader>{::iox2::bb::NULLOPT};
+    }
+
+    auto payload = sample.value().payload();
+    std::memcpy(dest, payload.data(), payload.number_of_bytes());
+    return Optional<UserHeader>(sample.value().user_header());
 }
 
 auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<SubscriberLoan>, ErrorType> {
@@ -152,12 +176,14 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
     auto sample = std::move(result.value());
 
     if (sample.has_value()) {
-        auto data = sample->payload().data();
+        // reinterpret_cast to obtain a byte pointer from the CustomPayloadMarker element type;
+        // const_cast required because of the RMW API.
+        auto* data = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(sample->payload().data()));
         auto number_of_bytes = sample->payload().number_of_bytes();
+        auto message_info = sample->user_header();
         m_registry.store(std::move(sample.value()));
 
-        // Const cast required because of RMW API
-        return Optional<SubscriberLoan>(SubscriberLoan{const_cast<uint8_t*>(data), number_of_bytes});
+        return Optional<SubscriberLoan>(SubscriberLoan{data, number_of_bytes, message_info});
     } else {
         return Optional<SubscriberLoan>{::iox2::bb::NULLOPT};
     }

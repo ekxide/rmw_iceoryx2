@@ -13,6 +13,8 @@
 #include "rmw/visibility_control.h"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
+#include <string>
+
 namespace rmw::iox2
 {
 
@@ -23,6 +25,9 @@ RMW_PUBLIC bool is_self_contained(const rosidl_message_type_support_t* type_supp
 
 /// @brief The in-memory size of the message's C/C++ struct (`sizeof(T)`).
 RMW_PUBLIC size_t message_size(const rosidl_message_type_support_t* type_support);
+
+/// @brief The rosidl provided type name `<package>/msg/<Type>` derived from introspection.
+RMW_PUBLIC std::string message_type_name(const rosidl_message_type_support_t* type_support);
 
 /// @brief The per-instance serialized size in bytes, including the 4-byte
 ///        CDR encapsulation header.

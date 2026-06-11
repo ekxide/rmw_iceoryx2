@@ -10,8 +10,9 @@ runs:
     - name: Install clang
       shell: bash
       run: |
+        CODENAME=$(. /etc/os-release && echo $VERSION_CODENAME)
         sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${{ inputs.version }} main"
+        sudo add-apt-repository "deb http://apt.llvm.org/$CODENAME/ llvm-toolchain-$CODENAME-${{ inputs.version }} main"
         sudo apt-get update
         sudo apt-get install -y clang-format-${{ inputs.version }} clang-tidy-${{ inputs.version }} clang-tools-${{ inputs.version }} clang-${{ inputs.version }} lld
         sudo rm -f /usr/bin/clang

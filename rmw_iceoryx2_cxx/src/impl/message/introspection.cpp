@@ -105,25 +105,59 @@ auto find_introspection(const rosidl_message_type_support_t* ts) -> Introspectio
 
 bool is_self_contained(const rosidl_message_type_support_t* type_support) {
     auto view = find_introspection(type_support);
+
     if (auto* member = view.get<const CppMembers*>()) {
         return is_self_contained_impl(*member);
     }
     if (auto* member = view.get<const CMembers*>()) {
         return is_self_contained_impl(*member);
     }
+
     return false;
 }
 
 size_t message_size(const rosidl_message_type_support_t* type_support) {
     auto view = find_introspection(type_support);
+
     if (auto* member = view.get<const CppMembers*>()) {
         return (*member)->size_of_;
     }
     if (auto* member = view.get<const CMembers*>()) {
         return (*member)->size_of_;
     }
+
     RMW_IOX2_CHAIN_ERROR_MSG("failed to determine message size");
     return 0;
+}
+
+std::string message_type_name(const rosidl_message_type_support_t* type_support) {
+    auto view = find_introspection(type_support);
+
+    const char* type_namespace = nullptr;
+    const char* name = nullptr;
+    if (auto* member = view.get<const CppMembers*>()) {
+        type_namespace = (*member)->message_namespace_;
+        name = (*member)->message_name_;
+    } else if (auto* member = view.get<const CMembers*>()) {
+        type_namespace = (*member)->message_namespace_;
+        name = (*member)->message_name_;
+    } else {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to determine message type name");
+        return {};
+    }
+
+    // The namespace separator is `__` (C typesupport) or `::` (C++ typesupport); the rosidl name
+    // uses `/`. Normalize both separators and append the message name.
+    std::string result(type_namespace);
+    for (const auto* separator : {"__", "::"}) {
+        for (auto pos = result.find(separator); pos != std::string::npos; pos = result.find(separator, pos + 1)) {
+            result.replace(pos, 2, "/");
+        }
+    }
+    result += '/';
+    result += name;
+
+    return result;
 }
 
 size_t serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support) {

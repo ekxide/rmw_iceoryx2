@@ -27,6 +27,7 @@
   <depend>fastcdr</depend>
 
   <depend>iceoryx2_cxx</depend>
+  <depend>rmw_iceoryx2_interoperability</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_lint_auto</test_depend>

@@ -11,3 +11,6 @@ CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
 compile_commands.json
+
+# Rust / Cargo
+target/

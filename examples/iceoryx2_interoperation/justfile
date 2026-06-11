@@ -1,0 +1,17 @@
+# Build the iceoryx2 interoperation example.
+# Invoked by the root build-example recipe; runnable directly from the workspace root.
+
+ws := invocation_directory()
+root := justfile_directory() / "../../justfile"
+manifest := justfile_directory() / "iceoryx2_interoperation_demo_nodes/Cargo.toml"
+
+# Build the ROS 2 packages and native iceoryx2 nodes.
+build:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cd "{{ws}}"
+    just -f "{{root}}" build rmw_iceoryx2_interoperation_demo_nodes
+
+    source install/setup.bash
+    cargo build --release --manifest-path "{{manifest}}"

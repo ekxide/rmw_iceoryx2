@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "iox2/attribute_specifier.hpp"
+#include "iox2/backpressure_strategy.hpp"
 #include "rmw/qos_profiles.h"
 #include "rmw/types.h"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
@@ -165,7 +166,6 @@ TEST_F(QosTest, resolve_passes_through_best_effort) {
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().reliability(), Qos::Reliability::BEST_EFFORT);
-    EXPECT_TRUE(result.value().enable_safe_overflow());
 }
 
 TEST_F(QosTest, resolve_passes_through_transient_local) {
@@ -216,6 +216,46 @@ TEST_F(QosTest, resolve_passes_through_liveliness_lease_duration) {
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().liveliness_lease_duration().sec, 3U);
     EXPECT_EQ(result.value().liveliness_lease_duration().nsec, 100U);
+}
+
+// ----------------------------------------------------------------------------
+// Backpressure mapping
+// ----------------------------------------------------------------------------
+
+TEST_F(QosTest, enables_safe_overflow_for_reliable) {
+    auto profile = rmw_qos_profile_default;
+    profile.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
+    auto result = TryConvert<Qos>::from(profile, ProfileKind::PUBLISH_SUBSCRIBE);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().enable_safe_overflow());
+}
+
+TEST_F(QosTest, enables_safe_overflow_for_best_effort) {
+    auto profile = rmw_qos_profile_default;
+    profile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    auto result = TryConvert<Qos>::from(profile, ProfileKind::PUBLISH_SUBSCRIBE);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().enable_safe_overflow());
+}
+
+TEST_F(QosTest, uses_non_blocking_backpressure_strategy_for_reliable) {
+    auto profile = rmw_qos_profile_default;
+    profile.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
+    auto result = TryConvert<Qos>::from(profile, ProfileKind::PUBLISH_SUBSCRIBE);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().backpressure_strategy(), ::iox2::BackpressureStrategy::DiscardData);
+}
+
+TEST_F(QosTest, uses_non_blocking_backpressure_strategy_for_best_effort) {
+    auto profile = rmw_qos_profile_default;
+    profile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    auto result = TryConvert<Qos>::from(profile, ProfileKind::PUBLISH_SUBSCRIBE);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().backpressure_strategy(), ::iox2::BackpressureStrategy::DiscardData);
 }
 
 TEST_F(QosTest, resolve_passes_through_avoid_ros_namespace_conventions) {

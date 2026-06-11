@@ -91,11 +91,18 @@ TEST_F(RmwGuardConditionTest, trigger) {
     auto listener = iox2_listener(names::guard_condition(guard_condition->context->instance_id, impl->trigger_id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
-    auto wait_result = listener.timed_wait_one(::iox2::bb::Duration::from_micros(500u));
+    size_t received_id = 0;
+    bool received = false;
+    auto wait_result = listener.timed_wait(
+        [&](auto activation) {
+            received_id = activation.id().as_value();
+            received = true;
+        },
+        ::iox2::bb::Duration::from_micros(500u));
+
     ASSERT_TRUE(wait_result.has_value()) << "failed to wait for trigger";
-    auto event = wait_result.value();
-    ASSERT_TRUE(event.has_value());
-    ASSERT_EQ(event.value().as_value(), impl->trigger_id());
+    ASSERT_TRUE(received);
+    ASSERT_EQ(received_id, impl->trigger_id());
 
     EXPECT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
 }

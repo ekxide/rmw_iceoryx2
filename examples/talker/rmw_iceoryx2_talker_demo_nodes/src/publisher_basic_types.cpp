@@ -9,6 +9,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/basic_types.hpp"
+#include "rmw_iceoryx2_talker_demo_nodes/pretty.hpp"
 
 using namespace std::chrono_literals;
 
@@ -40,27 +41,27 @@ public:
       msg.int64_value = static_cast<int64_t>(m_count);
       msg.uint64_value = static_cast<uint64_t>(m_count);
 
-      RCLCPP_DEBUG(this->get_logger(), "Publishing message");
-      RCLCPP_DEBUG(this->get_logger(),
-                   "Message content:\n"
-                   "  bool_value: %d\n"
-                   "  byte_value: %u\n"
-                   "  char_value: %u\n"
-                   "  float32_value: %.2f\n"
-                   "  float64_value: %.2f\n"
-                   "  int8_value: %d\n"
-                   "  uint8_value: %u\n"
-                   "  int16_value: %d\n"
-                   "  uint16_value: %u\n"
-                   "  int32_value: %d\n"
-                   "  uint32_value: %u\n"
-                   "  int64_value: %ld\n"
-                   "  uint64_value: %lu",
-                   msg.bool_value, static_cast<uint32_t>(msg.byte_value),
-                   static_cast<uint32_t>(msg.char_value), msg.float32_value,
-                   msg.float64_value, msg.int8_value, msg.uint8_value,
-                   msg.int16_value, msg.uint16_value, msg.int32_value,
-                   msg.uint32_value, msg.int64_value, msg.uint64_value);
+      RCLCPP_INFO(
+          this->get_logger(), "%s",
+          pretty::frame(
+              pretty::Direction::Sent, "",
+              {{"bool_value", msg.bool_value ? "true" : "false"},
+               {"byte_value",
+                std::to_string(static_cast<uint32_t>(msg.byte_value))},
+               {"char_value",
+                std::to_string(static_cast<uint32_t>(msg.char_value))},
+               {"float32_value", pretty::number(msg.float32_value)},
+               {"float64_value", pretty::number(msg.float64_value)},
+               {"int8_value", std::to_string(static_cast<int>(msg.int8_value))},
+               {"uint8_value",
+                std::to_string(static_cast<uint32_t>(msg.uint8_value))},
+               {"int16_value", std::to_string(msg.int16_value)},
+               {"uint16_value", std::to_string(msg.uint16_value)},
+               {"int32_value", std::to_string(msg.int32_value)},
+               {"uint32_value", std::to_string(msg.uint32_value)},
+               {"int64_value", std::to_string(msg.int64_value)},
+               {"uint64_value", std::to_string(msg.uint64_value)}})
+              .c_str());
 
       m_publisher->publish(std::move(loan));
       m_count++;
@@ -77,7 +78,7 @@ private:
 };
 
 int main(int argc, char *argv[]) {
-  rcutils_logging_set_default_logger_level(RCUTILS_LOG_SEVERITY_DEBUG);
+  rcutils_logging_set_default_logger_level(RCUTILS_LOG_SEVERITY_INFO);
 
   rclcpp::NodeOptions options;
   options.start_parameter_services(false);

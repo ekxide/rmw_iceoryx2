@@ -1,0 +1,106 @@
+# Build and run the rmw_iceoryx2 latency benchmarks. Invoke from the workspace root:
+#   just -f src/rmw_iceoryx2/benchmark/justfile <recipe>
+#
+# Run parameters are named, trail the recipe and can be given in any order:
+#   just -f src/rmw_iceoryx2/benchmark/justfile ros2-to-ros2 rate=100 count=1000
+
+ws := invocation_directory()
+root := justfile_directory() / "../justfile"
+manifest := justfile_directory() / "iceoryx2_benchmark_nodes/Cargo.toml"
+native_bin := justfile_directory() / "iceoryx2_benchmark_nodes/target/release"
+
+# Publish rate in Hz.
+rate := "1000"
+# Total samples in the run.
+count := "10000"
+# Received samples excluded from the statistics.
+warmup := "100"
+
+_default:
+    @just --justfile {{justfile()}} --list
+    @printf '\n\033[2mrun parameters (named, in any order, e.g. `just ros2-to-ros2 rate=100`)\033[0m\n'
+    @printf '    rate=%s    \033[2mpublish rate in Hz\033[0m\n' '{{rate}}'
+    @printf '    count=%s  \033[2mtotal samples in the run\033[0m\n' '{{count}}'
+    @printf '    warmup=%s    \033[2mreceived samples excluded from the statistics\033[0m\n' '{{warmup}}'
+
+# Build the ROS 2 packages and native iceoryx2 nodes.
+build:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cd "{{ws}}"
+    just -f "{{root}}" build rmw_iceoryx2_benchmark_nodes
+
+    source install/setup.bash
+    cargo build --release --manifest-path "{{manifest}}"
+
+# The public pairing recipes accept trailing `key=value` parameters by re-invoking
+# the hidden implementation recipe with them as variable overrides, which just
+# only accepts before the recipe name.
+
+# ROS 2 publisher -> ROS 2 subscriber.
+ros2-to-ros2 *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _ros2-to-ros2
+
+# ROS 2 publisher -> native iceoryx2 subscriber.
+ros2-to-iceoryx2 *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _ros2-to-iceoryx2
+
+# Native iceoryx2 publisher -> ROS 2 subscriber.
+iceoryx2-to-ros2 *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _iceoryx2-to-ros2
+
+# Native iceoryx2 publisher -> native iceoryx2 subscriber (baseline without rclcpp).
+iceoryx2-to-iceoryx2 *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _iceoryx2-to-iceoryx2
+
+_ros2-to-ros2:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx ROS_DISABLE_LOANED_MESSAGES=0
+
+    ros2 run rmw_iceoryx2_benchmark_nodes ros2_subscriber --count {{count}} --warmup {{warmup}} &
+    subscriber_pid=$!
+    sleep 1
+    ros2 run rmw_iceoryx2_benchmark_nodes ros2_publisher --rate {{rate}} --count {{count}}
+    wait "$subscriber_pid"
+
+_ros2-to-iceoryx2:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx ROS_DISABLE_LOANED_MESSAGES=0
+
+    "{{native_bin}}/subscriber" --count {{count}} --warmup {{warmup}} &
+    subscriber_pid=$!
+    sleep 1
+    ros2 run rmw_iceoryx2_benchmark_nodes ros2_publisher --rate {{rate}} --count {{count}}
+    wait "$subscriber_pid"
+
+_iceoryx2-to-ros2:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx ROS_DISABLE_LOANED_MESSAGES=0
+
+    ros2 run rmw_iceoryx2_benchmark_nodes ros2_subscriber --count {{count}} --warmup {{warmup}} &
+    subscriber_pid=$!
+    sleep 1
+    "{{native_bin}}/publisher" --rate {{rate}} --count {{count}}
+    wait "$subscriber_pid"
+
+_iceoryx2-to-iceoryx2:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+
+    "{{native_bin}}/subscriber" --count {{count}} --warmup {{warmup}} &
+    subscriber_pid=$!
+    sleep 1
+    "{{native_bin}}/publisher" --rate {{rate}} --count {{count}}
+    wait "$subscriber_pid"
