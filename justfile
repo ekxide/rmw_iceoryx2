@@ -4,6 +4,7 @@
 ws := invocation_directory()
 rmw := "rmw_iceoryx2_cxx"
 examples := justfile_directory() / "examples"
+benchmark := justfile_directory() / "benchmark"
 
 # rmw_iceoryx2 + ROS 2 CLI packages
 minimal_packages := "ros2cli_common_extensions rmw_iceoryx2_cxx"
@@ -69,6 +70,36 @@ run-example example config="":
     WORKSPACE_ROOT="{{ws}}" exec bash "$script"
 
 # List the runnable examples and their configurations.
+# Build the packages required to run the benchmarks.
+build-benchmark:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cd "{{ws}}"
+    just -f "{{benchmark}}/justfile" build
+    mkdir -p build && touch "build/.benchmark.built"
+
+# Run a benchmark pairing, e.g.: run-benchmark ros2-to-ros2 rate=100 count=1000
+run-benchmark pairing *parameters:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cd "{{ws}}"
+    if [[ ! -f "build/.benchmark.built" ]]; then
+        echo "benchmarks not built - run: just -f {{justfile()}} build-benchmark" >&2
+        exit 1
+    fi
+
+    just -f "{{benchmark}}/justfile" "{{pairing}}" {{parameters}}
+
+list-benchmarks:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    printf '\033[2mpairing · named parameters: rate (Hz), count (samples), warmup (excluded from stats)\033[0m\n\n'
+    just -f "{{benchmark}}/justfile" --summary | tr ' ' '\n' | grep -v '^build$\|^_' | sed 's/^/    /'
+    printf '\nexample: just -f %s run-benchmark ros2-to-ros2 rate=100 count=1000\n' "{{justfile()}}"
+
 list-examples:
     #!/usr/bin/env bash
     set -eo pipefail

@@ -4,6 +4,8 @@
 1. [Feature Completeness](#feature-completeness)
 1. [Performance](#performance)
 1. [Setup](#setup)
+1. [Examples](#examples)
+1. [Benchmarks](#benchmarks)
 1. [FAQ](#faq)
 1. [Commercial Support](#commercial-support)
 1. [Maintainers](#maintainers)
@@ -120,7 +122,7 @@ bindings to the Rust core.
 
 Examples live in [`examples/`](examples/) and are built and run via the root `justfile`.
 Requires [`just`](https://github.com/casey/just#installation) and [`tmux`](
-https://github.com/tmux/tmux#installation).
+https://github.com/tmux/tmux#installation) for convenient orchestration.
 
 Run all commands from the workspace root:
 
@@ -143,6 +145,33 @@ just -f src/rmw_iceoryx2/justfile run-example talker basic_types
 ```
 
 See [`examples/README.md`](examples/README.md) for the full list and how to add an example.
+
+## Benchmarks
+
+Targeted latency benchmarks live in [`benchmark/`](benchmark/).
+Requires [`just`](https://github.com/casey/just#installation) for convenient
+orchestration.
+
+They measure the one-way latency of `rmw_iceoryx2` at a configurable publish
+rate for every pairing of ROS 2 and native `iceoryx2` endpoints. The
+benchmark isolates overhead of the `rclcpp` layer across publish rates, not
+latency across payload sizes.
+
+Run from the workspace root:
+
+```console
+# build the benchmark packages
+just -f src/rmw_iceoryx2/justfile build-benchmark
+
+# list the available pairings and their parameters
+just -f src/rmw_iceoryx2/justfile list-benchmarks
+
+# run a pairing
+just -f src/rmw_iceoryx2/justfile run-benchmark ros2-to-ros2 rate=1000 count=10000
+```
+
+See [`benchmark/README.md`](benchmark/README.md) for the pairings, parameters,
+methodology, and how to interpret the results.
 
 ## FAQ
 
