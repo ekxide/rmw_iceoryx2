@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .max_nodes(MAX_NODES)
         .history_size(HISTORY_SIZE)
         .subscriber_max_buffer_size(SUBSCRIBER_MAX_BUFFER_SIZE)
-        .enable_safe_overflow(false)
+        .enable_safe_overflow(true)
         .open_or_create_with_attributes(&qos)?;
     let subscriber = service.subscriber_builder().create()?;
 

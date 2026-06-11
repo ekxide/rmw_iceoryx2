@@ -10,6 +10,7 @@
 #ifndef RMW_IOX2_QOS_HPP_
 #define RMW_IOX2_QOS_HPP_
 
+#include "iox2/backpressure_strategy.hpp"
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
 
@@ -140,8 +141,21 @@ public:
     auto subscriber_max_buffer_size() const noexcept -> uint64_t {
         return m_depth;
     }
+    /// DDS KEEP_LAST history is drop-oldest under backpressure for both
+    /// reliabilities (a full history replaces its oldest sample, even if
+    /// unacknowledged), which is exactly iceoryx2's safe overflow. Only
+    /// KEEP_ALL would require overflow to be disabled, and this rmw does not
+    /// support KEEP_ALL.
     auto enable_safe_overflow() const noexcept -> bool {
-        return m_reliability == Reliability::BEST_EFFORT;
+        return m_history == History::KEEP_LAST;
+    }
+    /// rclcpp expects publish() to never block the calling thread, so the
+    /// iceoryx2 default (RetryUntilDelivered, which blocks until the
+    /// subscriber drains its buffer) must not be inherited. With safe overflow
+    /// enabled the strategy rarely engages; setting it pins the non-blocking
+    /// contract.
+    auto backpressure_strategy() const noexcept -> ::iox2::BackpressureStrategy {
+        return ::iox2::BackpressureStrategy::DiscardData;
     }
 
 private:

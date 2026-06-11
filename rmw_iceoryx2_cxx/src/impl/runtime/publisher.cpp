@@ -119,6 +119,7 @@ Publisher::Publisher(CreationLock,
             .publisher_builder()
             .initial_max_slice_len(m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : m_unserialized_size)
             .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
+            .backpressure_strategy(m_qos.backpressure_strategy())
             .create();
 
     if (!iox2_publisher.has_value()) {
