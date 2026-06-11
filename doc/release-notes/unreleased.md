@@ -13,6 +13,8 @@
 
 * Serialize/deserialized non-self-contained messages into `iceoryx2` payloads [#2](https://github.com/ekxide/rmw_iceoryx2/issues/2)
 * Add support for QoS [#5](https://github.com/ekxide/rmw_iceoryx2/issues/2)
+* Add ROS 2 <-> iceoryx2 communication example [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
+* Add middleware overhead benchmarking application [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 
 ### Bugfixes
 
@@ -50,6 +52,8 @@
 * Use `vcs` to manage dependencies [#13](https://github.com/ekxide/rmw_iceoryx2/issues/13)
 * Add CI for building and testing with `gcc` [#15](https://github.com/ekxide/rmw_iceoryx2/issues/15)
 * Rename `main` branch to `rolling` [#38](https://github.com/ekxide/rmw_iceoryx2/issues/38)
+* Add `just` scripts for building / running packages, demos and benchmark
+  [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 
 ### New API features
 
@@ -57,7 +61,6 @@
     NOTE: Add new entries sorted by issue number to minimize the possibility of
     conflicts when merging.
 -->
-
 
 ### API Breaking Changes
 
