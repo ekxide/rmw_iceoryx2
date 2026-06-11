@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "rmw-iceoryx2-benchmark"
+name = "rmw-iceoryx2-performance-test"
 version = "0.1.0"
 description = "Benchmarking utilities for RMW iceoryx2"
 authors = ["Jeff Ithier <jeff@ithier.dev>"]

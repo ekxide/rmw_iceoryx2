@@ -43,13 +43,13 @@ bindings to the Rust core.
 
 > [!NOTE]
 >
-> * The latency measurement can be reproduced with [these instructions](benchmark)
+> * The latency measurement can be reproduced with [these instructions](performance_test)
 > * The measurements were taken on a Ryzen 3950X without a fine-tuned OS - lower latency could be expected on a fine-tuned target
 > * The [`performance_test`](https://gitlab.com/ApexAI/performance_test/-/tree/master/performance_test) tool uses `rmw_iceoryx2` through
 >   the ROS 2 stack, which naturally introduces some overhead compared to pure `iceoryx2`
 > * The minimal possible latency achievable with `iceoryx2` is [in the nanosecond range](https://github.com/eclipse-iceoryx/iceoryx2/tree/main?tab=readme-ov-file#comparision-of-mechanisms)
 
-![Latency vs. Message Size v0.1.0](benchmark/figure/v0.1.0.png)
+![Latency vs. Message Size v0.1.0](performance_test/figure/v0.1.0.png)
 
 ## Setup
 

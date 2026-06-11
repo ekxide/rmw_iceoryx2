@@ -1,6 +1,6 @@
-# benchmark
+# performance_test
 
-Scripts for gathering and plotting benchmark data.
+Scripts for gathering and plotting latency data using the standardized [performance_test](https://gitlab.com/ApexAI/performance_test) tool.
 
 ## Test Procedure
 
@@ -13,7 +13,7 @@ Scripts for gathering and plotting benchmark data.
     1. NOTE: This shall soon be merged upstream to `performance_test` for convenience
     ```console
     cd ~/workspace/src/performance_test
-    git apply ~/workspace/src/rmw_iceoryx2/benchmark/patch/recognize-rmw-iceoryx2-cxx-as-zero-copy.patch
+    git apply ~/workspace/src/rmw_iceoryx2/performance_test/patch/recognize-rmw-iceoryx2-cxx-as-zero-copy.patch
     ```
 1. Build `performance_test` and `rmw_iceoryx2_cxx`
     ```console
@@ -23,7 +23,7 @@ Scripts for gathering and plotting benchmark data.
     ```
 1. Install dependencies into python env
     ```console
-    cd ~/workspace/src/rmw_iceoryx2/benchmark/
+    cd ~/workspace/src/rmw_iceoryx2/performance_test/
     poetry install
     ```
 1. Collect data
@@ -32,12 +32,12 @@ Scripts for gathering and plotting benchmark data.
     export ROS_DISABLE_LOANED_MESSAGES=0 # ensures loaning is enabled
 
     source ~/workspace/install_perf_$RMW_IMPLEMENTATION/setup.zsh
-    cd ~/workspace/src/rmw_iceoryx2/benchmark
-    poetry run python benchmark.py $RMW_IMPLEMENTATION ~/workspace/install_perf_$RMW_IMPLEMENTATION --zero-copy
+    cd ~/workspace/src/rmw_iceoryx2/performance_test
+    poetry run python performance_test.py $RMW_IMPLEMENTATION ~/workspace/install_perf_$RMW_IMPLEMENTATION --zero-copy
     ```
 1. Generate plots
     ```console
-    cd ~/workspace/src/rmw_iceoryx2/benchmark
+    cd ~/workspace/src/rmw_iceoryx2/performance_test
     poetry run python plot.py ./results
     ```
 
