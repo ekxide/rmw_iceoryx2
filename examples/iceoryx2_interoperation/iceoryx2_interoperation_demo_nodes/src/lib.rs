@@ -6,6 +6,8 @@ use rosidl_runtime_rs::RmwMessage;
 
 pub use rmw_iceoryx2_interoperability::MessageInfoHeader;
 
+pub mod pretty;
+
 pub const SERVICE_NAME: &str = "ros2://topics/transmission_data";
 
 /// System-time nanoseconds since the Unix epoch, matching the clock `rmw_iceoryx2` stamps into

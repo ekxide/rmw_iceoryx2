@@ -9,14 +9,17 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rmw_iceoryx2_interoperation_demo_msgs/msg/transmission_data.hpp"
+#include "rmw_iceoryx2_interoperation_demo_nodes/pretty.hpp"
 
 using namespace std::chrono_literals;
 
 class TransmissionDataTalker : public rclcpp::Node {
 public:
-  explicit TransmissionDataTalker(const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
+  explicit TransmissionDataTalker(
+      const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
       : Node("ros2_publisher", options) {
-    m_publisher = create_publisher<rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>(
+    m_publisher = create_publisher<
+        rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>(
         "transmission_data", 10);
 
     auto publish = [this]() {
@@ -27,8 +30,12 @@ public:
       msg.y = m_count * 3;
       msg.funky = static_cast<double>(m_count) * 812.12;
 
-      RCLCPP_INFO(get_logger(), "sent: TransmissionData { x: %d, y: %d, funky: %.2f }",
-                  msg.x, msg.y, msg.funky);
+      RCLCPP_INFO(get_logger(), "%s",
+                  pretty::frame(pretty::Direction::Sent, "",
+                                {{"x", std::to_string(msg.x)},
+                                 {"y", std::to_string(msg.y)},
+                                 {"funky", pretty::number(msg.funky)}})
+                      .c_str());
       m_publisher->publish(std::move(loan));
     };
     m_timer = create_wall_timer(1s, publish);
@@ -36,7 +43,9 @@ public:
 
 private:
   rclcpp::TimerBase::SharedPtr m_timer;
-  rclcpp::Publisher<rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>::SharedPtr m_publisher;
+  rclcpp::Publisher<
+      rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>::SharedPtr
+      m_publisher;
   int32_t m_count{0};
 };
 

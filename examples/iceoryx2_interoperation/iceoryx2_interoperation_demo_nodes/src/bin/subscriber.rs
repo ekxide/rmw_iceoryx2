@@ -1,8 +1,6 @@
-use core::time::Duration;
-
 use iceoryx2::prelude::*;
 use iceoryx2_interoperation_demo_nodes::{
-    system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME,
+    pretty, MessageInfoHeader, Payload, SERVICE_NAME,
 };
 
 // Must match the values rmw_iceoryx2 uses (DEFAULT_MAX_* and rclcpp's default QoS depth).
@@ -12,12 +10,6 @@ const MAX_SUBSCRIBERS: usize = 32;
 const MAX_NODES: usize = 32;
 const HISTORY_SIZE: usize = 10;
 const SUBSCRIBER_MAX_BUFFER_SIZE: usize = 10;
-
-// Periodically call `receive()` even without a notification. A subscriber establishes its side of
-// a connection lazily inside `receive()`, so this guarantees the connection to a newly-appeared
-// publisher is opened before that publisher's first send — otherwise the first sample races with
-// connection setup and is dropped (the first notification alone arrives too late to open it).
-const CONNECTION_PRIME_INTERVAL: Duration = Duration::from_millis(100);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     set_log_level_from_env_or(LogLevel::Info);
@@ -75,26 +67,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let waitset = WaitSetBuilder::new().create::<ipc::Service>()?;
     let listener_guard = waitset.attach_notification(&listener)?;
-    // A periodic tick keeps the connection primed (see CONNECTION_PRIME_INTERVAL).
-    let _tick_guard = waitset.attach_interval(CONNECTION_PRIME_INTERVAL)?;
 
     let on_event = |id: WaitSetAttachmentId<ipc::Service>| -> CallbackProgression {
         // Drain the listener when it fired, otherwise the WaitSet wakes us again immediately.
         if id.has_event_from(&listener_guard) {
             listener.try_wait(|_| {}).unwrap();
         }
-        // Receive on every wake, including periodic ticks: the tick-driven `receive()` opens the
-        // connection to a new publisher before its first send, and draining here handles samples.
         while let Some(sample) = subscriber.receive().unwrap() {
-            let info = sample.user_header();
-            // source_timestamp is on the publisher's system clock; the difference is the one-way
-            // latency only if both peers share a clock (e.g. same host).
-            let latency_us = (system_time_nanos() - info.source_timestamp) as f64 / 1000.0;
+            let meta = format!("seq {}", sample.user_header().publication_sequence_number);
+            let data = &sample.payload().0;
             println!(
-                "received: {:?} (seq={}, latency={:.1}us)",
-                sample.payload().0,
-                info.publication_sequence_number,
-                latency_us,
+                "{}",
+                pretty::frame(
+                    pretty::Direction::Received,
+                    &meta,
+                    &[
+                        ("x", data.x.to_string()),
+                        ("y", data.y.to_string()),
+                        ("funky", pretty::number(data.funky)),
+                    ],
+                )
             );
         }
         CallbackProgression::Continue

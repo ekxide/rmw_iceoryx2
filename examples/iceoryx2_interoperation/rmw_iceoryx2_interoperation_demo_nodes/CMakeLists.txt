@@ -19,11 +19,13 @@ find_package(rclcpp REQUIRED)
 find_package(rmw_iceoryx2_interoperation_demo_msgs REQUIRED)
 
 add_executable(ros2_publisher src/ros2_publisher.cpp)
+target_include_directories(ros2_publisher PRIVATE include)
 target_link_libraries(ros2_publisher PRIVATE
   rclcpp::rclcpp
   rmw_iceoryx2_interoperation_demo_msgs::rmw_iceoryx2_interoperation_demo_msgs__rosidl_typesupport_cpp)
 
 add_executable(ros2_subscriber src/ros2_subscriber.cpp)
+target_include_directories(ros2_subscriber PRIVATE include)
 target_link_libraries(ros2_subscriber PRIVATE
   rclcpp::rclcpp
   rmw_iceoryx2_interoperation_demo_msgs::rmw_iceoryx2_interoperation_demo_msgs__rosidl_typesupport_cpp)

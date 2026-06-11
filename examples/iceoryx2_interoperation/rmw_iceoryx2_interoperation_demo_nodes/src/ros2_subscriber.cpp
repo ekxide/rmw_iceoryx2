@@ -9,21 +9,36 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rmw_iceoryx2_interoperation_demo_msgs/msg/transmission_data.hpp"
+#include "rmw_iceoryx2_interoperation_demo_nodes/pretty.hpp"
 
 class TransmissionDataListener : public rclcpp::Node {
 public:
-  explicit TransmissionDataListener(const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
+  explicit TransmissionDataListener(
+      const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
       : Node("ros2_subscriber", options) {
-    auto on_msg = [this](rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData::UniquePtr msg) {
-      RCLCPP_INFO(get_logger(), "received: TransmissionData { x: %d, y: %d, funky: %.2f }",
-                  msg->x, msg->y, msg->funky);
+    auto on_msg = [this](rmw_iceoryx2_interoperation_demo_msgs::msg::
+                             TransmissionData::UniquePtr msg,
+                         const rclcpp::MessageInfo &info) {
+      const auto meta =
+          "seq " + std::to_string(
+                       info.get_rmw_message_info().publication_sequence_number);
+
+      RCLCPP_INFO(get_logger(), "%s",
+                  pretty::frame(pretty::Direction::Received, meta,
+                                {{"x", std::to_string(msg->x)},
+                                 {"y", std::to_string(msg->y)},
+                                 {"funky", pretty::number(msg->funky)}})
+                      .c_str());
     };
-    m_subscription = create_subscription<rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>(
+    m_subscription = create_subscription<
+        rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>(
         "transmission_data", 10, on_msg);
   }
 
 private:
-  rclcpp::Subscription<rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>::SharedPtr m_subscription;
+  rclcpp::Subscription<
+      rmw_iceoryx2_interoperation_demo_msgs::msg::TransmissionData>::SharedPtr
+      m_subscription;
 };
 
 int main(int argc, char *argv[]) {

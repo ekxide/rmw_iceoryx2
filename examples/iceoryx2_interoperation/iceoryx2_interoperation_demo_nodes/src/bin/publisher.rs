@@ -1,8 +1,10 @@
 use core::time::Duration;
 
 use iceoryx2::prelude::*;
+use iceoryx2_interoperation_demo_nodes::{
+    pretty, system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME,
+};
 use rmw_iceoryx2_interoperation_demo_msgs::msg::rmw::TransmissionData;
-use iceoryx2_interoperation_demo_nodes::{system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME};
 
 const CYCLE_TIME: Duration = Duration::from_secs(1);
 
@@ -87,7 +89,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sample.write_payload(Payload(data.clone())).send()?;
         notifier.notify()?;
 
-        println!("sent: {data:?}");
+        println!(
+            "{}",
+            pretty::frame(
+                pretty::Direction::Sent,
+                "",
+                &[
+                    ("x", data.x.to_string()),
+                    ("y", data.y.to_string()),
+                    ("funky", pretty::number(data.funky)),
+                ],
+            )
+        );
     }
 
     Ok(())
