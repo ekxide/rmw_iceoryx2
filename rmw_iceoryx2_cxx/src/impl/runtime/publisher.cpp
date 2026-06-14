@@ -18,7 +18,6 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
-#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
