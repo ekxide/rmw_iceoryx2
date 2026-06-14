@@ -257,7 +257,7 @@ auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::io
     return {};
 }
 
-void Publisher::populate_message_info(UserHeader& header) {
+auto Publisher::populate_message_info(UserHeader& header) -> void {
     rcutils_time_point_value_t now = 0;
     if (rcutils_system_time_now(&now) != RCUTILS_RET_OK) {
         now = 0;

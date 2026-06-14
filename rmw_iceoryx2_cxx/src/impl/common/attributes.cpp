@@ -67,7 +67,7 @@ auto strip_prefix(const char* str, const char* prefix) -> const char* {
 
 } // namespace
 
-void History::encode(const Qos& qos, char* buf, size_t len) {
+auto History::encode(const Qos& qos, char* buf, size_t len) -> void {
     // Qos guarantees KEEP_LAST.
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
     std::snprintf(buf, len, "%s:%llu", VALUE_KEEP_LAST, static_cast<unsigned long long>(qos.depth()));
@@ -88,7 +88,7 @@ auto History::decode(const char* str) -> ::iox2::bb::Optional<uint64_t> {
     return depth;
 }
 
-void Reliability::encode(const Qos& qos, char* buf, size_t len) {
+auto Reliability::encode(const Qos& qos, char* buf, size_t len) -> void {
     const char* str = qos.reliability() == Qos::Reliability::RELIABLE ? VALUE_RELIABLE : VALUE_BEST_EFFORT;
 
     // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
@@ -107,7 +107,7 @@ auto Reliability::decode(const char* str) -> ::iox2::bb::Optional<Qos::Reliabili
     return NULLOPT;
 }
 
-void Durability::encode(const Qos& qos, char* buf, size_t len) {
+auto Durability::encode(const Qos& qos, char* buf, size_t len) -> void {
     const char* str = qos.durability() == Qos::Durability::TRANSIENT_LOCAL ? VALUE_TRANSIENT_LOCAL : VALUE_VOLATILE;
 
     // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
@@ -125,7 +125,7 @@ auto Durability::decode(const char* str) -> ::iox2::bb::Optional<Qos::Durability
     return NULLOPT;
 }
 
-void Deadline::encode(const Qos& qos, char* buf, size_t len) {
+auto Deadline::encode(const Qos& qos, char* buf, size_t len) -> void {
     auto duration = qos.deadline();
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
     std::snprintf(buf,
@@ -148,7 +148,7 @@ auto Deadline::decode(const char* str) -> ::iox2::bb::Optional<Qos::Duration> {
     return duration;
 }
 
-void Lifespan::encode(const Qos& qos, char* buf, size_t len) {
+auto Lifespan::encode(const Qos& qos, char* buf, size_t len) -> void {
     auto duration = qos.lifespan();
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
     std::snprintf(buf,
@@ -171,7 +171,7 @@ auto Lifespan::decode(const char* str) -> ::iox2::bb::Optional<Qos::Duration> {
     return duration;
 }
 
-void Liveliness::encode(const Qos& qos, char* buf, size_t len) {
+auto Liveliness::encode(const Qos& qos, char* buf, size_t len) -> void {
     const char* kind = qos.liveliness() == Qos::Liveliness::MANUAL_BY_TOPIC ? VALUE_MANUAL_BY_TOPIC : VALUE_AUTOMATIC;
     auto lease = qos.liveliness_lease_duration();
 
@@ -203,7 +203,7 @@ auto Liveliness::decode(const char* str) -> ::iox2::bb::Optional<Liveliness::Val
     return Liveliness::Value{kind, lease};
 }
 
-void TypeHash::encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) {
+auto TypeHash::encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) -> void {
     auto allocator = rcutils_get_default_allocator();
     char* hash_string = nullptr;
     if (rosidl_stringify_type_hash(&type_hash, allocator, &hash_string) != RCUTILS_RET_OK || hash_string == nullptr) {

@@ -20,13 +20,14 @@ namespace rmw::iox2
 /// Emit `RMW_IOX2_LOG_WARN` for every policy that cannot be mapped to
 /// iceoryx2.
 RMW_PUBLIC
-void log_unsupported_policies(const Qos& qos, const char* topic) noexcept;
+auto log_unsupported_policies(const Qos& qos, const char* topic) noexcept -> void;
 
 /// Chain a per-key QoS mismatch error message via `RMW_IOX2_CHAIN_ERROR_MSG`,
 /// comparing `requested` against the values in `existing` (attributes of the
 /// iceoryx2 service).
 RMW_PUBLIC
-void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView existing, const char* topic) noexcept;
+auto log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView existing, const char* topic) noexcept
+    -> void;
 
 } // namespace rmw::iox2
 

@@ -40,35 +40,35 @@ using CppMembers = introspection_cpp::MessageMembers;
 using IntrospectionView = ::iox2::legacy::variant<const CppMembers*, const CMembers*>;
 
 template <typename Member>
-bool is_string(const Member* m) {
+auto is_string(const Member* m) -> bool {
     // Both `string` and `wstring` own dynamically-sized heap buffers; for the
     // purpose of self-containedness they are equivalent.
     return m->type_id_ == introspection_cpp::ROS_TYPE_STRING || m->type_id_ == introspection_cpp::ROS_TYPE_WSTRING;
 }
 
 template <typename Member>
-bool is_message(const Member* m) {
+auto is_message(const Member* m) -> bool {
     return m->type_id_ == introspection_cpp::ROS_TYPE_MESSAGE;
 }
 
 template <typename Member>
-bool is_fixed_array(const Member* m) {
+auto is_fixed_array(const Member* m) -> bool {
     return m->is_array_ && m->array_size_ > 0 && !m->is_upper_bound_;
 }
 
 template <typename Member>
-bool is_dynamic_array(const Member* m) {
+auto is_dynamic_array(const Member* m) -> bool {
     return m->is_array_ && (m->array_size_ == 0 || m->is_upper_bound_);
 }
 
 // A field has a runtime-determined size if its content lives on the heap.
 template <typename Member>
-bool has_dynamic_size(const Member* m) {
+auto has_dynamic_size(const Member* m) -> bool {
     return is_string(m) || is_dynamic_array(m);
 }
 
 template <typename Members>
-bool is_self_contained_impl(const Members* members) {
+auto is_self_contained_impl(const Members* members) -> bool {
     if (!members) {
         return false;
     }
@@ -106,7 +106,7 @@ auto find_introspection(const rosidl_message_type_support_t* ts) -> Introspectio
 
 // Public API --------------------------------------------------------------
 
-bool is_self_contained(const rosidl_message_type_support_t* type_support) {
+auto is_self_contained(const rosidl_message_type_support_t* type_support) -> bool {
     auto view = find_introspection(type_support);
 
     if (auto* member = view.get<const CppMembers*>()) {
@@ -119,7 +119,7 @@ bool is_self_contained(const rosidl_message_type_support_t* type_support) {
     return false;
 }
 
-size_t message_size(const rosidl_message_type_support_t* type_support) {
+auto message_size(const rosidl_message_type_support_t* type_support) -> size_t {
     auto view = find_introspection(type_support);
 
     if (auto* member = view.get<const CppMembers*>()) {
@@ -133,7 +133,7 @@ size_t message_size(const rosidl_message_type_support_t* type_support) {
     return 0;
 }
 
-std::string message_type_name(const rosidl_message_type_support_t* type_support) {
+auto message_type_name(const rosidl_message_type_support_t* type_support) -> std::string {
     auto view = find_introspection(type_support);
 
     const char* type_namespace = nullptr;
@@ -163,7 +163,7 @@ std::string message_type_name(const rosidl_message_type_support_t* type_support)
     return result;
 }
 
-::iox2::bb::Optional<rosidl_type_hash_t> message_type_hash(const rosidl_message_type_support_t* type_support) {
+auto message_type_hash(const rosidl_message_type_support_t* type_support) -> ::iox2::bb::Optional<rosidl_type_hash_t> {
     if (type_support == nullptr || type_support->get_type_hash_func == nullptr) {
         return ::iox2::bb::NULLOPT;
     }
@@ -174,7 +174,7 @@ std::string message_type_name(const rosidl_message_type_support_t* type_support)
     return *hash;
 }
 
-size_t serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support) {
+auto serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support) -> size_t {
     if (!type_support || !type_support->data) {
         return 0;
     }

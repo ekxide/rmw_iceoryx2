@@ -123,7 +123,7 @@ public:
 
 private:
     /// @brief Populate the user-header message info (source timestamp, sequence number) before sending.
-    void populate_message_info(UserHeader& header);
+    auto populate_message_info(UserHeader& header) -> void;
 
     // m_topic, m_unserialized_size, m_is_self_contained, m_service_name, and m_qos are logically
     // const after construction. The `const` qualifier is omitted only because

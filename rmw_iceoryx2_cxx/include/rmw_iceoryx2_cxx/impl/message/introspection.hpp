@@ -23,22 +23,23 @@ namespace rmw::iox2
 /// @brief True if the message has no dynamic (heap-allocated) content.
 /// @details A self-contained message can be memcpy into an `iceoryx2`
 ///          payload. Other messages must be serialized.
-RMW_PUBLIC bool is_self_contained(const rosidl_message_type_support_t* type_support);
+RMW_PUBLIC auto is_self_contained(const rosidl_message_type_support_t* type_support) -> bool;
 
 /// @brief The in-memory size of the message's C/C++ struct (`sizeof(T)`).
-RMW_PUBLIC size_t message_size(const rosidl_message_type_support_t* type_support);
+RMW_PUBLIC auto message_size(const rosidl_message_type_support_t* type_support) -> size_t;
 
 /// @brief The rosidl provided type name `<package>/msg/<Type>` derived from introspection.
-RMW_PUBLIC std::string message_type_name(const rosidl_message_type_support_t* type_support);
+RMW_PUBLIC auto message_type_name(const rosidl_message_type_support_t* type_support) -> std::string;
 
 /// @brief The REP-2011 type hash from the typesupport, or `nullopt` if it does
 ///        not provide one.
-RMW_PUBLIC ::iox2::bb::Optional<rosidl_type_hash_t>
-message_type_hash(const rosidl_message_type_support_t* type_support);
+RMW_PUBLIC auto message_type_hash(const rosidl_message_type_support_t* type_support)
+    -> ::iox2::bb::Optional<rosidl_type_hash_t>;
 
 /// @brief The per-instance serialized size in bytes, including the 4-byte
 ///        CDR encapsulation header.
-RMW_PUBLIC size_t serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support);
+RMW_PUBLIC auto serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support)
+    -> size_t;
 
 } // namespace rmw::iox2
 

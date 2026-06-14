@@ -28,7 +28,7 @@ auto is_default_duration(Qos::Duration duration) -> bool {
 
 } // namespace
 
-void log_unsupported_policies(const Qos& qos, const char* topic) noexcept {
+auto log_unsupported_policies(const Qos& qos, const char* topic) noexcept -> void {
     if (!is_default_duration(qos.deadline())) {
         RMW_IOX2_LOG_WARN("QoS policy 'deadline' (=%llu:%llu) on topic '%s' is not honored by the iceoryx2 transport",
                           static_cast<unsigned long long>(qos.deadline().sec),
@@ -55,7 +55,8 @@ void log_unsupported_policies(const Qos& qos, const char* topic) noexcept {
     }
 }
 
-void log_attribute_mismatch(const Qos& qos, ::iox2::AttributeSetView attribute_set, const char* topic) noexcept {
+auto log_attribute_mismatch(const Qos& qos, ::iox2::AttributeSetView attribute_set, const char* topic) noexcept
+    -> void {
     char message[rmw::iox2::MAX_ERROR_MSG_LENGTH];
 
     int written = std::snprintf(message, sizeof(message), "QoS mismatch on '%s':", topic);

@@ -37,7 +37,7 @@ struct History
     static constexpr char KEY[] = "rmw.qos.local.history";
     static constexpr char VALUE_KEEP_LAST[] = "keep_last";
 
-    RMW_PUBLIC static void encode(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<uint64_t>;
 };
 
@@ -47,7 +47,7 @@ struct Reliability
     static constexpr char VALUE_RELIABLE[] = "reliable";
     static constexpr char VALUE_BEST_EFFORT[] = "best_effort";
 
-    RMW_PUBLIC static void encode(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Qos::Reliability>;
 };
 
@@ -57,7 +57,7 @@ struct Durability
     static constexpr char VALUE_VOLATILE[] = "volatile";
     static constexpr char VALUE_TRANSIENT_LOCAL[] = "transient_local";
 
-    RMW_PUBLIC static void encode(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Qos::Durability>;
 };
 
@@ -66,7 +66,7 @@ struct Deadline
     static constexpr char KEY[] = "rmw.qos.local.deadline";
     static constexpr char VALUE_DURATION[] = "duration";
 
-    RMW_PUBLIC static void encode(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Qos::Duration>;
 };
 
@@ -75,7 +75,7 @@ struct Lifespan
     static constexpr char KEY[] = "rmw.qos.local.lifespan";
     static constexpr char VALUE_DURATION[] = "duration";
 
-    RMW_PUBLIC static void encode(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Qos::Duration>;
 };
 
@@ -91,7 +91,7 @@ struct Liveliness
     static constexpr char VALUE_AUTOMATIC[] = "automatic";
     static constexpr char VALUE_MANUAL_BY_TOPIC[] = "manual_by_topic";
 
-    RMW_PUBLIC static void encode(const Qos& qos, char* buf, size_t len);
+    RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Value>;
 };
 
@@ -103,7 +103,7 @@ struct TypeHash
 {
     static constexpr char KEY[] = "rmw.ros.type_hash";
 
-    RMW_PUBLIC static void encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len);
+    RMW_PUBLIC static auto encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) -> void;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<rosidl_type_hash_t>;
 };
 
@@ -111,7 +111,7 @@ struct TypeHash
 /// present. The pointer is valid only for the duration of the call. Does
 /// nothing when `key` is absent or its key form cannot be constructed.
 template <typename Callback>
-void visit_attribute_value(::iox2::AttributeSetView attribute_set, const char* key, Callback&& callback) {
+auto visit_attribute_value(::iox2::AttributeSetView attribute_set, const char* key, Callback&& callback) -> void {
     auto key_obj = ::iox2::Attribute::Key::from_utf8_null_terminated_unchecked(key);
     if (!key_obj.has_value()) {
         return;

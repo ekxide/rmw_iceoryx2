@@ -44,10 +44,10 @@ static_assert(::iox2::UNIQUE_PORT_ID_LENGTH == RMW_GID_STORAGE_SIZE,
 /// @param[in] endpoint_type Whether these are publishers or subscriptions.
 /// @param[in] allocator Allocator used for the array and its strings.
 /// @return RMW_RET_OK on success, otherwise an appropriate error code.
-static rmw_ret_t fill_endpoint_info_array(rmw_topic_endpoint_info_array_t* array,
-                                          const std::vector<::rmw::iox2::EndpointInfo>& endpoints,
-                                          rmw_endpoint_type_t endpoint_type,
-                                          rcutils_allocator_t* allocator) {
+static auto fill_endpoint_info_array(rmw_topic_endpoint_info_array_t* array,
+                                     const std::vector<::rmw::iox2::EndpointInfo>& endpoints,
+                                     rmw_endpoint_type_t endpoint_type,
+                                     rcutils_allocator_t* allocator) -> rmw_ret_t {
     using ::rmw::iox2::Convert;
 
     if (rmw_topic_endpoint_info_array_init_with_size(array, endpoints.size(), allocator) != RMW_RET_OK) {
@@ -81,7 +81,7 @@ static rmw_ret_t fill_endpoint_info_array(rmw_topic_endpoint_info_array_t* array
 /// @param[in] size The size to initialize the array with
 /// @param[in] allocator The allocator to use for memory allocation
 /// @return RMW_RET_OK if successful, otherwise an appropriate error code
-static rmw_ret_t init_string_array(rcutils_string_array_t* array, size_t size, rcutils_allocator_t* allocator) {
+static auto init_string_array(rcutils_string_array_t* array, size_t size, rcutils_allocator_t* allocator) -> rmw_ret_t {
     auto ret = rcutils_string_array_init(array, size, allocator);
     if (ret != RCUTILS_RET_OK) {
         RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
