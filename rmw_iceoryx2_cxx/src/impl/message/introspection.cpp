@@ -21,6 +21,9 @@
 #include "rosidl_typesupport_introspection_cpp/identifier.hpp"
 #include "rosidl_typesupport_introspection_cpp/message_introspection.hpp"
 
+#include "rcutils/allocator.h"
+#include "rosidl_runtime_c/type_hash.h"
+
 namespace rmw::iox2
 {
 
@@ -158,6 +161,26 @@ std::string message_type_name(const rosidl_message_type_support_t* type_support)
     result += '/';
     result += name;
 
+    return result;
+}
+
+std::string message_type_hash(const rosidl_message_type_support_t* type_support) {
+    if (type_support == nullptr || type_support->get_type_hash_func == nullptr) {
+        return {};
+    }
+    const rosidl_type_hash_t* hash = type_support->get_type_hash_func(type_support);
+    if (hash == nullptr) {
+        return {};
+    }
+
+    auto allocator = rcutils_get_default_allocator();
+    char* hash_string = nullptr;
+    if (rosidl_stringify_type_hash(hash, allocator, &hash_string) != RCUTILS_RET_OK || hash_string == nullptr) {
+        return {};
+    }
+
+    std::string result(hash_string);
+    allocator.deallocate(hash_string, allocator.state);
     return result;
 }
 

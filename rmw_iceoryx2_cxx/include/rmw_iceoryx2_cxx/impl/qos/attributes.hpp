@@ -116,6 +116,19 @@ namespace rmw::iox2
 {
 
 // ----------------------------------------------------------------------------
+// Type hash attribute
+// ----------------------------------------------------------------------------
+
+/// Service attribute key carrying the ROS message type hash as a RIHS string
+/// (`RIHS01_...`). Endpoints of the same topic share the same value, so it is a
+/// required service attribute alongside the QoS policies.
+inline constexpr char TYPE_HASH_ATTRIBUTE_KEY[] = "rmw.ros.type_hash";
+
+/// Require the ROS type hash on a verifier (the service-creation attribute set).
+/// @return false if the key/value could not be added.
+RMW_PUBLIC auto require_type_hash(::iox2::AttributeVerifier& verifier, const char* type_hash) -> bool;
+
+// ----------------------------------------------------------------------------
 // Conversions
 // ----------------------------------------------------------------------------
 

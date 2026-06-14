@@ -64,6 +64,7 @@ static rmw_ret_t fill_endpoint_info_array(rmw_topic_endpoint_info_array_t* array
             || rmw_topic_endpoint_info_set_node_namespace(info, endpoint.node_namespace.c_str(), allocator)
                    != RMW_RET_OK
             || rmw_topic_endpoint_info_set_topic_type(info, endpoint.topic_type.c_str(), allocator) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_topic_type_hash(info, &endpoint.type_hash) != RMW_RET_OK
             || rmw_topic_endpoint_info_set_endpoint_type(info, endpoint_type) != RMW_RET_OK
             || rmw_topic_endpoint_info_set_gid(info, endpoint.gid.data(), endpoint.gid.size()) != RMW_RET_OK
             || rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile) != RMW_RET_OK) {

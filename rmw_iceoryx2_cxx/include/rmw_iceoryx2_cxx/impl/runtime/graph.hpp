@@ -16,6 +16,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
+#include "rosidl_runtime_c/type_hash.h"
 
 #include <array>
 #include <cstdint>
@@ -63,6 +64,7 @@ struct EndpointInfo
     std::string node_name;
     std::string node_namespace;
     std::string topic_type;
+    rosidl_type_hash_t type_hash;
     Qos qos;
     // The endpoint's iceoryx2 unique port id, used as the rmw gid. Its length
     // matches rmw's `RMW_GID_STORAGE_SIZE` (both 16).
@@ -131,8 +133,8 @@ private:
     /// Shared implementation of `publishers_info`/`subscriptions_info`: opens the
     /// topic's existing service and describes each connected endpoint of the
     /// requested kind, resolving node ids to names via the node registry.
-    auto endpoints_info(const std::string& topic,
-                        EndpointKind kind) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType>;
+    auto endpoints_info(const std::string& topic, EndpointKind kind)
+        -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType>;
 
     // `reference_wrapper` so the class remains move-constructible. Cannot be
     // null by construction.

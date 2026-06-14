@@ -153,6 +153,7 @@ TEST_F(RmwGraphTest, can_get_publishers_info_by_topic) {
     const auto& endpoint = info.info_array[0];
     EXPECT_EQ(endpoint.endpoint_type, RMW_ENDPOINT_PUBLISHER);
     EXPECT_STREQ(endpoint.topic_type, "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    EXPECT_NE(endpoint.topic_type_hash.version, ROSIDL_TYPE_HASH_VERSION_UNSET);
     EXPECT_STREQ(endpoint.node_namespace, "/RmwTest");
     EXPECT_GT(strlen(endpoint.node_name), 0u);
     EXPECT_TRUE(gid_is_nonzero(endpoint.endpoint_gid));
@@ -174,6 +175,7 @@ TEST_F(RmwGraphTest, can_get_subscriptions_info_by_topic) {
     const auto& endpoint = info.info_array[0];
     EXPECT_EQ(endpoint.endpoint_type, RMW_ENDPOINT_SUBSCRIPTION);
     EXPECT_STREQ(endpoint.topic_type, "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    EXPECT_NE(endpoint.topic_type_hash.version, ROSIDL_TYPE_HASH_VERSION_UNSET);
     EXPECT_STREQ(endpoint.node_namespace, "/RmwTest");
     EXPECT_GT(strlen(endpoint.node_name), 0u);
     EXPECT_TRUE(gid_is_nonzero(endpoint.endpoint_gid));

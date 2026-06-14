@@ -67,6 +67,14 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
+    // Store the ROS type hash so graph introspection can report it.
+    const auto type_hash = ::rmw::iox2::message_type_hash(m_typesupport);
+    if (!type_hash.empty() && !::rmw::iox2::require_type_hash(verifier.value(), type_hash.c_str())) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to add type hash attribute");
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
     const bool is_self_contained = ::rmw::iox2::is_self_contained(m_typesupport);
     const auto payload_type_name = ::rmw::iox2::message_type_name(m_typesupport);
     const auto payload_type_details = is_self_contained ? ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,

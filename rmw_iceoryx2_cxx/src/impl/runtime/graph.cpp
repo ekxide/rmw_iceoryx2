@@ -20,6 +20,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
+#include "rosidl_runtime_c/type_hash.h"
 
 #include <algorithm>
 #include <map>
@@ -275,18 +276,27 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
     }
     auto& port_factory = service.value();
 
-    // All endpoints on a topic share the service-level QoS in iceoryx2.
+    // All endpoints on a topic share the service-level QoS and type hash in
+    // iceoryx2.
     auto qos = TryConvert<Qos>::from(port_factory.attributes(), ProfileKind::PUBLISH_SUBSCRIBE);
     if (!qos.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to decode QoS from service attributes");
         return err(ErrorType::QOS_DECODING_FAILURE);
     }
 
+    auto type_hash = rosidl_get_zero_initialized_type_hash();
+    qos::attributes::visit_attribute_value(port_factory.attributes(), TYPE_HASH_ATTRIBUTE_KEY, [&](const char* value) {
+        rosidl_type_hash_t parsed = rosidl_get_zero_initialized_type_hash();
+        if (rosidl_parse_type_hash_string(value, &parsed) == RCUTILS_RET_OK) {
+            type_hash = parsed;
+        }
+    });
+
     auto nodes = build_node_id_lookup(node);
 
     // Assemble one endpoint's info: resolve its node id to a name/namespace, use
-    // its iceoryx2 unique port id as the gid, and attach the shared topic type
-    // and service-level QoS.
+    // its iceoryx2 unique port id as the gid, and attach the shared topic type,
+    // type hash, and service-level QoS.
     auto endpoint_info = [&](const ::iox2::UniqueNodeId& node_id,
                              const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes) -> EndpointInfo {
         std::string node_name{};
@@ -302,7 +312,7 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
             std::copy(raw.unchecked_access().begin(), raw.unchecked_access().end(), gid.begin());
         }
 
-        return EndpointInfo{std::move(node_name), std::move(node_namespace), topic_type, qos.value(), gid};
+        return EndpointInfo{std::move(node_name), std::move(node_namespace), topic_type, type_hash, qos.value(), gid};
     };
 
     std::vector<EndpointInfo> result{};

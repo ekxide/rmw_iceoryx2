@@ -297,6 +297,14 @@ auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
 } // namespace
 
 // ----------------------------------------------------------------------------
+// Type hash attribute
+// ----------------------------------------------------------------------------
+
+auto require_type_hash(AttributeVerifier& verifier, const char* type_hash) -> bool {
+    return write_attribute(verifier, TYPE_HASH_ATTRIBUTE_KEY, type_hash);
+}
+
+// ----------------------------------------------------------------------------
 // Conversions
 // ----------------------------------------------------------------------------
 

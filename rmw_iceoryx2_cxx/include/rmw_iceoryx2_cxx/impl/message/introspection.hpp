@@ -29,6 +29,10 @@ RMW_PUBLIC size_t message_size(const rosidl_message_type_support_t* type_support
 /// @brief The rosidl provided type name `<package>/msg/<Type>` derived from introspection.
 RMW_PUBLIC std::string message_type_name(const rosidl_message_type_support_t* type_support);
 
+/// @brief The REP-2011 type hash as a RIHS string (`RIHS01_...`), or empty if
+///        the typesupport does not provide one.
+RMW_PUBLIC std::string message_type_hash(const rosidl_message_type_support_t* type_support);
+
 /// @brief The per-instance serialized size in bytes, including the 4-byte
 ///        CDR encapsulation header.
 RMW_PUBLIC size_t serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support);
