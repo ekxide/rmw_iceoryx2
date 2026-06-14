@@ -66,6 +66,7 @@ add_library(${PROJECT_NAME} SHARED
   src/impl/message/typesupport.cpp
   src/impl/middleware/iceoryx2.cpp
   src/impl/runtime/context.cpp
+  src/impl/runtime/graph.cpp
   src/impl/runtime/guard_condition.cpp
   src/impl/runtime/node.cpp
   src/impl/runtime/publisher.cpp

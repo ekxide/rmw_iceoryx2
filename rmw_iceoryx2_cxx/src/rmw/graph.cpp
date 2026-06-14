@@ -7,13 +7,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "iox2/bb/optional.hpp"
-#include "iox2/service.hpp"
-#include "iox2/static_config.hpp"
 #include "rcutils/strdup.h"
 #include "rcutils/types/string_array.h"
 #include "rmw/convert_rcutils_ret_to_rmw_ret.h"
 #include "rmw/get_node_info_and_types.h"
+#include "rmw/get_service_endpoint_info.h"
 #include "rmw/get_service_names_and_types.h"
 #include "rmw/get_topic_endpoint_info.h"
 #include "rmw/get_topic_names_and_types.h"
@@ -28,119 +26,13 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
-#include <functional>
-#include <set>
-#include <string>
-#include <string_view>
-
 namespace
 {
-
-class NodeName
-{
-public:
-    NodeName(std::string ns = "", std::string n = "")
-        : m_namespace(std::move(ns))
-        , m_name(std::move(n)) {
-    }
-
-    auto ns() const -> const std::string& {
-        return m_namespace;
-    }
-
-    auto name() const -> const std::string& {
-        return m_name;
-    }
-
-    auto operator<(const NodeName& other) const -> bool {
-        if (m_namespace != other.m_namespace) {
-            return m_namespace < other.m_namespace;
-        }
-        return m_name < other.m_name;
-    }
-
-    static auto parse_name(std::string_view full_name) -> ::iox2::bb::Optional<NodeName> {
-        // Check for prefix
-        constexpr std::string_view ROS2_PREFIX = "ros2://context/";
-        if (full_name.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        // Find the "/nodes/" part after the context ID
-        constexpr std::string_view NODES_MARKER = "/nodes/";
-        auto nodes_pos = full_name.find(NODES_MARKER);
-        if (nodes_pos == std::string_view::npos) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        // Extract the part after "/nodes/"
-        auto node_part = full_name.substr(nodes_pos + NODES_MARKER.length());
-        if (node_part.empty()) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        // Split into namespace and name
-        auto last_slash = node_part.find_last_of('/');
-        if (last_slash == std::string_view::npos) {
-            return NodeName("", std::string(node_part));
-        }
-
-        return NodeName(std::string(node_part.substr(0, last_slash)), std::string(node_part.substr(last_slash + 1)));
-    }
-
-private:
-    std::string m_namespace;
-    std::string m_name;
-};
-
-class TopicDetails
-{
-public:
-    TopicDetails(const std::string& topic, const std::string& type)
-        : m_topic{topic}
-        , m_type{type} {
-    }
-
-    auto name() const -> const std::string& {
-        return m_topic;
-    }
-
-    auto type() const -> const std::string& {
-        return m_type;
-    }
-
-    auto operator<(const TopicDetails& other) const -> bool {
-        if (m_topic != other.m_topic) {
-            return m_topic < other.m_topic;
-        }
-        return m_type < other.m_type;
-    }
-
-    static auto parse_topic_name(const char* full_name) -> ::iox2::bb::Optional<std::string> {
-        // Check for prefix
-        constexpr std::string_view ROS2_PREFIX = "ros2://topics";
-        std::string_view full_view(full_name);
-        if (full_view.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        // Extract the topic part after "ros2://topics"
-        auto topic_part = full_view.substr(ROS2_PREFIX.length());
-        if (topic_part.empty()) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        return std::string(topic_part);
-    }
-
-private:
-    std::string m_topic;
-    std::string m_type;
-};
 
 /// @brief Initialize a string array with the given size using the provided allocator
 /// @param[in,out] array The string array to initialize
@@ -156,47 +48,6 @@ static rmw_ret_t init_string_array(rcutils_string_array_t* array, size_t size, r
     return RMW_RET_OK;
 }
 
-rmw_ret_t collect_node_names(std::set<NodeName>& names) {
-    using ::iox2::CallbackProgression;
-    using ::rmw::iox2::Iceoryx2;
-
-    auto list_result = Iceoryx2::InterProcess::Handle::list(Iceoryx2::Config::global_config(), [&names](auto node) {
-        node.alive([&names](const auto view) {
-            auto details = view.details();
-            if (details.has_value()) {
-                auto name_str = details.value().name().to_string();
-                if (auto node_name = NodeName::parse_name(name_str.unchecked_access().c_str()); node_name.has_value()) {
-                    names.emplace(node_name.value());
-                }
-            }
-        });
-        return CallbackProgression::Continue;
-    });
-
-    return list_result.has_value() ? RMW_RET_OK : RMW_RET_ERROR;
-}
-
-
-rmw_ret_t collect_topic_names_and_types(std::set<TopicDetails>& topics,
-                                        std::function<bool(::iox2::StaticConfig&)> predicate) {
-    using ::iox2::CallbackProgression;
-    using ::iox2::MessagingPattern;
-    using ::rmw::iox2::Iceoryx2;
-
-    auto list_result =
-        Iceoryx2::InterProcess::Service::list(Iceoryx2::Config::global_config(), [&topics, &predicate](auto service) {
-            if (predicate(service.static_details)) {
-                auto topic = TopicDetails::parse_topic_name(service.static_details.name());
-                if (topic.has_value()) {
-                    topics.emplace(topic.value(), "");
-                }
-            }
-            return CallbackProgression::Continue;
-        });
-
-    return list_result.has_value() ? RMW_RET_OK : RMW_RET_ERROR;
-}
-
 } // namespace
 
 extern "C" {
@@ -206,6 +57,10 @@ extern "C" {
 rmw_ret_t rmw_get_node_names(const rmw_node_t* rmw_node,
                              rcutils_string_array_t* node_names,
                              rcutils_string_array_t* node_namespaces) {
+    using ::rmw::iox2::Graph;
+    using NodeImpl = ::rmw::iox2::Node;
+    using ::rmw::iox2::unsafe_cast;
+
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
@@ -215,12 +70,22 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_namespaces, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    std::set<NodeName> names{};
-    auto result = collect_node_names(names);
-    RMW_IOX2_ENSURE_OK(result);
+    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
+    if (!node_impl_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+        return RMW_RET_ERROR;
+    }
+    auto& node_impl = node_impl_result.value();
+
+    auto names_result = Graph{*node_impl}.node_names();
+    if (!names_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+        return RMW_RET_ERROR;
+    }
+    const auto& names = names_result.value();
 
     rcutils_allocator_t allocator = rcutils_get_default_allocator();
-    result = init_string_array(node_names, names.size(), &allocator);
+    auto result = init_string_array(node_names, names.size(), &allocator);
     if (result != RMW_RET_OK) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node names");
         return result;
@@ -233,13 +98,13 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* rmw_node,
 
     int i = 0;
     for (const auto& name : names) {
-        node_names->data[i] = rcutils_strdup(name.name().c_str(), allocator);
+        node_names->data[i] = rcutils_strdup(name.name.c_str(), allocator);
         if (!node_names->data[i]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node name array");
             return RMW_RET_BAD_ALLOC;
         }
 
-        node_namespaces->data[i] = rcutils_strdup(name.ns().c_str(), allocator);
+        node_namespaces->data[i] = rcutils_strdup(name.ns.c_str(), allocator);
         if (!node_namespaces->data[i]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node namespace array");
             return RMW_RET_BAD_ALLOC;
@@ -482,13 +347,23 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
     };
 
     // Implementation -------------------------------------------------------------------------------
-    using ::iox2::MessagingPattern;
+    using ::rmw::iox2::Graph;
+    using NodeImpl = ::rmw::iox2::Node;
+    using ::rmw::iox2::unsafe_cast;
 
-    std::set<TopicDetails> topics{};
-    auto collect_result = collect_topic_names_and_types(topics, [](auto& service_details) {
-        return service_details.messaging_pattern() == MessagingPattern::PublishSubscribe;
-    });
-    RMW_IOX2_ENSURE_OK(collect_result);
+    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
+    if (!node_impl_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+        return RMW_RET_ERROR;
+    }
+    auto& node_impl = node_impl_result.value();
+
+    auto topics_result = Graph{*node_impl}.topic_names_and_types();
+    if (!topics_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list topic names and types");
+        return RMW_RET_ERROR;
+    }
+    const auto& topics = topics_result.value();
 
     auto init_result = rmw_names_and_types_init(topic_names_and_types, topics.size(), allocator);
     RMW_IOX2_ENSURE_OK(init_result);
@@ -501,14 +376,14 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
     size_t index = 0;
     for (const auto& topic : topics) {
         // Allocate and copy topic name
-        topic_names_and_types->names.data[index] = rcutils_strdup(topic.name().c_str(), *allocator);
+        topic_names_and_types->names.data[index] = rcutils_strdup(topic.name.c_str(), *allocator);
         if (!topic_names_and_types->names.data[index]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
             return RMW_RET_BAD_ALLOC;
         }
 
         // Allocate and copy type name
-        topic_names_and_types->types->data[index] = rcutils_strdup("UNKNOWN", *allocator);
+        topic_names_and_types->types->data[index] = rcutils_strdup(topic.type.c_str(), *allocator);
         if (!topic_names_and_types->types->data[index]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for type type");
             return RMW_RET_BAD_ALLOC;
