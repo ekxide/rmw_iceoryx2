@@ -56,6 +56,16 @@ protected:
         }
         return false;
     }
+
+    // Returns the first type registered for `topic`, or nullptr if the topic is absent.
+    const char* first_type_of_topic(const rmw_names_and_types_t& names_and_types, const char* topic) {
+        for (size_t i = 0; i < names_and_types.names.size; ++i) {
+            if (strcmp(names_and_types.names.data[i], topic) == 0) {
+                return names_and_types.types[i].size > 0 ? names_and_types.types[i].data[0] : nullptr;
+            }
+        }
+        return nullptr;
+    }
 };
 
 TEST_F(RmwGraphTest, can_get_node_names) {
@@ -135,21 +145,16 @@ TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
     ASSERT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
 
-    for (size_t i = 0; i < topic_names_and_types.names.size; i++) {
-        printf("Topic name %zu: %s\n", i, topic_names_and_types.names.data[i]);
-    }
     // ASSERT_EQ(topic_names_and_types.names.size, 3); // Needs domain isolation
     ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_a.c_str()));
     ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_b.c_str()));
     ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_c.c_str()));
 
-    // TODO: Make it possible to get typename from iceoryx2 service
-    //       Requires capability to store ROS typename in iceoryx2 service attributes
-    //       Currently available in Rust but not CXX
-    // ASSERT_EQ(topic_names_and_types.types->size, 3); // Needs domain isolation
-    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
-    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
-    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
+    // Each topic carries its own ROS type name in its own sub-array.
+    const char* expected_type = "rmw_iceoryx2_cxx_test_msgs/msg/Defaults";
+    EXPECT_STREQ(first_type_of_topic(topic_names_and_types, test_topic_a.c_str()), expected_type);
+    EXPECT_STREQ(first_type_of_topic(topic_names_and_types, test_topic_b.c_str()), expected_type);
+    EXPECT_STREQ(first_type_of_topic(topic_names_and_types, test_topic_c.c_str()), expected_type);
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
 }

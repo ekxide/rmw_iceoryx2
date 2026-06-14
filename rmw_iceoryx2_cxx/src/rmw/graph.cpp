@@ -327,11 +327,6 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
     auto init_result = rmw_names_and_types_init(topic_names_and_types, topics.size(), allocator);
     RMW_IOX2_ENSURE_OK(init_result);
 
-    if (rcutils_string_array_init(topic_names_and_types->types, topics.size(), allocator) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic types");
-        return RMW_RET_BAD_ALLOC;
-    }
-
     size_t index = 0;
     for (const auto& topic : topics) {
         // Allocate and copy topic name
@@ -341,10 +336,14 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
             return RMW_RET_BAD_ALLOC;
         }
 
-        // Allocate and copy type name
-        topic_names_and_types->types->data[index] = rcutils_strdup(topic.type.c_str(), *allocator);
-        if (!topic_names_and_types->types->data[index]) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for type type");
+        // Each topic carries exactly one type, stored in its own sub-array.
+        if (rcutils_string_array_init(&topic_names_and_types->types[index], 1, allocator) != RCUTILS_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic types");
+            return RMW_RET_BAD_ALLOC;
+        }
+        topic_names_and_types->types[index].data[0] = rcutils_strdup(topic.type.c_str(), *allocator);
+        if (!topic_names_and_types->types[index].data[0]) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic type");
             return RMW_RET_BAD_ALLOC;
         }
 

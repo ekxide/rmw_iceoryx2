@@ -118,9 +118,11 @@ auto Graph::topic_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInf
     auto list_result = Iceoryx2::InterProcess::Service::list(config, [&topics](auto service) {
         if (service.static_details.messaging_pattern() == MessagingPattern::PublishSubscribe) {
             if (auto topic = parse_topic_name(service.static_details.name()); topic.has_value()) {
-                // TODO: extract the real type from the service's message type
-                //       details instead of the "UNKNOWN" placeholder.
-                topics.emplace(TopicInfo{std::move(topic.value()), "UNKNOWN"});
+                // The rmw stores the ROS type name (`<pkg>/msg/<Type>`) as the
+                // iceoryx2 payload type name at publisher/subscriber creation.
+                auto payload = service.static_details.publish_subscribe().message_type_details().payload();
+                std::string type = payload.type_name();
+                topics.emplace(TopicInfo{std::move(topic.value()), type.empty() ? "UNKNOWN" : std::move(type)});
             }
         }
         return CallbackProgression::Continue;
