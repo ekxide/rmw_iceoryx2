@@ -15,6 +15,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <tuple>
@@ -79,7 +80,29 @@ public:
     ///         error if the iceoryx2 registry cannot be read.
     auto topic_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
+    /// @brief Count the publishers currently connected to a topic.
+    /// @param[in] topic The ROS topic name.
+    /// @return The number of publishers, `0` if no service exists for the topic,
+    ///         or an error if an existing service cannot be opened.
+    auto count_publishers(const std::string& topic) -> ::iox2::bb::Expected<size_t, ErrorType>;
+
+    /// @brief Count the subscribers currently connected to a topic.
+    /// @param[in] topic The ROS topic name.
+    /// @return The number of subscribers, `0` if no service exists for the topic,
+    ///         or an error if an existing service cannot be opened.
+    auto count_subscribers(const std::string& topic) -> ::iox2::bb::Expected<size_t, ErrorType>;
+
 private:
+    enum class EndpointKind : uint8_t { PUBLISHER, SUBSCRIBER };
+
+    /// Shared implementation of `count_publishers`/`count_subscribers`: opens the
+    /// topic's existing service and reads the requested endpoint count from its
+    /// dynamic config. The payload type details are read from the registry so the
+    /// service can be opened without the original typesupport.
+    auto count_endpoints(const std::string& topic, EndpointKind kind) -> ::iox2::bb::Expected<size_t, ErrorType>;
+
+    // `reference_wrapper` so the class remains move-constructible. Cannot be
+    // null by construction.
     std::reference_wrapper<Node> m_node;
 };
 

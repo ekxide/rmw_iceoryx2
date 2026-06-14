@@ -9,9 +9,15 @@
 
 #include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
 
+#include "iox2/bb/into.hpp"
 #include "iox2/bb/optional.hpp"
+#include "iox2/message_type_details.hpp"
 #include "iox2/service.hpp"
+#include "iox2/service_builder_publish_subscribe.hpp"
 #include "iox2/static_config.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 
 #include <set>
 #include <string_view>
@@ -124,6 +130,58 @@ auto Graph::topic_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInf
     }
 
     return std::vector<TopicInfo>{topics.begin(), topics.end()};
+}
+
+auto Graph::count_publishers(const std::string& topic) -> ::iox2::bb::Expected<size_t, ErrorType> {
+    return count_endpoints(topic, EndpointKind::PUBLISHER);
+}
+
+auto Graph::count_subscribers(const std::string& topic) -> ::iox2::bb::Expected<size_t, ErrorType> {
+    return count_endpoints(topic, EndpointKind::SUBSCRIBER);
+}
+
+auto Graph::count_endpoints(const std::string& topic, EndpointKind kind) -> ::iox2::bb::Expected<size_t, ErrorType> {
+    using ::iox2::bb::err;
+    using Payload = ::rmw::iox2::Publisher::Payload;
+    using UserHeader = ::rmw::iox2::Publisher::UserHeader;
+    namespace names = ::rmw::iox2::names;
+
+    auto& node = m_node.get();
+    auto service_name = names::topic(topic.c_str());
+
+    // A topic with no service simply has no endpoints. Reading the existing
+    // service's payload type details from the registry lets us open it (to reach
+    // its dynamic config) without the original typesupport.
+    auto details = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(service_name,
+                                                                          Iceoryx2::MessagingPattern::PublishSubscribe);
+    if (!details.has_value()) {
+        return size_t{0};
+    }
+    auto payload_type_details = details.value().static_details.publish_subscribe().message_type_details().payload();
+
+    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name.c_str());
+    if (!iox2_service_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
+        return err(ErrorType::SERVICE_NAME_CREATION_FAILURE);
+    }
+
+    auto service_builder = node.iox2()
+                               .ipc()
+                               .service_builder(iox2_service_name.value())
+                               .publish_subscribe<Payload>()
+                               .user_header<UserHeader>();
+    ::iox2::set_payload_type_details(service_builder, payload_type_details);
+
+    auto service = service_builder.resume_build().open();
+    if (!service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(service.error()));
+        return err(ErrorType::SERVICE_OPEN_FAILURE);
+    }
+
+    const auto& dynamic_config = service.value().dynamic_config();
+
+    return kind == EndpointKind::PUBLISHER ? dynamic_config.number_of_publishers()
+                                           : dynamic_config.number_of_subscribers();
 }
 
 } // namespace rmw::iox2

@@ -85,33 +85,37 @@ TEST_F(RmwGraphTest, can_get_node_names) {
 TEST_F(RmwGraphTest, can_count_publishers) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto test_topic_a = create_test_topic("/TopicA");
-    auto test_topic_b = create_test_topic("/TopicB");
-    auto test_topic_c = create_test_topic("/TopicC");
-    create_default_publisher<Defaults>(test_topic_a.c_str());
-    create_default_publisher<Defaults>(test_topic_b.c_str());
-    create_default_publisher<Defaults>(test_topic_c.c_str());
+    auto topic = create_test_topic("/CountPublishers");
+    create_default_publisher<Defaults>(topic.c_str());
+    create_default_publisher<Defaults>(topic.c_str());
 
-    // TODO: Add support to iceoryx2_cxx to get number of publishers
-    // size_t count{0};
-    // ASSERT_RMW_OK(rmw_count_publishers(test_node(), "Defaults", &count));
-    // ASSERT_EQ(count, 3);
+    size_t count{0};
+    ASSERT_RMW_OK(rmw_count_publishers(test_node(), topic.c_str(), &count));
+    ASSERT_EQ(count, 2u);
 }
 
 TEST_F(RmwGraphTest, can_count_subscribers) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto test_topic_a = create_test_topic("/TopicA");
-    auto test_topic_b = create_test_topic("/TopicB");
-    auto test_topic_c = create_test_topic("/TopicC");
-    create_default_publisher<Defaults>(test_topic_a.c_str());
-    create_default_publisher<Defaults>(test_topic_b.c_str());
-    create_default_publisher<Defaults>(test_topic_c.c_str());
+    auto topic = create_test_topic("/CountSubscribers");
+    create_default_subscriber<Defaults>(topic.c_str());
+    create_default_subscriber<Defaults>(topic.c_str());
+    create_default_subscriber<Defaults>(topic.c_str());
 
-    // TODO: Add support to iceoryx2_cxx to get number of subscribers
-    // size_t count{0};
-    // ASSERT_RMW_OK(rmw_count_subscribers(test_node(), "Defaults", &count));
-    // ASSERT_EQ(count, 3);
+    size_t count{0};
+    ASSERT_RMW_OK(rmw_count_subscribers(test_node(), topic.c_str(), &count));
+    ASSERT_EQ(count, 3u);
+}
+
+TEST_F(RmwGraphTest, counts_zero_endpoints_for_unknown_topic) {
+    auto topic = create_test_topic("/NoEndpoints");
+
+    size_t publishers{99};
+    size_t subscribers{99};
+    ASSERT_RMW_OK(rmw_count_publishers(test_node(), topic.c_str(), &publishers));
+    ASSERT_RMW_OK(rmw_count_subscribers(test_node(), topic.c_str(), &subscribers));
+    ASSERT_EQ(publishers, 0u);
+    ASSERT_EQ(subscribers, 0u);
 }
 
 TEST_F(RmwGraphTest, can_get_topic_names_and_types) {

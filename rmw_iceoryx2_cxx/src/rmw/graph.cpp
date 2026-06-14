@@ -7,6 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
 #include "rcutils/strdup.h"
 #include "rcutils/types/string_array.h"
 #include "rmw/convert_rcutils_ret_to_rmw_ret.h"
@@ -24,12 +25,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/defaults.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
-#include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
 namespace
 {
@@ -137,11 +133,9 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* rmw_node,
 // Publishers ======================================================================================================
 
 rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_name, size_t* count) {
-    using ::rmw::iox2::Iceoryx2;
+    using ::rmw::iox2::Graph;
     using NodeImpl = ::rmw::iox2::Node;
-    using PublisherImpl = ::rmw::iox2::Publisher;
     using ::rmw::iox2::unsafe_cast;
-    namespace names = rmw::iox2::names;
 
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
@@ -158,28 +152,14 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_nam
     }
     auto& node_impl = node_impl_result.value();
 
-    auto service_name_string = names::topic(topic_name);
-    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name_string.c_str());
-    if (!iox2_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to create service name");
+    auto result = Graph{*node_impl}.count_publishers(topic_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to count publishers");
         return RMW_RET_ERROR;
     }
+    *count = result.value();
 
-    auto service_result = node_impl->iox2()
-                              .ipc()
-                              .service_builder(iox2_service_name.value())
-                              .publish_subscribe<PublisherImpl::Payload>()
-                              .open_or_create();
-    if (!service_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
-        return RMW_RET_ERROR;
-    }
-    auto& service = service_result.value();
-    (void)service;
-
-    // *count = service.dynamic_config().number_of_publishers(); // NOT IMPLEMENTED ...
-
-    return RMW_RET_UNSUPPORTED;
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* rmw_node,
@@ -232,11 +212,9 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* rmw_node,
 // Subscribers ======================================================================================================
 
 rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_name, size_t* count) {
-    using ::rmw::iox2::Iceoryx2;
+    using ::rmw::iox2::Graph;
     using NodeImpl = ::rmw::iox2::Node;
-    using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
-    namespace names = rmw::iox2::names;
 
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
@@ -253,28 +231,14 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_na
     }
     auto& node_impl = node_impl_result.value();
 
-    auto service_name_string = names::topic(topic_name);
-    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name_string.c_str());
-    if (!iox2_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to create service name");
+    auto result = Graph{*node_impl}.count_subscribers(topic_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to count subscribers");
         return RMW_RET_ERROR;
     }
+    *count = result.value();
 
-    auto service_result = node_impl->iox2()
-                              .ipc()
-                              .service_builder(iox2_service_name.value())
-                              .publish_subscribe<SubscriberImpl::Payload>()
-                              .open_or_create();
-    if (!service_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
-        return RMW_RET_ERROR;
-    }
-    auto& service = service_result.value();
-    (void)service;
-
-    // *count = service.dynamic_config().number_of_subscribers(); // NOT_IMPLEMENTED...
-
-    return RMW_RET_UNSUPPORTED;
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* rmw_node,
