@@ -38,89 +38,12 @@ namespace
 static_assert(::iox2::UNIQUE_PORT_ID_LENGTH == RMW_GID_STORAGE_SIZE,
               "iceoryx2 unique port id length must match RMW_GID_STORAGE_SIZE");
 
-/// @brief Marshal discovered endpoints into an rmw endpoint-info array.
-/// @param[out] array Zero-initialized array to populate.
-/// @param[in] endpoints The endpoints to copy in.
-/// @param[in] endpoint_type Whether these are publishers or subscriptions.
-/// @param[in] allocator Allocator used for the array and its strings.
-/// @return RMW_RET_OK on success, otherwise an appropriate error code.
-static auto fill_endpoint_info_array(rmw_topic_endpoint_info_array_t* array,
-                                     const std::vector<::rmw::iox2::EndpointInfo>& endpoints,
-                                     rmw_endpoint_type_t endpoint_type,
-                                     rcutils_allocator_t* allocator) -> rmw_ret_t {
-    using ::rmw::iox2::Convert;
-
-    if (rmw_topic_endpoint_info_array_init_with_size(array, endpoints.size(), allocator) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
-        return RMW_RET_BAD_ALLOC;
-    }
-
-    for (size_t index = 0; index < endpoints.size(); ++index) {
-        const auto& endpoint = endpoints[index];
-        auto* info = &array->info_array[index];
-
-        auto qos_profile = Convert<rmw_qos_profile_t>::from(endpoint.qos);
-        if (rmw_topic_endpoint_info_set_node_name(info, endpoint.node_name.c_str(), allocator) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_node_namespace(info, endpoint.node_namespace.c_str(), allocator)
-                   != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_topic_type(info, endpoint.topic_type.c_str(), allocator) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_topic_type_hash(info, &endpoint.type_hash) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_endpoint_type(info, endpoint_type) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_gid(info, endpoint.gid.data(), endpoint.gid.size()) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile) != RMW_RET_OK) {
-            RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
-            return RMW_RET_ERROR;
-        }
-    }
-
-    return RMW_RET_OK;
-}
-
-/// @brief Marshal discovered topics into an rmw names-and-types collection.
-/// @param[out] names_and_types Zero-initialized collection to populate.
-/// @param[in] topics The topics (name + single type) to copy in.
-/// @param[in] allocator Allocator used for the collection and its strings.
-/// @return RMW_RET_OK on success, otherwise an appropriate error code.
-static auto fill_names_and_types(rmw_names_and_types_t* names_and_types,
-                                 const std::vector<::rmw::iox2::TopicInfo>& topics,
-                                 rcutils_allocator_t* allocator) -> rmw_ret_t {
-    auto init_result = rmw_names_and_types_init(names_and_types, topics.size(), allocator);
-    if (init_result != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
-        return init_result;
-    }
-
-    size_t index = 0;
-    for (const auto& topic : topics) {
-        names_and_types->names.data[index] = rcutils_strdup(topic.name.c_str(), *allocator);
-        if (!names_and_types->names.data[index]) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
-            return RMW_RET_BAD_ALLOC;
-        }
-
-        // Each topic carries exactly one type, stored in its own sub-array.
-        if (rcutils_string_array_init(&names_and_types->types[index], 1, allocator) != RCUTILS_RET_OK) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic types");
-            return RMW_RET_BAD_ALLOC;
-        }
-        names_and_types->types[index].data[0] = rcutils_strdup(topic.type.c_str(), *allocator);
-        if (!names_and_types->types[index].data[0]) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic type");
-            return RMW_RET_BAD_ALLOC;
-        }
-
-        ++index;
-    }
-
-    return RMW_RET_OK;
-}
-
 /// @brief Initialize a string array with the given size using the provided allocator
 /// @param[in,out] array The string array to initialize
 /// @param[in] size The size to initialize the array with
 /// @param[in] allocator The allocator to use for memory allocation
 /// @return RMW_RET_OK if successful, otherwise an appropriate error code
-static auto init_string_array(rcutils_string_array_t* array, size_t size, rcutils_allocator_t* allocator) -> rmw_ret_t {
+auto init_string_array(rcutils_string_array_t* array, size_t size, rcutils_allocator_t* allocator) -> rmw_ret_t {
     auto ret = rcutils_string_array_init(array, size, allocator);
     if (ret != RCUTILS_RET_OK) {
         RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
@@ -137,11 +60,11 @@ static auto init_string_array(rcutils_string_array_t* array, size_t size, rcutil
 /// @param[out] enclaves Zero-initialized array for enclaves, or nullptr to skip.
 /// @param[in] allocator Allocator used for the arrays and their strings.
 /// @return RMW_RET_OK on success, otherwise an appropriate error code.
-static auto fill_node_names(const std::vector<::rmw::iox2::NodeName>& nodes,
-                            rcutils_string_array_t* node_names,
-                            rcutils_string_array_t* node_namespaces,
-                            rcutils_string_array_t* enclaves,
-                            rcutils_allocator_t* allocator) -> rmw_ret_t {
+auto fill_node_names(const std::vector<::rmw::iox2::NodeName>& nodes,
+                     rcutils_string_array_t* node_names,
+                     rcutils_string_array_t* node_namespaces,
+                     rcutils_string_array_t* enclaves,
+                     rcutils_allocator_t* allocator) -> rmw_ret_t {
     if (auto result = init_string_array(node_names, nodes.size(), allocator); result != RMW_RET_OK) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node names");
         return result;
@@ -179,6 +102,83 @@ static auto fill_node_names(const std::vector<::rmw::iox2::NodeName>& nodes,
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to populate enclaves array");
                 return RMW_RET_BAD_ALLOC;
             }
+        }
+
+        ++index;
+    }
+
+    return RMW_RET_OK;
+}
+
+/// @brief Marshal discovered endpoints into an rmw endpoint-info array.
+/// @param[out] array Zero-initialized array to populate.
+/// @param[in] endpoints The endpoints to copy in.
+/// @param[in] endpoint_type Whether these are publishers or subscriptions.
+/// @param[in] allocator Allocator used for the array and its strings.
+/// @return RMW_RET_OK on success, otherwise an appropriate error code.
+auto fill_endpoint_info(rmw_topic_endpoint_info_array_t* array,
+                        const std::vector<::rmw::iox2::EndpointInfo>& endpoints,
+                        rmw_endpoint_type_t endpoint_type,
+                        rcutils_allocator_t* allocator) -> rmw_ret_t {
+    using ::rmw::iox2::Convert;
+
+    if (rmw_topic_endpoint_info_array_init_with_size(array, endpoints.size(), allocator) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+        return RMW_RET_BAD_ALLOC;
+    }
+
+    for (size_t index = 0; index < endpoints.size(); ++index) {
+        const auto& endpoint = endpoints[index];
+        auto* info = &array->info_array[index];
+
+        auto qos_profile = Convert<rmw_qos_profile_t>::from(endpoint.qos);
+        if (rmw_topic_endpoint_info_set_node_name(info, endpoint.node_name.c_str(), allocator) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_node_namespace(info, endpoint.node_namespace.c_str(), allocator)
+                   != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_topic_type(info, endpoint.topic_type.c_str(), allocator) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_topic_type_hash(info, &endpoint.type_hash) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_endpoint_type(info, endpoint_type) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_gid(info, endpoint.gid.data(), endpoint.gid.size()) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile) != RMW_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+            return RMW_RET_ERROR;
+        }
+    }
+
+    return RMW_RET_OK;
+}
+
+/// @brief Marshal discovered topics into an rmw names-and-types collection.
+/// @param[out] names_and_types Zero-initialized collection to populate.
+/// @param[in] topics The topics (name + single type) to copy in.
+/// @param[in] allocator Allocator used for the collection and its strings.
+/// @return RMW_RET_OK on success, otherwise an appropriate error code.
+auto fill_names_and_types(rmw_names_and_types_t* names_and_types,
+                          const std::vector<::rmw::iox2::TopicInfo>& topics,
+                          rcutils_allocator_t* allocator) -> rmw_ret_t {
+    auto init_result = rmw_names_and_types_init(names_and_types, topics.size(), allocator);
+    if (init_result != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+        return init_result;
+    }
+
+    size_t index = 0;
+    for (const auto& topic : topics) {
+        names_and_types->names.data[index] = rcutils_strdup(topic.name.c_str(), *allocator);
+        if (!names_and_types->names.data[index]) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
+            return RMW_RET_BAD_ALLOC;
+        }
+
+        // Each topic carries exactly one type, stored in its own sub-array.
+        if (auto result = init_string_array(&names_and_types->types[index], 1, allocator); result != RMW_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic types");
+            return result;
+        }
+        names_and_types->types[index].data[0] = rcutils_strdup(topic.type.c_str(), *allocator);
+        if (!names_and_types->types[index].data[0]) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic type");
+            return RMW_RET_BAD_ALLOC;
         }
 
         ++index;
@@ -374,7 +374,7 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* rmw_node,
         return RMW_RET_ERROR;
     }
 
-    return fill_endpoint_info_array(publishers_info, result.value(), RMW_ENDPOINT_PUBLISHER, allocator);
+    return fill_endpoint_info(publishers_info, result.value(), RMW_ENDPOINT_PUBLISHER, allocator);
 }
 
 // Subscribers ======================================================================================================
@@ -489,7 +489,7 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* rmw_node,
         return RMW_RET_ERROR;
     }
 
-    return fill_endpoint_info_array(subscriptions_info, result.value(), RMW_ENDPOINT_SUBSCRIPTION, allocator);
+    return fill_endpoint_info(subscriptions_info, result.value(), RMW_ENDPOINT_SUBSCRIPTION, allocator);
 }
 
 // Topics ===========================================================================================================

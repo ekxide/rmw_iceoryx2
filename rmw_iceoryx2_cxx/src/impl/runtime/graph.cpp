@@ -273,9 +273,7 @@ auto Graph::endpoints_by_node(const std::string& node_name, const std::string& n
     auto& node = m_node.get();
 
     // One service-registry walk for the topics+types, and one node-registry walk
-    // for the id→(name, namespace) lookup. Both are reused across every topic
-    // below; by-node attribution needs neither the per-endpoint QoS nor the type
-    // hash, so those decodes are skipped entirely (unlike `endpoints_info`).
+    // for the id→(name, namespace) lookup.
     auto topics = topic_names_and_types();
     if (!topics.has_value()) {
         return err(topics.error());
