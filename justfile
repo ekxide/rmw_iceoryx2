@@ -12,12 +12,19 @@ minimal_packages := "ros2cli_common_extensions rmw_iceoryx2_cxx"
 _default:
     @just --justfile {{justfile()}} --list
 
+# Disable colcon-cargo's Cargo-workspace discovery. It enumerates every member of
+# the vendored iceoryx2 cargo workspace as a colcon package and folds their
+# dev-dependencies into the build order, creating `*-tests-common` cycles that make
+# `colcon build` fail to order packages topologically. 
+colcon_blocklist := "colcon_core.package_discovery.cargo_workspace:colcon_core.package_identification.cargo_workspace"
+
 # Build rmw_iceoryx2 and the ROS 2 CLI.
 build *extra_packages:
     #!/usr/bin/env bash
     set -euo pipefail
 
     cd "{{ws}}"
+    export COLCON_EXTENSION_BLOCKLIST="{{colcon_blocklist}}"
     RMW_IMPLEMENTATION={{rmw}} colcon build --symlink-install --packages-up-to {{minimal_packages}} {{extra_packages}}
 
 # Build the packages required to run an example.

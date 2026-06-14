@@ -17,10 +17,10 @@ application exchanging `TransmissionData` over shared memory.
    ROS 2 application                                           iceoryx2 application
    (rclcpp -> rmw_iceoryx2_cxx -> iceoryx2)                    (iceoryx2)
 
-   ros2_publisher  --+                                         +--  publisher
-   ros2_subscriber --+                                         +--  subscriber
-                     |                                         |
-                     v                                         v
+   publisher  --+                                             +--  publisher
+   subscriber --+                                             +--  subscriber
+                |                                             |
+                v                                             v
    +----------------------------------------------------------------+
    |               iceoryx2 shared memory                           |
    |               service: ros2://topics/transmission_data         |
@@ -33,8 +33,7 @@ application exchanging `TransmissionData` over shared memory.
 | -------------------------------------------- | ------ | --------------------------------------- |
 | `rmw_iceoryx2_interoperation_demo_msgs`      | colcon | `TransmissionData` interface (shared)   |
 | `rmw_iceoryx2_interoperation_demo_nodes`     | colcon | ROS 2 nodes (rclcpp)                    |
-| `iceoryx2_interoperation_demo_nodes`         | cargo  | native iceoryx2 apps (no `package.xml`) |
-
+| `iceoryx2_interoperation_demo_nodes`         | colcon | native iceoryx2 apps (`ament_cargo`)    |
 
 ## Binaries
 
@@ -44,11 +43,10 @@ for send notifications.
 
 | Binary            | Package                                  | iceoryx2 services                              |
 | ----------------- | ---------------------------------------- | --------------------------------------------- |
-| `ros2_publisher`  | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe publisher, event notifier   |
-| `ros2_subscriber` | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe subscriber, event listener  |
+| `publisher`       | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe publisher, event notifier   |
+| `subscriber`      | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe subscriber, event listener  |
 | `publisher`       | `iceoryx2_interoperation_demo_nodes`     | publish-subscribe publisher, event notifier   |
 | `subscriber`      | `iceoryx2_interoperation_demo_nodes`     | publish-subscribe subscriber, event listener  |
-
 
 ## Prerequisites
 
@@ -82,12 +80,16 @@ any other publisher/subscriber combination, use the manual steps below.
 Build — from the workspace root:
 
 ```sh
-colcon build --packages-up-to rmw_iceoryx2_interoperation_demo_nodes
-source install/setup.bash
+# Disable colcon-cargo's Cargo-workspace discovery. It enumerates every member of
+# the vendored iceoryx2 cargo workspace as a colcon package and folds their
+# dev-dependencies into the build order, creating `*-tests-common` cycles that make
+# `colcon build` fail to order packages topologically. 
+# Fix in colcon-cargo required.
+export COLCON_EXTENSION_BLOCKLIST="colcon_core.package_discovery.cargo_workspace:colcon_core.package_identification.cargo_workspace"
 
-# native iceoryx2 Rust app — the environment MUST be sourced first
-cargo build --release --manifest-path \
-  src/rmw_iceoryx2/examples/iceoryx2_interoperation/iceoryx2_interoperation_demo_nodes/Cargo.toml
+colcon build --packages-up-to \
+  rmw_iceoryx2_interoperation_demo_nodes iceoryx2_interoperation_demo_nodes
+source install/setup.bash
 ```
 
 Run — one process per terminal. In every terminal:
@@ -100,25 +102,22 @@ export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx
 ROS 2 nodes:
 
 ```sh
-ros2 run rmw_iceoryx2_interoperation_demo_nodes ros2_publisher
-ros2 run rmw_iceoryx2_interoperation_demo_nodes ros2_subscriber
+ros2 run rmw_iceoryx2_interoperation_demo_nodes publisher
+ros2 run rmw_iceoryx2_interoperation_demo_nodes subscriber
 ```
 
 Native iceoryx2 app:
 
 ```sh
-IOX2_NODES=src/rmw_iceoryx2/examples/iceoryx2_interoperation/iceoryx2_interoperation_demo_nodes/target/release
-$IOX2_NODES/publisher
-$IOX2_NODES/subscriber
+ros2 run iceoryx2_interoperation_demo_nodes publisher
+ros2 run iceoryx2_interoperation_demo_nodes subscriber
 ```
 
 Run any one publisher with any one subscriber:
 
 | Publisher              | Subscriber                |
 | ---------------------- | ------------------------- |
-| `ros2_publisher`       | `subscriber` (iceoryx2)   |
-| `publisher` (iceoryx2) | `ros2_subscriber`         |
-| `ros2_publisher`       | `ros2_subscriber`         |
+| `publisher` (ROS)      | `subscriber` (iceoryx2)   |
+| `publisher` (iceoryx2) | `subscriber` (ROS)        |
+| `publisher` (ROS)      | `subscriber` (ROS)        |
 | `publisher` (iceoryx2) | `subscriber` (iceoryx2)   |
-
-

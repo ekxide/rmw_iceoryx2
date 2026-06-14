@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+# Built by colcon as an `ament_cargo` package (requires the colcon-cargo and
+# colcon-ros-cargo plugins). colcon-ros-cargo patches the workspace crates
+# below into a generated [patch.crates-io].
 [dependencies]
-iceoryx2 = { path = "../../../../iceoryx2/iceoryx2" }
-rmw_iceoryx2_interoperation_demo_msgs = { path = "../../../../../install/rmw_iceoryx2_interoperation_demo_msgs/share/rmw_iceoryx2_interoperation_demo_msgs/rust" }
-rmw_iceoryx2_interoperability = { path = "../../../rmw_iceoryx2_interoperability" }
+iceoryx2 = "*"
+rmw_iceoryx2_interoperation_demo_msgs = "*"
+rmw_iceoryx2_interoperability = "*"
 rosidl_runtime_rs = "0.6"

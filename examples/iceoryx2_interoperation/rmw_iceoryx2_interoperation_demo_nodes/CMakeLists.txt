@@ -18,21 +18,21 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rmw_iceoryx2_interoperation_demo_msgs REQUIRED)
 
-add_executable(ros2_publisher src/ros2_publisher.cpp)
-target_include_directories(ros2_publisher PRIVATE include)
-target_link_libraries(ros2_publisher PRIVATE
+add_executable(publisher src/publisher.cpp)
+target_include_directories(publisher PRIVATE include)
+target_link_libraries(publisher PRIVATE
   rclcpp::rclcpp
   rmw_iceoryx2_interoperation_demo_msgs::rmw_iceoryx2_interoperation_demo_msgs__rosidl_typesupport_cpp)
 
-add_executable(ros2_subscriber src/ros2_subscriber.cpp)
-target_include_directories(ros2_subscriber PRIVATE include)
-target_link_libraries(ros2_subscriber PRIVATE
+add_executable(subscriber src/subscriber.cpp)
+target_include_directories(subscriber PRIVATE include)
+target_link_libraries(subscriber PRIVATE
   rclcpp::rclcpp
   rmw_iceoryx2_interoperation_demo_msgs::rmw_iceoryx2_interoperation_demo_msgs__rosidl_typesupport_cpp)
 
 install(TARGETS
-  ros2_publisher
-  ros2_subscriber
+  publisher
+  subscriber
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
