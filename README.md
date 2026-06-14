@@ -86,6 +86,11 @@ bindings to the Rust core.
 
     ```console
     cd ~/workspace/
+    # Disable colcon-cargo's Cargo-workspace discovery: it enumerates every member of the
+    # vendored iceoryx2 cargo workspace as a colcon package, creating dependency cycles
+    # that make the build fail to order packages topologically.
+    # Requires fix in colcon-cargo, will create a patch eventually.
+    export COLCON_EXTENSION_BLOCKLIST="colcon_core.package_discovery.cargo_workspace:colcon_core.package_identification.cargo_workspace"
     RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_talker_demo_nodes
     ```
 
