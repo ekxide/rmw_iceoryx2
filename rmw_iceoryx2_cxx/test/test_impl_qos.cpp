@@ -443,7 +443,7 @@ TEST_F(QosTest, mismatch_reports_reliability_difference) {
 
     auto diffs = collect_mismatches(resolved_a.value(), spec_b.value().attributes());
     ASSERT_EQ(diffs.size(), 1u);
-    EXPECT_EQ(diffs[0].key, "rmw.qos.local.reliability");
+    EXPECT_EQ(diffs[0].key, "ros.qos.reliability");
     EXPECT_EQ(diffs[0].requested, "reliable");
     EXPECT_EQ(diffs[0].existing, "best_effort");
 }
@@ -464,7 +464,7 @@ TEST_F(QosTest, mismatch_reports_history_depth_difference) {
 
     auto diffs = collect_mismatches(resolved_a.value(), spec_b.value().attributes());
     ASSERT_EQ(diffs.size(), 1u);
-    EXPECT_EQ(diffs[0].key, "rmw.qos.local.history");
+    EXPECT_EQ(diffs[0].key, "ros.qos.history");
     EXPECT_EQ(diffs[0].requested, "keep_last:5");
     EXPECT_EQ(diffs[0].existing, "keep_last:20");
 }
@@ -485,7 +485,7 @@ TEST_F(QosTest, mismatch_reports_durability_difference) {
 
     auto diffs = collect_mismatches(resolved_a.value(), spec_b.value().attributes());
     ASSERT_EQ(diffs.size(), 1u);
-    EXPECT_EQ(diffs[0].key, "rmw.qos.local.durability");
+    EXPECT_EQ(diffs[0].key, "ros.qos.durability");
     EXPECT_EQ(diffs[0].requested, "volatile");
     EXPECT_EQ(diffs[0].existing, "transient_local");
 }
@@ -512,9 +512,9 @@ TEST_F(QosTest, mismatch_reports_multiple_diffs_in_schema_order) {
 
     auto diffs = collect_mismatches(resolved_a.value(), spec_b.value().attributes());
     ASSERT_EQ(diffs.size(), 3u);
-    EXPECT_EQ(diffs[0].key, "rmw.qos.local.history");
-    EXPECT_EQ(diffs[1].key, "rmw.qos.local.reliability");
-    EXPECT_EQ(diffs[2].key, "rmw.qos.local.durability");
+    EXPECT_EQ(diffs[0].key, "ros.qos.history");
+    EXPECT_EQ(diffs[1].key, "ros.qos.reliability");
+    EXPECT_EQ(diffs[2].key, "ros.qos.durability");
 }
 
 } // namespace

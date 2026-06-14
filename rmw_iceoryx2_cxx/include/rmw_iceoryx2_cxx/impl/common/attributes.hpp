@@ -25,7 +25,7 @@
 #include <cstdint>
 #include <utility>
 
-/// Per-policy descriptors for the `rmw.qos.local.*` attribute namespace.
+/// Per-policy descriptors for the `ros.qos.*` attribute namespace.
 /// Each struct owns its attribute key, its allowed string values, and the
 /// encode/decode translation between `Qos` and the string stored in iceoryx2
 /// services.
@@ -34,7 +34,7 @@ namespace rmw::iox2::attributes
 
 struct History
 {
-    static constexpr char KEY[] = "rmw.qos.local.history";
+    static constexpr char KEY[] = "ros.qos.history";
     static constexpr char VALUE_KEEP_LAST[] = "keep_last";
 
     RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
@@ -43,7 +43,7 @@ struct History
 
 struct Reliability
 {
-    static constexpr char KEY[] = "rmw.qos.local.reliability";
+    static constexpr char KEY[] = "ros.qos.reliability";
     static constexpr char VALUE_RELIABLE[] = "reliable";
     static constexpr char VALUE_BEST_EFFORT[] = "best_effort";
 
@@ -53,7 +53,7 @@ struct Reliability
 
 struct Durability
 {
-    static constexpr char KEY[] = "rmw.qos.local.durability";
+    static constexpr char KEY[] = "ros.qos.durability";
     static constexpr char VALUE_VOLATILE[] = "volatile";
     static constexpr char VALUE_TRANSIENT_LOCAL[] = "transient_local";
 
@@ -63,7 +63,7 @@ struct Durability
 
 struct Deadline
 {
-    static constexpr char KEY[] = "rmw.qos.local.deadline";
+    static constexpr char KEY[] = "ros.qos.deadline";
     static constexpr char VALUE_DURATION[] = "duration";
 
     RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
@@ -72,7 +72,7 @@ struct Deadline
 
 struct Lifespan
 {
-    static constexpr char KEY[] = "rmw.qos.local.lifespan";
+    static constexpr char KEY[] = "ros.qos.lifespan";
     static constexpr char VALUE_DURATION[] = "duration";
 
     RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
@@ -87,7 +87,7 @@ struct Liveliness
         Qos::Duration lease;
     };
 
-    static constexpr char KEY[] = "rmw.qos.local.liveliness";
+    static constexpr char KEY[] = "ros.qos.liveliness";
     static constexpr char VALUE_AUTOMATIC[] = "automatic";
     static constexpr char VALUE_MANUAL_BY_TOPIC[] = "manual_by_topic";
 
@@ -95,13 +95,11 @@ struct Liveliness
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Value>;
 };
 
-/// Descriptor for the `rmw.ros.type_hash` attribute carrying the REP-2011 type
-/// hash as a RIHS string (`RIHS01_...`). Unlike the QoS descriptors above it
-/// encodes/decodes a `rosidl_type_hash_t` rather than a `Qos`. Endpoints of the
-/// same topic share the same value, so it is a required service attribute.
+/// Descriptor for the `ros.type_hash` attribute carrying the REP-2011 type
+/// hash as a RIHS string (`RIHS01_...`). U
 struct TypeHash
 {
-    static constexpr char KEY[] = "rmw.ros.type_hash";
+    static constexpr char KEY[] = "ros.type_hash";
 
     RMW_PUBLIC static auto encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) -> void;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<rosidl_type_hash_t>;
