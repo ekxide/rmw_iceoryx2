@@ -12,6 +12,7 @@
 #include "iox2/bb/into.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/message_type_details.hpp"
+#include "iox2/port_factory_publish_subscribe.hpp"
 #include "iox2/service.hpp"
 #include "iox2/service_builder_publish_subscribe.hpp"
 #include "iox2/static_config.hpp"
@@ -110,6 +111,56 @@ auto build_node_id_lookup(::rmw::iox2::Node& node) -> std::map<NodeIdKey, ::rmw:
     return nodes;
 }
 
+/// The opened publish-subscribe service backing a ROS topic, as used by this RMW.
+using TopicService = ::iox2::PortFactoryPublishSubscribe<::rmw::iox2::Iceoryx2::ServiceType::Ipc,
+                                                         ::rmw::iox2::Publisher::Payload,
+                                                         ::rmw::iox2::Publisher::UserHeader>;
+
+/// Open the existing publish-subscribe service backing `topic` so its dynamic
+/// config, attributes and static config can be inspected. The payload type
+/// details are read from the registry, so the service opens without the original
+/// typesupport. Returns `NULLOPT` when no service exists for the topic (i.e. the
+/// topic has no endpoints).
+auto open_topic_service(::rmw::iox2::Node& node, const std::string& topic)
+    -> ::iox2::bb::Expected<::iox2::bb::Optional<TopicService>, ::rmw::iox2::GraphError> {
+    using ::iox2::bb::err;
+    using ::rmw::iox2::GraphError;
+    using ::rmw::iox2::Iceoryx2;
+    using Payload = ::rmw::iox2::Publisher::Payload;
+    using UserHeader = ::rmw::iox2::Publisher::UserHeader;
+    namespace names = ::rmw::iox2::names;
+
+    auto service_name = names::topic(topic.c_str());
+
+    auto details = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(service_name,
+                                                                          Iceoryx2::MessagingPattern::PublishSubscribe);
+    if (!details.has_value()) {
+        return ::iox2::bb::Optional<TopicService>{::iox2::bb::NULLOPT};
+    }
+    auto payload_type_details = details.value().static_details.publish_subscribe().message_type_details().payload();
+
+    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name.c_str());
+    if (!iox2_service_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
+        return err(GraphError::SERVICE_NAME_CREATION_FAILURE);
+    }
+
+    auto service_builder = node.iox2()
+                               .ipc()
+                               .service_builder(iox2_service_name.value())
+                               .publish_subscribe<Payload>()
+                               .user_header<UserHeader>();
+    ::iox2::set_payload_type_details(service_builder, payload_type_details);
+
+    auto service = service_builder.resume_build().open();
+    if (!service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(service.error()));
+        return err(GraphError::SERVICE_OPEN_FAILURE);
+    }
+
+    return ::iox2::bb::Optional<TopicService>{std::move(service.value())};
+}
+
 } // namespace
 
 namespace rmw::iox2
@@ -180,43 +231,17 @@ auto Graph::count_subscribers(const std::string& topic) -> ::iox2::bb::Expected<
 
 auto Graph::count_endpoints(const std::string& topic, EndpointKind kind) -> ::iox2::bb::Expected<size_t, ErrorType> {
     using ::iox2::bb::err;
-    using Payload = ::rmw::iox2::Publisher::Payload;
-    using UserHeader = ::rmw::iox2::Publisher::UserHeader;
-    namespace names = ::rmw::iox2::names;
 
-    auto& node = m_node.get();
-    auto service_name = names::topic(topic.c_str());
-
-    // A topic with no service simply has no endpoints. Reading the existing
-    // service's payload type details from the registry lets us open it (to reach
-    // its dynamic config) without the original typesupport.
-    auto details = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(service_name,
-                                                                          Iceoryx2::MessagingPattern::PublishSubscribe);
-    if (!details.has_value()) {
+    auto service = open_topic_service(m_node.get(), topic);
+    if (!service.has_value()) {
+        return err(service.error());
+    }
+    // A topic with no service has no endpoints.
+    if (!service.value().has_value()) {
         return size_t{0};
     }
-    auto payload_type_details = details.value().static_details.publish_subscribe().message_type_details().payload();
 
-    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name.c_str());
-    if (!iox2_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
-        return err(ErrorType::SERVICE_NAME_CREATION_FAILURE);
-    }
-
-    auto service_builder = node.iox2()
-                               .ipc()
-                               .service_builder(iox2_service_name.value())
-                               .publish_subscribe<Payload>()
-                               .user_header<UserHeader>();
-    ::iox2::set_payload_type_details(service_builder, payload_type_details);
-
-    auto service = service_builder.resume_build().open();
-    if (!service.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(service.error()));
-        return err(ErrorType::SERVICE_OPEN_FAILURE);
-    }
-
-    const auto& dynamic_config = service.value().dynamic_config();
+    const auto& dynamic_config = service.value().value().dynamic_config();
 
     return kind == EndpointKind::PUBLISHER ? dynamic_config.number_of_publishers()
                                            : dynamic_config.number_of_subscribers();
@@ -242,26 +267,56 @@ auto Graph::subscriptions_by_node(const std::string& name, const std::string& ns
 
 auto Graph::endpoints_by_node(const std::string& name, const std::string& ns, EndpointKind kind)
     -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
+    using ::iox2::CallbackProgression;
     using ::iox2::bb::err;
 
-    // Walk every topic and keep those with an endpoint of the requested kind
-    // owned by the named node.
+    auto& node = m_node.get();
+
+    // One service-registry walk for the topics+types, and one node-registry walk
+    // for the id→(name, namespace) lookup. Both are reused across every topic
+    // below; by-node attribution needs neither the per-endpoint QoS nor the type
+    // hash, so those decodes are skipped entirely (unlike `endpoints_info`).
     auto topics = topic_names_and_types();
     if (!topics.has_value()) {
         return err(topics.error());
     }
+    auto nodes = build_node_id_lookup(node);
 
+    auto owned_by_target = [&](const ::iox2::UniqueNodeId& node_id) -> bool {
+        auto it = nodes.find(to_key(node_id));
+        return it != nodes.end() && it->second.name == name && it->second.ns == ns;
+    };
+
+    // Keep a topic the first time one of its endpoints (of the requested kind) is
+    // owned by the target node; opening the service is unavoidable because the
+    // endpoint→node attribution lives in the dynamic config, not the registry.
     std::vector<TopicInfo> result{};
     for (const auto& topic : topics.value()) {
-        auto endpoints = endpoints_info(topic.name, kind);
-        if (!endpoints.has_value()) {
-            return err(endpoints.error());
+        auto service = open_topic_service(node, topic.name);
+        if (!service.has_value()) {
+            return err(service.error());
         }
-        for (const auto& endpoint : endpoints.value()) {
-            if (endpoint.node_name == name && endpoint.node_namespace == ns) {
-                result.push_back(topic);
-                break;
+        if (!service.value().has_value()) {
+            continue; // service vanished between listing and opening
+        }
+        const auto& dynamic_config = service.value().value().dynamic_config();
+
+        bool found = false;
+        auto scan = [&](auto view) {
+            if (owned_by_target(view.node_id())) {
+                found = true;
+                return CallbackProgression::Stop;
             }
+            return CallbackProgression::Continue;
+        };
+        if (kind == EndpointKind::PUBLISHER) {
+            dynamic_config.list_publishers(scan);
+        } else {
+            dynamic_config.list_subscribers(scan);
+        }
+
+        if (found) {
+            result.push_back(topic);
         }
     }
 
@@ -272,47 +327,24 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
     -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType> {
     using ::iox2::CallbackProgression;
     using ::iox2::bb::err;
-    using Payload = ::rmw::iox2::Publisher::Payload;
-    using UserHeader = ::rmw::iox2::Publisher::UserHeader;
-    namespace names = ::rmw::iox2::names;
 
     auto& node = m_node.get();
-    auto service_name = names::topic(topic.c_str());
 
-    auto details = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(service_name,
-                                                                          Iceoryx2::MessagingPattern::PublishSubscribe);
-    if (!details.has_value()) {
-        // A topic with no service has no endpoints.
+    auto service = open_topic_service(node, topic);
+    if (!service.has_value()) {
+        return err(service.error());
+    }
+    // A topic with no service has no endpoints.
+    if (!service.value().has_value()) {
         return std::vector<EndpointInfo>{};
     }
-    // The payload type details let us open the service without reading
-    // from the typesupport.
-    auto payload_type_details = details.value().static_details.publish_subscribe().message_type_details().payload();
-    std::string topic_type = payload_type_details.type_name();
+    auto& port_factory = service.value().value();
+
+    // The rmw stores the ROS type name as the iceoryx2 payload type name.
+    std::string topic_type = port_factory.static_config().message_type_details().payload().type_name();
     if (topic_type.empty()) {
         topic_type = "UNKNOWN";
     }
-
-    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name.c_str());
-    if (!iox2_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
-        return err(ErrorType::SERVICE_NAME_CREATION_FAILURE);
-    }
-
-    auto service_builder = node.iox2()
-                               .ipc()
-                               .service_builder(iox2_service_name.value())
-                               .publish_subscribe<Payload>()
-                               .user_header<UserHeader>();
-
-    ::iox2::set_payload_type_details(service_builder, payload_type_details);
-
-    auto service = service_builder.resume_build().open();
-    if (!service.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(service.error()));
-        return err(ErrorType::SERVICE_OPEN_FAILURE);
-    }
-    auto& port_factory = service.value();
 
     // All endpoints on a topic share the service-level QoS and type hash in
     // iceoryx2.
