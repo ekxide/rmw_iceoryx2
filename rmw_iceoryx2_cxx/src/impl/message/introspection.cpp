@@ -12,6 +12,7 @@
 #include "iox2/legacy/variant.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/typesupport.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/message_type_support.h"
 #include "rosidl_typesupport_introspection_c/identifier.h"
@@ -164,8 +165,14 @@ size_t serialized_message_size(const void* ros_message, const rosidl_message_typ
     if (!type_support || !type_support->data) {
         return 0;
     }
-    if (auto handle =
-            get_message_typesupport_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier)) {
+    // Both the C++ and C fastrtps typesupports store the same
+    // `message_type_support_callbacks_t`, so try either identifier; the C
+    // variant is used e.g. by rcl's `/rosout` logging publisher.
+    auto handle = get_handle(type_support, RMW_ICEORYX2_CXX_TYPESUPPORT_CPP);
+    if (!handle) {
+        handle = get_handle(type_support, RMW_ICEORYX2_CXX_TYPESUPPORT_C);
+    }
+    if (handle) {
         auto callbacks = static_cast<const message_type_support_callbacks_t*>(handle->data);
         return 4 + callbacks->get_serialized_size(ros_message); // 4 bytes for CDR header
     }

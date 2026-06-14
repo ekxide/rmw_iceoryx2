@@ -12,17 +12,25 @@
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/typesupport.hpp"
-#include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
 
 const char* const rmw_iox2_serialization_format = "iceoryx2";
 
 namespace
 {
 
-// Walk the typesupport chain to find the fastrtps_cpp handle and extract its
+// Walk the typesupport chain to find the fastrtps handle and extract its
 // serialization callbacks. Returns null on failure.
+//
+// Both the C++ (`rosidl_typesupport_fastrtps_cpp`) and C
+// (`rosidl_typesupport_fastrtps_c`) typesupports store the same
+// `message_type_support_callbacks_t` (the C generator includes the C++ header),
+// so the same callbacks drive serialization regardless of which one a caller
+// provides. The C variant is used e.g. by rcl's `/rosout` logging publisher.
 const message_type_support_callbacks_t* get_typesupport_callbacks(const rosidl_message_type_support_t* type_support) {
-    const auto* handle = get_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
+    const auto* handle = get_handle(type_support, RMW_ICEORYX2_CXX_TYPESUPPORT_CPP);
+    if (!handle) {
+        handle = get_handle(type_support, RMW_ICEORYX2_CXX_TYPESUPPORT_C);
+    }
     if (!handle) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get fastrtps typesupport handle");
         return nullptr;
