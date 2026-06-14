@@ -15,6 +15,7 @@
 * Add support for QoS [#5](https://github.com/ekxide/rmw_iceoryx2/issues/2)
 * Add ROS 2 <-> iceoryx2 communication example [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 * Add middleware overhead benchmarking application [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
+* Implement graph API for publish-subscribe topics [#6](https://github.com/ekxide/rmw_iceoryx2/issues/6)
 
 ### Bugfixes
 
