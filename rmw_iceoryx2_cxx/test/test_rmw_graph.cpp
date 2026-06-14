@@ -129,7 +129,6 @@ TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
 
     auto allocator = rcutils_get_default_allocator();
     auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
-    ASSERT_RMW_OK(rmw_names_and_types_init(&topic_names_and_types, 0, &allocator));
     ASSERT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
 
     for (size_t i = 0; i < topic_names_and_types.names.size; i++) {
@@ -147,6 +146,29 @@ TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
     ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
     ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {
+    // Callers such as `ros2 topic list` pass a zero-initialized
+    // `rmw_names_and_types_t`, whose `types` member is NULL. The query must
+    // accept that form.
+    auto allocator = rcutils_get_default_allocator();
+    auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
+
+    EXPECT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {
+    auto allocator = rcutils_get_default_allocator();
+    auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_names_and_types_init(&topic_names_and_types, 1, &allocator));
+
+    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT,
+                   rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
 }

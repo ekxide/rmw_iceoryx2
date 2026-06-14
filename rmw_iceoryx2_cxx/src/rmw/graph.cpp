@@ -333,18 +333,13 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
     if (!rcutils_allocator_is_valid(allocator)) {
         return RMW_RET_INVALID_ARGUMENT;
     }
-    auto zero_array = rcutils_get_zero_initialized_string_array();
-    auto comparison_result{0};
-    if (rcutils_string_array_cmp(&topic_names_and_types->names, &zero_array, &comparison_result) != RMW_RET_OK
-        || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify topic names is zero initialized");
+    // A zero-initialized `rmw_names_and_types_t` has `types == NULL`, which is how
+    // callers (e.g. `ros2 topic list`) pass it; validate that form rather than
+    // dereferencing `types`.
+    if (rmw_names_and_types_check_zero(topic_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("topic_names_and_types is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
-    };
-    if (rcutils_string_array_cmp(topic_names_and_types->types, &zero_array, &comparison_result) != RMW_RET_OK
-        || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify topic types is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
+    }
 
     // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::Graph;
