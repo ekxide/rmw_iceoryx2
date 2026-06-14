@@ -39,11 +39,11 @@ struct Error<Graph>
 /// @brief A discovered node's name and namespace.
 struct NodeName
 {
-    std::string name;
-    std::string ns;
+    std::string node_name;
+    std::string node_namespace;
 
     auto operator<(const NodeName& other) const -> bool {
-        return std::tie(ns, name) < std::tie(other.ns, other.name);
+        return std::tie(node_namespace, node_name) < std::tie(other.node_namespace, other.node_name);
     }
 };
 
@@ -122,21 +122,21 @@ public:
     auto subscriptions_info(const std::string& topic) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType>;
 
     /// @brief List the topics a given node publishes to, with their types.
-    /// @param[in] name The node's name.
-    /// @param[in] ns The node's namespace.
+    /// @param[in] node_name The node's name.
+    /// @param[in] node_namespace The node's namespace.
     /// @return The name and type of each topic the node has a publisher on,
     ///         deduplicated and ordered, or an error if the registry cannot be
     ///         read.
-    auto publishers_by_node(const std::string& name, const std::string& ns)
+    auto publishers_by_node(const std::string& node_name, const std::string& node_namespace)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
     /// @brief List the topics a given node subscribes to, with their types.
-    /// @param[in] name The node's name.
-    /// @param[in] ns The node's namespace.
+    /// @param[in] node_name The node's name.
+    /// @param[in] node_namespace The node's namespace.
     /// @return The name and type of each topic the node has a subscriber on,
     ///         deduplicated and ordered, or an error if the registry cannot be
     ///         read.
-    auto subscriptions_by_node(const std::string& name, const std::string& ns)
+    auto subscriptions_by_node(const std::string& node_name, const std::string& node_namespace)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
 private:
@@ -157,7 +157,7 @@ private:
     /// Shared implementation of `publishers_by_node`/`subscriptions_by_node`:
     /// walks every topic and keeps those carrying an endpoint of the requested
     /// kind that is owned by the named node.
-    auto endpoints_by_node(const std::string& name, const std::string& ns, EndpointKind kind)
+    auto endpoints_by_node(const std::string& node_name, const std::string& node_namespace, EndpointKind kind)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
     // `reference_wrapper` so the class remains move-constructible. Cannot be

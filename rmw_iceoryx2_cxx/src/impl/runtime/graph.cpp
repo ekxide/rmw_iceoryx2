@@ -84,8 +84,8 @@ auto parse_topic_name(const char* full_name) -> ::iox2::bb::Optional<std::string
 /// A node's unique id as a comparable key: (high bits, low bits).
 using NodeIdKey = std::pair<uint64_t, uint64_t>;
 
-auto to_key(const ::iox2::UniqueNodeId& id) -> NodeIdKey {
-    return {id.value_high(), id.value_low()};
+auto to_key(const ::iox2::UniqueNodeId& node_id) -> NodeIdKey {
+    return {node_id.value_high(), node_id.value_low()};
 }
 
 /// Build a lookup, from node unique id to its parsed (name, namespace), by
@@ -255,17 +255,17 @@ auto Graph::subscriptions_info(const std::string& topic) -> ::iox2::bb::Expected
     return endpoints_info(topic, EndpointKind::SUBSCRIBER);
 }
 
-auto Graph::publishers_by_node(const std::string& name, const std::string& ns)
+auto Graph::publishers_by_node(const std::string& node_name, const std::string& node_namespace)
     -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
-    return endpoints_by_node(name, ns, EndpointKind::PUBLISHER);
+    return endpoints_by_node(node_name, node_namespace, EndpointKind::PUBLISHER);
 }
 
-auto Graph::subscriptions_by_node(const std::string& name, const std::string& ns)
+auto Graph::subscriptions_by_node(const std::string& node_name, const std::string& node_namespace)
     -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
-    return endpoints_by_node(name, ns, EndpointKind::SUBSCRIBER);
+    return endpoints_by_node(node_name, node_namespace, EndpointKind::SUBSCRIBER);
 }
 
-auto Graph::endpoints_by_node(const std::string& name, const std::string& ns, EndpointKind kind)
+auto Graph::endpoints_by_node(const std::string& node_name, const std::string& node_namespace, EndpointKind kind)
     -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
     using ::iox2::CallbackProgression;
     using ::iox2::bb::err;
@@ -283,8 +283,9 @@ auto Graph::endpoints_by_node(const std::string& name, const std::string& ns, En
     auto nodes = build_node_id_lookup(node);
 
     auto owned_by_target = [&](const ::iox2::UniqueNodeId& node_id) -> bool {
-        auto it = nodes.find(to_key(node_id));
-        return it != nodes.end() && it->second.name == name && it->second.ns == ns;
+        auto entry = nodes.find(to_key(node_id));
+        return entry != nodes.end() && entry->second.node_name == node_name
+               && entry->second.node_namespace == node_namespace;
     };
 
     // Keep a topic the first time one of its endpoints (of the requested kind) is
@@ -370,9 +371,9 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
                              const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes) -> EndpointInfo {
         std::string node_name{};
         std::string node_namespace{};
-        if (auto it = nodes.find(to_key(node_id)); it != nodes.end()) {
-            node_name = it->second.name;
-            node_namespace = it->second.ns;
+        if (auto entry = nodes.find(to_key(node_id)); entry != nodes.end()) {
+            node_name = entry->second.node_name;
+            node_namespace = entry->second.node_namespace;
         }
 
         std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH> gid{};

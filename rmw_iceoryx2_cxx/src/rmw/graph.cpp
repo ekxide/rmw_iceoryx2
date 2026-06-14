@@ -159,13 +159,13 @@ static auto fill_node_names(const std::vector<::rmw::iox2::NodeName>& nodes,
 
     size_t index = 0;
     for (const auto& node : nodes) {
-        node_names->data[index] = rcutils_strdup(node.name.c_str(), *allocator);
+        node_names->data[index] = rcutils_strdup(node.node_name.c_str(), *allocator);
         if (!node_names->data[index]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node name array");
             return RMW_RET_BAD_ALLOC;
         }
 
-        node_namespaces->data[index] = rcutils_strdup(node.ns.c_str(), *allocator);
+        node_namespaces->data[index] = rcutils_strdup(node.node_namespace.c_str(), *allocator);
         if (!node_namespaces->data[index]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node namespace array");
             return RMW_RET_BAD_ALLOC;
