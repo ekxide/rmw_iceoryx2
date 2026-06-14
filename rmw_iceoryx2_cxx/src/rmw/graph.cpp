@@ -480,4 +480,42 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
     // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
+
+rmw_ret_t rmw_get_clients_info_by_service(const rmw_node_t* rmw_node,
+                                          rcutils_allocator_t* allocator,
+                                          const char* service_name,
+                                          bool no_mangle,
+                                          rmw_service_endpoint_info_array_t* clients_info) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(clients_info, RMW_RET_INVALID_ARGUMENT);
+    if (rmw_service_endpoint_info_array_check_zero(clients_info) != RMW_RET_OK) {
+        return RMW_RET_INVALID_ARGUMENT;
+    }
+
+    // Implementation -------------------------------------------------------------------------------
+    return RMW_RET_UNSUPPORTED;
+}
+
+rmw_ret_t rmw_get_servers_info_by_service(const rmw_node_t* rmw_node,
+                                          rcutils_allocator_t* allocator,
+                                          const char* service_name,
+                                          bool no_mangle,
+                                          rmw_service_endpoint_info_array_t* servers_info) {
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(servers_info, RMW_RET_INVALID_ARGUMENT);
+    if (rmw_service_endpoint_info_array_check_zero(servers_info) != RMW_RET_OK) {
+        return RMW_RET_INVALID_ARGUMENT;
+    }
+
+    // Implementation -------------------------------------------------------------------------------
+    return RMW_RET_UNSUPPORTED;
+}
 }

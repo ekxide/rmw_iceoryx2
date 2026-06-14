@@ -62,4 +62,10 @@ rmw_ret_t rmw_event_set_callback(rmw_event_t* rmw_event, rmw_event_callback_t ca
     // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
 }
+
+bool rmw_event_type_is_supported(rmw_event_type_t event_type) {
+    // No QoS/liveliness events are surfaced by the iceoryx2 transport yet.
+    (void)event_type;
+    return false;
+}
 }
