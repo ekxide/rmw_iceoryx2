@@ -7,8 +7,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#ifndef RMW_IOX2_QOS_ATTRIBUTES_HPP_
-#define RMW_IOX2_QOS_ATTRIBUTES_HPP_
+#ifndef RMW_IOX2_COMMON_ATTRIBUTES_HPP_
+#define RMW_IOX2_COMMON_ATTRIBUTES_HPP_
 
 #include "iox2/attribute_set.hpp"
 #include "iox2/attribute_specifier.hpp"
@@ -20,6 +20,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
+#include "rosidl_runtime_c/type_hash.h"
 
 #include <cstdint>
 #include <utility>
@@ -28,7 +29,7 @@
 /// Each struct owns its attribute key, its allowed string values, and the
 /// encode/decode translation between `Qos` and the string stored in iceoryx2
 /// services.
-namespace rmw::iox2::qos::attributes
+namespace rmw::iox2::attributes
 {
 
 struct History
@@ -94,6 +95,18 @@ struct Liveliness
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Value>;
 };
 
+/// Descriptor for the `rmw.ros.type_hash` attribute carrying the REP-2011 type
+/// hash as a RIHS string (`RIHS01_...`). Unlike the QoS descriptors above it
+/// encodes/decodes a `rosidl_type_hash_t` rather than a `Qos`. Endpoints of the
+/// same topic share the same value, so it is a required service attribute.
+struct TypeHash
+{
+    static constexpr char KEY[] = "rmw.ros.type_hash";
+
+    RMW_PUBLIC static void encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len);
+    RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<rosidl_type_hash_t>;
+};
+
 /// Invoke `callback(const char*)` with the raw value stored under `key`, if
 /// present. The pointer is valid only for the duration of the call. Does
 /// nothing when `key` is absent or its key form cannot be constructed.
@@ -110,23 +123,10 @@ void visit_attribute_value(::iox2::AttributeSetView attribute_set, const char* k
     std::forward<Callback>(callback)(val.value().unchecked_access().c_str());
 }
 
-} // namespace rmw::iox2::qos::attributes
+} // namespace rmw::iox2::attributes
 
 namespace rmw::iox2
 {
-
-// ----------------------------------------------------------------------------
-// Type hash attribute
-// ----------------------------------------------------------------------------
-
-/// Service attribute key carrying the ROS message type hash as a RIHS string
-/// (`RIHS01_...`). Endpoints of the same topic share the same value, so it is a
-/// required service attribute alongside the QoS policies.
-inline constexpr char TYPE_HASH_ATTRIBUTE_KEY[] = "rmw.ros.type_hash";
-
-/// Require the ROS type hash on a verifier (the service-creation attribute set).
-/// @return false if the key/value could not be added.
-RMW_PUBLIC auto require_type_hash(::iox2::AttributeVerifier& verifier, const char* type_hash) -> bool;
 
 // ----------------------------------------------------------------------------
 // Conversions
@@ -152,17 +152,21 @@ struct RMW_PUBLIC TryConvert<Qos>
 template <>
 struct RMW_PUBLIC TryConvert<::iox2::AttributeSpecifier>
 {
-    /// Fallible conversion `Qos` → `iox2::AttributeSpecifier`.
-    static auto from(const Qos& qos) -> ::iox2::bb::Expected<::iox2::AttributeSpecifier, QosError>;
+    /// Fallible conversion of a service's QoS (and optionally its type hash) into
+    /// the set of attributes defined when the service is created.
+    static auto from(const Qos& qos, const ::iox2::bb::Optional<rosidl_type_hash_t>& type_hash = ::iox2::bb::NULLOPT)
+        -> ::iox2::bb::Expected<::iox2::AttributeSpecifier, QosError>;
 };
 
 template <>
 struct RMW_PUBLIC TryConvert<::iox2::AttributeVerifier>
 {
-    /// Fallible conversion `Qos` → `iox2::AttributeVerifier`.
-    static auto from(const Qos& qos) -> ::iox2::bb::Expected<::iox2::AttributeVerifier, QosError>;
+    /// Fallible conversion of a service's QoS (and optionally its type hash) into
+    /// the set of attributes required when the service is opened.
+    static auto from(const Qos& qos, const ::iox2::bb::Optional<rosidl_type_hash_t>& type_hash = ::iox2::bb::NULLOPT)
+        -> ::iox2::bb::Expected<::iox2::AttributeVerifier, QosError>;
 };
 
 } // namespace rmw::iox2
 
-#endif // RMW_IOX2_QOS_ATTRIBUTES_HPP_
+#endif // RMW_IOX2_COMMON_ATTRIBUTES_HPP_

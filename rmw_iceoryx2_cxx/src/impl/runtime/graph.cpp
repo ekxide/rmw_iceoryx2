@@ -16,9 +16,9 @@
 #include "iox2/service_builder_publish_subscribe.hpp"
 #include "iox2/static_config.hpp"
 #include "iox2/unique_node_id.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rosidl_runtime_c/type_hash.h"
 
@@ -230,8 +230,8 @@ auto Graph::subscriptions_info(const std::string& topic) -> ::iox2::bb::Expected
     return endpoints_info(topic, EndpointKind::SUBSCRIBER);
 }
 
-auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
-    -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType> {
+auto Graph::endpoints_info(const std::string& topic,
+                           EndpointKind kind) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType> {
     using ::iox2::CallbackProgression;
     using ::iox2::bb::err;
     using Payload = ::rmw::iox2::Publisher::Payload;
@@ -285,10 +285,9 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
     }
 
     auto type_hash = rosidl_get_zero_initialized_type_hash();
-    qos::attributes::visit_attribute_value(port_factory.attributes(), TYPE_HASH_ATTRIBUTE_KEY, [&](const char* value) {
-        rosidl_type_hash_t parsed = rosidl_get_zero_initialized_type_hash();
-        if (rosidl_parse_type_hash_string(value, &parsed) == RCUTILS_RET_OK) {
-            type_hash = parsed;
+    attributes::visit_attribute_value(port_factory.attributes(), attributes::TypeHash::KEY, [&](const char* value) {
+        if (auto decoded = attributes::TypeHash::decode(value); decoded.has_value()) {
+            type_hash = decoded.value();
         }
     });
 

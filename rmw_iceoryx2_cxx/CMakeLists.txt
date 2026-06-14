@@ -59,7 +59,7 @@ endforeach()
 
 add_library(${PROJECT_NAME} SHARED
   src/impl/common/names.cpp
-  src/impl/qos/attributes.cpp
+  src/impl/common/attributes.cpp
   src/impl/qos/diagnostics.cpp
   src/impl/qos/matching.cpp
   src/impl/message/introspection.cpp

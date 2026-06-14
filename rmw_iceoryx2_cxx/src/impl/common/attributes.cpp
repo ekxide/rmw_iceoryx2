@@ -8,16 +8,19 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
+
+#include "rcutils/allocator.h"
+#include "rosidl_runtime_c/type_hash.h"
 
 #include <charconv>
 #include <cstdio>
 #include <cstring>
 #include <system_error>
 
-namespace rmw::iox2::qos::attributes
+namespace rmw::iox2::attributes
 {
 
 using ::iox2::bb::NULLOPT;
@@ -200,7 +203,29 @@ auto Liveliness::decode(const char* str) -> ::iox2::bb::Optional<Liveliness::Val
     return Liveliness::Value{kind, lease};
 }
 
-} // namespace rmw::iox2::qos::attributes
+void TypeHash::encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) {
+    auto allocator = rcutils_get_default_allocator();
+    char* hash_string = nullptr;
+    if (rosidl_stringify_type_hash(&type_hash, allocator, &hash_string) != RCUTILS_RET_OK || hash_string == nullptr) {
+        if (len > 0) {
+            buf[0] = '\0';
+        }
+        return;
+    }
+    // NOLINTNEXTLINE(cert-err33-c) source is a bounded RIHS string, destination is 256 bytes
+    std::snprintf(buf, len, "%s", hash_string);
+    allocator.deallocate(hash_string, allocator.state);
+}
+
+auto TypeHash::decode(const char* str) -> ::iox2::bb::Optional<rosidl_type_hash_t> {
+    rosidl_type_hash_t hash = rosidl_get_zero_initialized_type_hash();
+    if (rosidl_parse_type_hash_string(str, &hash) != RCUTILS_RET_OK) {
+        return NULLOPT;
+    }
+    return hash;
+}
+
+} // namespace rmw::iox2::attributes
 
 namespace rmw::iox2
 {
@@ -209,7 +234,7 @@ namespace
 {
 
 namespace matching = ::rmw::iox2::matching;
-namespace attributes = ::rmw::iox2::qos::attributes;
+namespace attributes = ::rmw::iox2::attributes;
 
 using ::iox2::Attribute;
 using ::iox2::AttributeSetView;
@@ -265,6 +290,13 @@ auto write_attribute(Target& target, const char* key, const char* value) -> bool
 }
 
 template <typename Target>
+auto set_type_hash_attribute(Target& target, const rosidl_type_hash_t& type_hash) -> bool {
+    char buf[256];
+    attributes::TypeHash::encode(type_hash, buf, sizeof(buf));
+    return write_attribute(target, attributes::TypeHash::KEY, buf);
+}
+
+template <typename Target>
 auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
     char buf[256];
     attributes::History::encode(qos, buf, sizeof(buf));
@@ -295,14 +327,6 @@ auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
 }
 
 } // namespace
-
-// ----------------------------------------------------------------------------
-// Type hash attribute
-// ----------------------------------------------------------------------------
-
-auto require_type_hash(AttributeVerifier& verifier, const char* type_hash) -> bool {
-    return write_attribute(verifier, TYPE_HASH_ATTRIBUTE_KEY, type_hash);
-}
 
 // ----------------------------------------------------------------------------
 // Conversions
@@ -430,19 +454,29 @@ auto TryConvert<Qos>::from(AttributeSetView attribute_set, ProfileKind kind) -> 
     return builder.build();
 }
 
-auto TryConvert<AttributeSpecifier>::from(const Qos& qos) -> Expected<AttributeSpecifier, QosError> {
+auto TryConvert<AttributeSpecifier>::from(const Qos& qos, const Optional<rosidl_type_hash_t>& type_hash)
+    -> Expected<AttributeSpecifier, QosError> {
     AttributeSpecifier specifier;
     if (!set_qos_attributes(specifier, qos)) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to define one or more QoS attributes on AttributeSpecifier");
         return err(QosError::ATTRIBUTE_DEFINITION_FAILURE);
     }
+    if (type_hash.has_value() && !set_type_hash_attribute(specifier, type_hash.value())) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to define type hash attribute on AttributeSpecifier");
+        return err(QosError::ATTRIBUTE_DEFINITION_FAILURE);
+    }
     return specifier;
 }
 
-auto TryConvert<AttributeVerifier>::from(const Qos& qos) -> Expected<AttributeVerifier, QosError> {
+auto TryConvert<AttributeVerifier>::from(const Qos& qos, const Optional<rosidl_type_hash_t>& type_hash)
+    -> Expected<AttributeVerifier, QosError> {
     AttributeVerifier verifier;
     if (!set_qos_attributes(verifier, qos)) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to require one or more QoS attributes on AttributeVerifier");
+        return err(QosError::ATTRIBUTE_DEFINITION_FAILURE);
+    }
+    if (type_hash.has_value() && !set_type_hash_attribute(verifier, type_hash.value())) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to require type hash attribute on AttributeVerifier");
         return err(QosError::ATTRIBUTE_DEFINITION_FAILURE);
     }
     return verifier;

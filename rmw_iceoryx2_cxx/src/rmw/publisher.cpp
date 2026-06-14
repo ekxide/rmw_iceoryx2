@@ -14,6 +14,7 @@
 #include "rmw/rmw.h"
 #include "rmw/validate_full_topic_name.h"
 #include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
@@ -21,7 +22,6 @@
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 

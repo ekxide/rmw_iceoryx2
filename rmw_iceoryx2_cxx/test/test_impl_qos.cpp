@@ -13,7 +13,7 @@
 #include "iox2/backpressure_strategy.hpp"
 #include "rmw/qos_profiles.h"
 #include "rmw/types.h"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 #include <cstring>
@@ -28,7 +28,7 @@ using ::rmw::iox2::ProfileKind;
 using ::rmw::iox2::Qos;
 using ::rmw::iox2::QosError;
 using ::rmw::iox2::TryConvert;
-namespace attributes = ::rmw::iox2::qos::attributes;
+namespace attributes = ::rmw::iox2::attributes;
 
 class QosTest : public ::testing::Test
 {

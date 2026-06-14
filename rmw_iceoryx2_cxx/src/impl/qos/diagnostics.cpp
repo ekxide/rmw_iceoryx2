@@ -9,9 +9,9 @@
 
 #include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -64,7 +64,7 @@ void log_attribute_mismatch(const Qos& qos, ::iox2::AttributeSetView attribute_s
         offset = sizeof(message) - 1;
     }
 
-    namespace attributes = ::rmw::iox2::qos::attributes;
+    namespace attributes = ::rmw::iox2::attributes;
 
     size_t count = 0;
 

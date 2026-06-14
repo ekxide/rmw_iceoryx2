@@ -14,12 +14,12 @@
 #include "iox2/message_type_details.hpp"
 #include "iox2/type_variant.hpp"
 #include "rcutils/time.h"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
 #include <cstring>
@@ -65,17 +65,10 @@ Publisher::Publisher(CreationLock,
         }
     }
 
-    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos);
+    // The type hash is stored alongside QoS so graph introspection can report it.
+    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos, ::rmw::iox2::message_type_hash(m_typesupport));
     if (!verifier.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to build QoS attribute verifier");
-        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
-        return;
-    }
-
-    // Store the ROS type hash so graph introspection can report it.
-    const auto type_hash = ::rmw::iox2::message_type_hash(m_typesupport);
-    if (!type_hash.empty() && !::rmw::iox2::require_type_hash(verifier.value(), type_hash.c_str())) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to add type hash attribute");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to build service attribute verifier");
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
