@@ -230,8 +230,46 @@ auto Graph::subscriptions_info(const std::string& topic) -> ::iox2::bb::Expected
     return endpoints_info(topic, EndpointKind::SUBSCRIBER);
 }
 
-auto Graph::endpoints_info(const std::string& topic,
-                           EndpointKind kind) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType> {
+auto Graph::publishers_by_node(const std::string& name, const std::string& ns)
+    -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
+    return endpoints_by_node(name, ns, EndpointKind::PUBLISHER);
+}
+
+auto Graph::subscriptions_by_node(const std::string& name, const std::string& ns)
+    -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
+    return endpoints_by_node(name, ns, EndpointKind::SUBSCRIBER);
+}
+
+auto Graph::endpoints_by_node(const std::string& name, const std::string& ns, EndpointKind kind)
+    -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
+    using ::iox2::bb::err;
+
+    // Walk every topic and keep those with an endpoint of the requested kind
+    // owned by the named node.
+    auto topics = topic_names_and_types();
+    if (!topics.has_value()) {
+        return err(topics.error());
+    }
+
+    std::vector<TopicInfo> result{};
+    for (const auto& topic : topics.value()) {
+        auto endpoints = endpoints_info(topic.name, kind);
+        if (!endpoints.has_value()) {
+            return err(endpoints.error());
+        }
+        for (const auto& endpoint : endpoints.value()) {
+            if (endpoint.node_name == name && endpoint.node_namespace == ns) {
+                result.push_back(topic);
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
+    -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType> {
     using ::iox2::CallbackProgression;
     using ::iox2::bb::err;
     using Payload = ::rmw::iox2::Publisher::Payload;

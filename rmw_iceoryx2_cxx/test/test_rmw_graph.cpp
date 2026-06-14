@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include "rmw/get_node_info_and_types.h"
 #include "rmw/get_topic_endpoint_info.h"
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/names_and_types.h"
@@ -240,6 +241,90 @@ TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {
     EXPECT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+TEST_F(RmwGraphTest, can_get_publisher_names_and_types_by_node) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto published_topic = create_test_topic("/PublishedByNode");
+    auto subscribed_topic = create_test_topic("/SubscribedByNode");
+    create_default_publisher<Defaults>(published_topic.c_str());
+    create_default_subscriber<Defaults>(subscribed_topic.c_str());
+
+    auto allocator = rcutils_get_default_allocator();
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_get_publisher_names_and_types_by_node(
+        test_node(), &allocator, test_node()->name, test_node()->namespace_, false, &names_and_types));
+
+    // The node's published topic is listed with its type.
+    EXPECT_STREQ(first_type_of_topic(names_and_types, published_topic.c_str()),
+                 "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    // A topic the node only subscribes to is not a publisher of the node.
+    EXPECT_FALSE(rcutils_string_array_contains(&names_and_types.names, subscribed_topic.c_str()));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+}
+
+TEST_F(RmwGraphTest, can_get_subscriber_names_and_types_by_node) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto subscribed_topic = create_test_topic("/SubscribedByNode");
+    auto published_topic = create_test_topic("/PublishedByNode");
+    create_default_subscriber<Defaults>(subscribed_topic.c_str());
+    create_default_publisher<Defaults>(published_topic.c_str());
+
+    auto allocator = rcutils_get_default_allocator();
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_get_subscriber_names_and_types_by_node(
+        test_node(), &allocator, test_node()->name, test_node()->namespace_, false, &names_and_types));
+
+    // The node's subscribed topic is listed with its type.
+    EXPECT_STREQ(first_type_of_topic(names_and_types, subscribed_topic.c_str()),
+                 "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    // A topic the node only publishes to is not a subscriber of the node.
+    EXPECT_FALSE(rcutils_string_array_contains(&names_and_types.names, published_topic.c_str()));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+}
+
+TEST_F(RmwGraphTest, gets_empty_names_and_types_for_unknown_node) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic("/OwnedByTestNode");
+    create_default_publisher<Defaults>(topic.c_str());
+
+    auto allocator = rcutils_get_default_allocator();
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_get_publisher_names_and_types_by_node(
+        test_node(), &allocator, "UnknownNode", test_node()->namespace_, false, &names_and_types));
+
+    EXPECT_EQ(names_and_types.names.size, 0u);
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+}
+
+TEST_F(RmwGraphTest, can_get_node_names_with_enclaves) {
+    auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
+
+    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t enclaves = rcutils_get_zero_initialized_string_array();
+
+    EXPECT_RMW_OK(rmw_get_node_names_with_enclaves(test_node(), &names, &namespaces, &enclaves));
+
+    ASSERT_TRUE(contains_node_name_and_namespace("Camera", "/Sensors", names, namespaces));
+    // Names, namespaces and enclaves are parallel arrays; every node reports the
+    // default enclave since the transport carries no SROS2 information.
+    ASSERT_EQ(enclaves.size, names.size);
+    for (size_t i = 0; i < enclaves.size; ++i) {
+        EXPECT_STREQ(enclaves.data[i], "/");
+    }
+
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&enclaves));
+
+    ASSERT_RMW_OK(rmw_destroy_node(camera_node));
 }
 
 TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {

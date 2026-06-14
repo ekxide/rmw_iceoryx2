@@ -121,6 +121,24 @@ public:
     ///         the topic), or an error if an existing service cannot be opened.
     auto subscriptions_info(const std::string& topic) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType>;
 
+    /// @brief List the topics a given node publishes to, with their types.
+    /// @param[in] name The node's name.
+    /// @param[in] ns The node's namespace.
+    /// @return The name and type of each topic the node has a publisher on,
+    ///         deduplicated and ordered, or an error if the registry cannot be
+    ///         read.
+    auto publishers_by_node(const std::string& name, const std::string& ns)
+        -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
+
+    /// @brief List the topics a given node subscribes to, with their types.
+    /// @param[in] name The node's name.
+    /// @param[in] ns The node's namespace.
+    /// @return The name and type of each topic the node has a subscriber on,
+    ///         deduplicated and ordered, or an error if the registry cannot be
+    ///         read.
+    auto subscriptions_by_node(const std::string& name, const std::string& ns)
+        -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
+
 private:
     enum class EndpointKind : uint8_t { PUBLISHER, SUBSCRIBER };
 
@@ -135,6 +153,12 @@ private:
     /// requested kind, resolving node ids to names via the node registry.
     auto endpoints_info(const std::string& topic, EndpointKind kind)
         -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType>;
+
+    /// Shared implementation of `publishers_by_node`/`subscriptions_by_node`:
+    /// walks every topic and keeps those carrying an endpoint of the requested
+    /// kind that is owned by the named node.
+    auto endpoints_by_node(const std::string& name, const std::string& ns, EndpointKind kind)
+        -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
     // `reference_wrapper` so the class remains move-constructible. Cannot be
     // null by construction.
