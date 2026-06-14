@@ -1,0 +1,7 @@
+# Source-crate dependencies that live in the workspace but are not registered
+# as install-space Rust packages. colcon-ros-cargo patches the rosidl-generated
+# message crate automatically; these two it cannot, so patch them here. Paths
+# are relative to this file.
+[patch.crates-io]
+iceoryx2 = { path = "../../../../iceoryx2/iceoryx2" }
+rmw_iceoryx2_interoperability = { path = "../../../rmw_iceoryx2_interoperability" }
