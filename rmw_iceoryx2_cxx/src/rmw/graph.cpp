@@ -25,10 +25,55 @@
 #include "rmw_iceoryx2_cxx/impl/common/defaults.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
+
+#include <vector>
 
 namespace
 {
+
+// The rmw gid is filled from an iceoryx2 unique port id (see `EndpointInfo::gid`).
+// Guard the cross-library contract here.
+static_assert(::iox2::UNIQUE_PORT_ID_LENGTH == RMW_GID_STORAGE_SIZE,
+              "iceoryx2 unique port id length must match RMW_GID_STORAGE_SIZE");
+
+/// @brief Marshal discovered endpoints into an rmw endpoint-info array.
+/// @param[out] array Zero-initialized array to populate.
+/// @param[in] endpoints The endpoints to copy in.
+/// @param[in] endpoint_type Whether these are publishers or subscriptions.
+/// @param[in] allocator Allocator used for the array and its strings.
+/// @return RMW_RET_OK on success, otherwise an appropriate error code.
+static rmw_ret_t fill_endpoint_info_array(rmw_topic_endpoint_info_array_t* array,
+                                          const std::vector<::rmw::iox2::EndpointInfo>& endpoints,
+                                          rmw_endpoint_type_t endpoint_type,
+                                          rcutils_allocator_t* allocator) {
+    using ::rmw::iox2::Convert;
+
+    if (rmw_topic_endpoint_info_array_init_with_size(array, endpoints.size(), allocator) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+        return RMW_RET_BAD_ALLOC;
+    }
+
+    for (size_t index = 0; index < endpoints.size(); ++index) {
+        const auto& endpoint = endpoints[index];
+        auto* info = &array->info_array[index];
+
+        auto qos_profile = Convert<rmw_qos_profile_t>::from(endpoint.qos);
+        if (rmw_topic_endpoint_info_set_node_name(info, endpoint.node_name.c_str(), allocator) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_node_namespace(info, endpoint.node_namespace.c_str(), allocator)
+                   != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_topic_type(info, endpoint.topic_type.c_str(), allocator) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_endpoint_type(info, endpoint_type) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_gid(info, endpoint.gid.data(), endpoint.gid.size()) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile) != RMW_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+            return RMW_RET_ERROR;
+        }
+    }
+
+    return RMW_RET_OK;
+}
 
 /// @brief Initialize a string array with the given size using the provided allocator
 /// @param[in,out] array The string array to initialize
@@ -206,7 +251,24 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ::rmw::iox2::Graph;
+    using NodeImpl = ::rmw::iox2::Node;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
+    if (!node_impl_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+        return RMW_RET_ERROR;
+    }
+    auto& node_impl = node_impl_result.value();
+
+    auto result = Graph{*node_impl}.publishers_info(topic_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get publishers info");
+        return RMW_RET_ERROR;
+    }
+
+    return fill_endpoint_info_array(publishers_info, result.value(), RMW_ENDPOINT_PUBLISHER, allocator);
 }
 
 // Subscribers ======================================================================================================
@@ -281,7 +343,24 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ::rmw::iox2::Graph;
+    using NodeImpl = ::rmw::iox2::Node;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
+    if (!node_impl_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+        return RMW_RET_ERROR;
+    }
+    auto& node_impl = node_impl_result.value();
+
+    auto result = Graph{*node_impl}.subscriptions_info(topic_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get subscriptions info");
+        return RMW_RET_ERROR;
+    }
+
+    return fill_endpoint_info_array(subscriptions_info, result.value(), RMW_ENDPOINT_SUBSCRIPTION, allocator);
 }
 
 // Topics ===========================================================================================================

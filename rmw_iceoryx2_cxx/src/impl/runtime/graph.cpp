@@ -15,12 +15,17 @@
 #include "iox2/service.hpp"
 #include "iox2/service_builder_publish_subscribe.hpp"
 #include "iox2/static_config.hpp"
+#include "iox2/unique_node_id.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 
+#include <algorithm>
+#include <map>
 #include <set>
 #include <string_view>
+#include <utility>
 
 namespace
 {
@@ -72,6 +77,36 @@ auto parse_topic_name(const char* full_name) -> ::iox2::bb::Optional<std::string
     }
 
     return std::string(topic_part);
+}
+
+/// A node's unique id as a comparable key: (high bits, low bits).
+using NodeIdKey = std::pair<uint64_t, uint64_t>;
+
+auto to_key(const ::iox2::UniqueNodeId& id) -> NodeIdKey {
+    return {id.value_high(), id.value_low()};
+}
+
+/// Build a lookup, from node unique id to its parsed (name, namespace), by
+/// inspecting the alive nodes in iceoryx2.
+auto build_node_id_lookup(::rmw::iox2::Node& node) -> std::map<NodeIdKey, ::rmw::iox2::NodeName> {
+    using ::iox2::CallbackProgression;
+    using ::rmw::iox2::Iceoryx2;
+
+    std::map<NodeIdKey, ::rmw::iox2::NodeName> nodes{};
+    auto config = node.iox2().ipc().config();
+    [[maybe_unused]] auto list_result = Iceoryx2::InterProcess::Handle::list(config, [&nodes](auto node_state) {
+        node_state.alive([&nodes](const auto view) {
+            const auto& details = view.details();
+            if (details.has_value()) {
+                auto name_str = details.value().name().to_string();
+                if (auto node_name = parse_node_name(name_str.unchecked_access().c_str()); node_name.has_value()) {
+                    nodes.emplace(to_key(view.id()), std::move(node_name.value()));
+                }
+            }
+        });
+        return CallbackProgression::Continue;
+    });
+    return nodes;
 }
 
 } // namespace
@@ -184,6 +219,106 @@ auto Graph::count_endpoints(const std::string& topic, EndpointKind kind) -> ::io
 
     return kind == EndpointKind::PUBLISHER ? dynamic_config.number_of_publishers()
                                            : dynamic_config.number_of_subscribers();
+}
+
+auto Graph::publishers_info(const std::string& topic) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType> {
+    return endpoints_info(topic, EndpointKind::PUBLISHER);
+}
+
+auto Graph::subscriptions_info(const std::string& topic) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType> {
+    return endpoints_info(topic, EndpointKind::SUBSCRIBER);
+}
+
+auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
+    -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType> {
+    using ::iox2::CallbackProgression;
+    using ::iox2::bb::err;
+    using Payload = ::rmw::iox2::Publisher::Payload;
+    using UserHeader = ::rmw::iox2::Publisher::UserHeader;
+    namespace names = ::rmw::iox2::names;
+
+    auto& node = m_node.get();
+    auto service_name = names::topic(topic.c_str());
+
+    auto details = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(service_name,
+                                                                          Iceoryx2::MessagingPattern::PublishSubscribe);
+    if (!details.has_value()) {
+        // A topic with no service has no endpoints.
+        return std::vector<EndpointInfo>{};
+    }
+    // The payload type details let us open the service without reading
+    // from the typesupport.
+    auto payload_type_details = details.value().static_details.publish_subscribe().message_type_details().payload();
+    std::string topic_type = payload_type_details.type_name();
+    if (topic_type.empty()) {
+        topic_type = "UNKNOWN";
+    }
+
+    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name.c_str());
+    if (!iox2_service_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
+        return err(ErrorType::SERVICE_NAME_CREATION_FAILURE);
+    }
+
+    auto service_builder = node.iox2()
+                               .ipc()
+                               .service_builder(iox2_service_name.value())
+                               .publish_subscribe<Payload>()
+                               .user_header<UserHeader>();
+
+    ::iox2::set_payload_type_details(service_builder, payload_type_details);
+
+    auto service = service_builder.resume_build().open();
+    if (!service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(service.error()));
+        return err(ErrorType::SERVICE_OPEN_FAILURE);
+    }
+    auto& port_factory = service.value();
+
+    // All endpoints on a topic share the service-level QoS in iceoryx2.
+    auto qos = TryConvert<Qos>::from(port_factory.attributes(), ProfileKind::PUBLISH_SUBSCRIBE);
+    if (!qos.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to decode QoS from service attributes");
+        return err(ErrorType::QOS_DECODING_FAILURE);
+    }
+
+    auto nodes = build_node_id_lookup(node);
+
+    // Assemble one endpoint's info: resolve its node id to a name/namespace, use
+    // its iceoryx2 unique port id as the gid, and attach the shared topic type
+    // and service-level QoS.
+    auto endpoint_info = [&](const ::iox2::UniqueNodeId& node_id,
+                             const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes) -> EndpointInfo {
+        std::string node_name{};
+        std::string node_namespace{};
+        if (auto it = nodes.find(to_key(node_id)); it != nodes.end()) {
+            node_name = it->second.name;
+            node_namespace = it->second.ns;
+        }
+
+        std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH> gid{};
+        if (gid_bytes.has_value()) {
+            const auto& raw = gid_bytes.value();
+            std::copy(raw.unchecked_access().begin(), raw.unchecked_access().end(), gid.begin());
+        }
+
+        return EndpointInfo{std::move(node_name), std::move(node_namespace), topic_type, qos.value(), gid};
+    };
+
+    std::vector<EndpointInfo> result{};
+    if (kind == EndpointKind::PUBLISHER) {
+        port_factory.dynamic_config().list_publishers([&result, &endpoint_info](auto view) {
+            result.push_back(endpoint_info(view.node_id(), view.publisher_id().bytes()));
+            return CallbackProgression::Continue;
+        });
+    } else {
+        port_factory.dynamic_config().list_subscribers([&result, &endpoint_info](auto view) {
+            result.push_back(endpoint_info(view.node_id(), view.subscriber_id().bytes()));
+            return CallbackProgression::Continue;
+        });
+    }
+
+    return result;
 }
 
 } // namespace rmw::iox2

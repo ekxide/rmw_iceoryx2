@@ -73,6 +73,7 @@ enum class GraphError : uint8_t {
     LISTING_FAILURE,
     SERVICE_NAME_CREATION_FAILURE,
     SERVICE_OPEN_FAILURE,
+    QOS_DECODING_FAILURE,
 };
 
 /**

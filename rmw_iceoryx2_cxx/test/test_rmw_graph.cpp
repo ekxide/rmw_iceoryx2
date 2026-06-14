@@ -9,9 +9,11 @@
 
 #include <gtest/gtest.h>
 
+#include "rmw/get_topic_endpoint_info.h"
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/names_and_types.h"
 #include "rmw/rmw.h"
+#include "rmw/topic_endpoint_info_array.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
@@ -65,6 +67,15 @@ protected:
             }
         }
         return nullptr;
+    }
+
+    bool gid_is_nonzero(const uint8_t (&gid)[RMW_GID_STORAGE_SIZE]) {
+        for (size_t i = 0; i < RMW_GID_STORAGE_SIZE; ++i) {
+            if (gid[i] != 0) {
+                return true;
+            }
+        }
+        return false;
     }
 };
 
@@ -126,6 +137,64 @@ TEST_F(RmwGraphTest, counts_zero_endpoints_for_unknown_topic) {
     ASSERT_RMW_OK(rmw_count_subscribers(test_node(), topic.c_str(), &subscribers));
     ASSERT_EQ(publishers, 0u);
     ASSERT_EQ(subscribers, 0u);
+}
+
+TEST_F(RmwGraphTest, can_get_publishers_info_by_topic) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic("/PublishersInfo");
+    create_default_publisher<Defaults>(topic.c_str());
+
+    auto allocator = rcutils_get_default_allocator();
+    auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &info));
+
+    ASSERT_EQ(info.size, 1u);
+    const auto& endpoint = info.info_array[0];
+    EXPECT_EQ(endpoint.endpoint_type, RMW_ENDPOINT_PUBLISHER);
+    EXPECT_STREQ(endpoint.topic_type, "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    EXPECT_STREQ(endpoint.node_namespace, "/RmwTest");
+    EXPECT_GT(strlen(endpoint.node_name), 0u);
+    EXPECT_TRUE(gid_is_nonzero(endpoint.endpoint_gid));
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
+}
+
+TEST_F(RmwGraphTest, can_get_subscriptions_info_by_topic) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic("/SubscriptionsInfo");
+    create_default_subscriber<Defaults>(topic.c_str());
+
+    auto allocator = rcutils_get_default_allocator();
+    auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_subscriptions_info_by_topic(test_node(), &allocator, topic.c_str(), false, &info));
+
+    ASSERT_EQ(info.size, 1u);
+    const auto& endpoint = info.info_array[0];
+    EXPECT_EQ(endpoint.endpoint_type, RMW_ENDPOINT_SUBSCRIPTION);
+    EXPECT_STREQ(endpoint.topic_type, "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    EXPECT_STREQ(endpoint.node_namespace, "/RmwTest");
+    EXPECT_GT(strlen(endpoint.node_name), 0u);
+    EXPECT_TRUE(gid_is_nonzero(endpoint.endpoint_gid));
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
+}
+
+TEST_F(RmwGraphTest, gets_empty_endpoint_info_for_unknown_topic) {
+    auto topic = create_test_topic("/NoEndpointInfo");
+
+    auto allocator = rcutils_get_default_allocator();
+    auto publishers = rmw_get_zero_initialized_topic_endpoint_info_array();
+    auto subscriptions = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &publishers));
+    ASSERT_RMW_OK(rmw_get_subscriptions_info_by_topic(test_node(), &allocator, topic.c_str(), false, &subscriptions));
+
+    EXPECT_EQ(publishers.size, 0u);
+    EXPECT_EQ(subscriptions.size, 0u);
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&publishers, &allocator));
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&subscriptions, &allocator));
 }
 
 TEST_F(RmwGraphTest, can_get_topic_names_and_types) {

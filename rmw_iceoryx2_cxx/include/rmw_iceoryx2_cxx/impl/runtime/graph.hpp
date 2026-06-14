@@ -11,10 +11,13 @@
 #define RMW_IOX2_RUNTIME_GRAPH_HPP_
 
 #include "iox2/bb/expected.hpp"
+#include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -52,6 +55,18 @@ struct TopicInfo
     auto operator<(const TopicInfo& other) const -> bool {
         return std::tie(name, type) < std::tie(other.name, other.type);
     }
+};
+
+/// @brief A discovered endpoint (publisher or subscriber) on a topic.
+struct EndpointInfo
+{
+    std::string node_name;
+    std::string node_namespace;
+    std::string topic_type;
+    Qos qos;
+    // The endpoint's iceoryx2 unique port id, used as the rmw gid. Its length
+    // matches rmw's `RMW_GID_STORAGE_SIZE` (both 16).
+    std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH> gid;
 };
 
 /// @brief Read-only view over the iceoryx2 communication graph.
@@ -92,6 +107,18 @@ public:
     ///         or an error if an existing service cannot be opened.
     auto count_subscribers(const std::string& topic) -> ::iox2::bb::Expected<size_t, ErrorType>;
 
+    /// @brief Describe the publishers currently connected to a topic.
+    /// @param[in] topic The ROS topic name.
+    /// @return One `EndpointInfo` per publisher (empty if no service exists for
+    ///         the topic), or an error if an existing service cannot be opened.
+    auto publishers_info(const std::string& topic) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType>;
+
+    /// @brief Describe the subscribers currently connected to a topic.
+    /// @param[in] topic The ROS topic name.
+    /// @return One `EndpointInfo` per subscriber (empty if no service exists for
+    ///         the topic), or an error if an existing service cannot be opened.
+    auto subscriptions_info(const std::string& topic) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType>;
+
 private:
     enum class EndpointKind : uint8_t { PUBLISHER, SUBSCRIBER };
 
@@ -100,6 +127,12 @@ private:
     /// dynamic config. The payload type details are read from the registry so the
     /// service can be opened without the original typesupport.
     auto count_endpoints(const std::string& topic, EndpointKind kind) -> ::iox2::bb::Expected<size_t, ErrorType>;
+
+    /// Shared implementation of `publishers_info`/`subscriptions_info`: opens the
+    /// topic's existing service and describes each connected endpoint of the
+    /// requested kind, resolving node ids to names via the node registry.
+    auto endpoints_info(const std::string& topic,
+                        EndpointKind kind) -> ::iox2::bb::Expected<std::vector<EndpointInfo>, ErrorType>;
 
     // `reference_wrapper` so the class remains move-constructible. Cannot be
     // null by construction.
