@@ -25,13 +25,14 @@
 #include <cstdint>
 #include <utility>
 
-/// Per-policy descriptors for the `ros.qos.*` attribute namespace.
+/// Per-policy descriptors for attributes.
 /// Each struct owns its attribute key, its allowed string values, and the
-/// encode/decode translation between `Qos` and the string stored in iceoryx2
-/// services.
+/// encode/decode logic.
 namespace rmw::iox2::attributes
 {
 
+/// Descriptor for the `ros.qos.history` attribute carrying the history
+/// policy and, for `keep_last`, the queue depth.
 struct History
 {
     static constexpr char KEY[] = "ros.qos.history";
@@ -41,6 +42,8 @@ struct History
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<uint64_t>;
 };
 
+/// Descriptor for the `ros.qos.reliability` attribute carrying the delivery
+/// guarantee (`reliable` or `best_effort`).
 struct Reliability
 {
     static constexpr char KEY[] = "ros.qos.reliability";
@@ -51,6 +54,8 @@ struct Reliability
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Qos::Reliability>;
 };
 
+/// Descriptor for the `ros.qos.durability` attribute carrying whether samples
+/// are retained for late-joining subscribers (`volatile` or `transient_local`).
 struct Durability
 {
     static constexpr char KEY[] = "ros.qos.durability";
@@ -61,6 +66,8 @@ struct Durability
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Qos::Durability>;
 };
 
+/// Descriptor for the `ros.qos.deadline` attribute carrying the maximum
+/// expected duration between consecutive messages.
 struct Deadline
 {
     static constexpr char KEY[] = "ros.qos.deadline";
@@ -70,6 +77,8 @@ struct Deadline
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Qos::Duration>;
 };
 
+/// Descriptor for the `ros.qos.lifespan` attribute carrying the maximum
+/// duration a sample remains valid after publication.
 struct Lifespan
 {
     static constexpr char KEY[] = "ros.qos.lifespan";
@@ -79,6 +88,8 @@ struct Lifespan
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Qos::Duration>;
 };
 
+/// Descriptor for the `ros.qos.liveliness` attribute carrying the liveliness
+/// kind (`automatic` or `manual_by_topic`) and lease duration.
 struct Liveliness
 {
     struct Value
