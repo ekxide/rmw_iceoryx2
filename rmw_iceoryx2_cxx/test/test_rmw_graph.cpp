@@ -38,8 +38,9 @@ protected:
 
 protected:
     bool rcutils_string_array_contains(const rcutils_string_array_t* array, const char* str) {
-        if (!array || !str)
+        if (!array || !str) {
             return false;
+        }
         for (size_t i = 0; i < array->size; ++i) {
             if (strcmp(array->data[i], str) == 0) {
                 return true;
@@ -80,6 +81,10 @@ protected:
     }
 };
 
+// ---------------------------------------------------------------------------
+// Node names
+// ---------------------------------------------------------------------------
+
 TEST_F(RmwGraphTest, can_get_node_names) {
     auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
     auto lidar_node = rmw_create_node(test_context(), "Lidar", "/Sensors");
@@ -104,12 +109,40 @@ TEST_F(RmwGraphTest, can_get_node_names) {
     ASSERT_RMW_OK(rmw_destroy_node(perception_node));
 }
 
+TEST_F(RmwGraphTest, can_get_node_names_with_enclaves) {
+    auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
+
+    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t enclaves = rcutils_get_zero_initialized_string_array();
+
+    EXPECT_RMW_OK(rmw_get_node_names_with_enclaves(test_node(), &names, &namespaces, &enclaves));
+
+    ASSERT_TRUE(contains_node_name_and_namespace("Camera", "/Sensors", names, namespaces));
+    // Names, namespaces and enclaves are parallel arrays; every node reports the
+    // default enclave since the transport carries no SROS2 information.
+    ASSERT_EQ(enclaves.size, names.size);
+    for (size_t i = 0; i < enclaves.size; ++i) {
+        EXPECT_STREQ(enclaves.data[i], "/");
+    }
+
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&enclaves));
+
+    ASSERT_RMW_OK(rmw_destroy_node(camera_node));
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint counts
+// ---------------------------------------------------------------------------
+
 TEST_F(RmwGraphTest, can_count_publishers) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto topic = create_test_topic("/CountPublishers");
-    create_default_publisher<Defaults>(topic.c_str());
-    create_default_publisher<Defaults>(topic.c_str());
+    create_default_publisher<Defaults>(topic);
+    create_default_publisher<Defaults>(topic);
 
     size_t count{0};
     ASSERT_RMW_OK(rmw_count_publishers(test_node(), topic.c_str(), &count));
@@ -120,9 +153,9 @@ TEST_F(RmwGraphTest, can_count_subscribers) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto topic = create_test_topic("/CountSubscribers");
-    create_default_subscriber<Defaults>(topic.c_str());
-    create_default_subscriber<Defaults>(topic.c_str());
-    create_default_subscriber<Defaults>(topic.c_str());
+    create_default_subscriber<Defaults>(topic);
+    create_default_subscriber<Defaults>(topic);
+    create_default_subscriber<Defaults>(topic);
 
     size_t count{0};
     ASSERT_RMW_OK(rmw_count_subscribers(test_node(), topic.c_str(), &count));
@@ -140,11 +173,15 @@ TEST_F(RmwGraphTest, counts_zero_endpoints_for_unknown_topic) {
     ASSERT_EQ(subscribers, 0u);
 }
 
+// ---------------------------------------------------------------------------
+// Endpoint info
+// ---------------------------------------------------------------------------
+
 TEST_F(RmwGraphTest, can_get_publishers_info_by_topic) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto topic = create_test_topic("/PublishersInfo");
-    create_default_publisher<Defaults>(topic.c_str());
+    create_default_publisher<Defaults>(topic);
 
     auto allocator = rcutils_get_default_allocator();
     auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
@@ -166,7 +203,7 @@ TEST_F(RmwGraphTest, can_get_subscriptions_info_by_topic) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto topic = create_test_topic("/SubscriptionsInfo");
-    create_default_subscriber<Defaults>(topic.c_str());
+    create_default_subscriber<Defaults>(topic);
 
     auto allocator = rcutils_get_default_allocator();
     auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
@@ -200,18 +237,22 @@ TEST_F(RmwGraphTest, gets_empty_endpoint_info_for_unknown_topic) {
     ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&subscriptions, &allocator));
 }
 
+// ---------------------------------------------------------------------------
+// Topics
+// ---------------------------------------------------------------------------
+
 TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto test_topic_a = create_test_topic("/TopicA");
     auto test_topic_b = create_test_topic("/TopicB");
     auto test_topic_c = create_test_topic("/TopicC");
-    create_default_publisher<Defaults>(test_topic_a.c_str());
-    create_default_publisher<Defaults>(test_topic_b.c_str());
-    create_default_publisher<Defaults>(test_topic_c.c_str());
-    create_default_subscriber<Defaults>(test_topic_a.c_str());
-    create_default_subscriber<Defaults>(test_topic_b.c_str());
-    create_default_subscriber<Defaults>(test_topic_c.c_str());
+    create_default_publisher<Defaults>(test_topic_a);
+    create_default_publisher<Defaults>(test_topic_b);
+    create_default_publisher<Defaults>(test_topic_c);
+    create_default_subscriber<Defaults>(test_topic_a);
+    create_default_subscriber<Defaults>(test_topic_b);
+    create_default_subscriber<Defaults>(test_topic_c);
 
     auto allocator = rcutils_get_default_allocator();
     auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
@@ -243,13 +284,28 @@ TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
 }
 
+TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {
+    auto allocator = rcutils_get_default_allocator();
+    auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_names_and_types_init(&topic_names_and_types, 1, &allocator));
+
+    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT,
+                   rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+// ---------------------------------------------------------------------------
+// By node
+// ---------------------------------------------------------------------------
+
 TEST_F(RmwGraphTest, can_get_publisher_names_and_types_by_node) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto published_topic = create_test_topic("/PublishedByNode");
     auto subscribed_topic = create_test_topic("/SubscribedByNode");
-    create_default_publisher<Defaults>(published_topic.c_str());
-    create_default_subscriber<Defaults>(subscribed_topic.c_str());
+    create_default_publisher<Defaults>(published_topic);
+    create_default_subscriber<Defaults>(subscribed_topic);
 
     auto allocator = rcutils_get_default_allocator();
     auto names_and_types = rmw_get_zero_initialized_names_and_types();
@@ -270,8 +326,8 @@ TEST_F(RmwGraphTest, can_get_subscriber_names_and_types_by_node) {
 
     auto subscribed_topic = create_test_topic("/SubscribedByNode");
     auto published_topic = create_test_topic("/PublishedByNode");
-    create_default_subscriber<Defaults>(subscribed_topic.c_str());
-    create_default_publisher<Defaults>(published_topic.c_str());
+    create_default_subscriber<Defaults>(subscribed_topic);
+    create_default_publisher<Defaults>(published_topic);
 
     auto allocator = rcutils_get_default_allocator();
     auto names_and_types = rmw_get_zero_initialized_names_and_types();
@@ -291,7 +347,7 @@ TEST_F(RmwGraphTest, gets_empty_names_and_types_for_unknown_node) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto topic = create_test_topic("/OwnedByTestNode");
-    create_default_publisher<Defaults>(topic.c_str());
+    create_default_publisher<Defaults>(topic);
 
     auto allocator = rcutils_get_default_allocator();
     auto names_and_types = rmw_get_zero_initialized_names_and_types();
@@ -301,41 +357,6 @@ TEST_F(RmwGraphTest, gets_empty_names_and_types_for_unknown_node) {
     EXPECT_EQ(names_and_types.names.size, 0u);
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
-}
-
-TEST_F(RmwGraphTest, can_get_node_names_with_enclaves) {
-    auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
-
-    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
-    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
-    rcutils_string_array_t enclaves = rcutils_get_zero_initialized_string_array();
-
-    EXPECT_RMW_OK(rmw_get_node_names_with_enclaves(test_node(), &names, &namespaces, &enclaves));
-
-    ASSERT_TRUE(contains_node_name_and_namespace("Camera", "/Sensors", names, namespaces));
-    // Names, namespaces and enclaves are parallel arrays; every node reports the
-    // default enclave since the transport carries no SROS2 information.
-    ASSERT_EQ(enclaves.size, names.size);
-    for (size_t i = 0; i < enclaves.size; ++i) {
-        EXPECT_STREQ(enclaves.data[i], "/");
-    }
-
-    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
-    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
-    ASSERT_RMW_OK(rcutils_string_array_fini(&enclaves));
-
-    ASSERT_RMW_OK(rmw_destroy_node(camera_node));
-}
-
-TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {
-    auto allocator = rcutils_get_default_allocator();
-    auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
-    ASSERT_RMW_OK(rmw_names_and_types_init(&topic_names_and_types, 1, &allocator));
-
-    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT,
-                   rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
-
-    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
 }
 
 } // namespace
