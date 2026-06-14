@@ -17,10 +17,10 @@ application exchanging `TransmissionData` over shared memory.
    ROS 2 application                                           iceoryx2 application
    (rclcpp -> rmw_iceoryx2_cxx -> iceoryx2)                    (iceoryx2)
 
-   ros2_publisher  --+                                         +--  publisher
-   ros2_subscriber --+                                         +--  subscriber
-                     |                                         |
-                     v                                         v
+   publisher  --+                                             +--  publisher
+   subscriber --+                                             +--  subscriber
+                |                                             |
+                v                                             v
    +----------------------------------------------------------------+
    |               iceoryx2 shared memory                           |
    |               service: ros2://topics/transmission_data         |
@@ -43,8 +43,8 @@ for send notifications.
 
 | Binary            | Package                                  | iceoryx2 services                              |
 | ----------------- | ---------------------------------------- | --------------------------------------------- |
-| `ros2_publisher`  | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe publisher, event notifier   |
-| `ros2_subscriber` | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe subscriber, event listener  |
+| `publisher`       | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe publisher, event notifier   |
+| `subscriber`      | `rmw_iceoryx2_interoperation_demo_nodes` | publish-subscribe subscriber, event listener  |
 | `publisher`       | `iceoryx2_interoperation_demo_nodes`     | publish-subscribe publisher, event notifier   |
 | `subscriber`      | `iceoryx2_interoperation_demo_nodes`     | publish-subscribe subscriber, event listener  |
 
@@ -102,8 +102,8 @@ export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx
 ROS 2 nodes:
 
 ```sh
-ros2 run rmw_iceoryx2_interoperation_demo_nodes ros2_publisher
-ros2 run rmw_iceoryx2_interoperation_demo_nodes ros2_subscriber
+ros2 run rmw_iceoryx2_interoperation_demo_nodes publisher
+ros2 run rmw_iceoryx2_interoperation_demo_nodes subscriber
 ```
 
 Native iceoryx2 app:
@@ -117,7 +117,7 @@ Run any one publisher with any one subscriber:
 
 | Publisher              | Subscriber                |
 | ---------------------- | ------------------------- |
-| `ros2_publisher`       | `subscriber` (iceoryx2)   |
-| `publisher` (iceoryx2) | `ros2_subscriber`         |
-| `ros2_publisher`       | `ros2_subscriber`         |
+| `publisher` (ROS)      | `subscriber` (iceoryx2)   |
+| `publisher` (iceoryx2) | `subscriber` (ROS)        |
+| `publisher` (ROS)      | `subscriber` (ROS)        |
 | `publisher` (iceoryx2) | `subscriber` (iceoryx2)   |
