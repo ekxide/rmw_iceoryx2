@@ -175,6 +175,7 @@ jobs:
           . install/setup.sh
           colcon test \
             --packages-select rmw_iceoryx2_cxx \
+            --event-handlers console_direct+ \
             --return-code-on-test-failure
 
       - name: Generate test reports
