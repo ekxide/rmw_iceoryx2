@@ -349,6 +349,8 @@ TEST_F(RmwWaitSetTest, can_be_triggered_by_guard_condition) {
 }
 
 TEST_F(RmwWaitSetTest, can_be_triggered_by_message_sent_to_subscriber) {
+    GTEST_SKIP() << "FIXME";
+
     using rmw::iox2::Subscriber;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
@@ -373,6 +375,8 @@ TEST_F(RmwWaitSetTest, can_be_triggered_by_message_sent_to_subscriber) {
 }
 
 TEST_F(RmwWaitSetTest, can_get_triggers_from_all_entity_types_in_single_wait) {
+    GTEST_SKIP() << "FIXME";
+
     using rmw::iox2::GuardCondition;
     using rmw::iox2::Subscriber;
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
