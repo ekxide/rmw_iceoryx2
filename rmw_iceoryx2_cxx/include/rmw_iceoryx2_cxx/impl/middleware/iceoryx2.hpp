@@ -160,8 +160,8 @@ public:
     /// name is malformed, the iceoryx2 registry cannot be read, or no
     /// service with that name exists.
     template <ServiceType S>
-    auto lookup_service(const std::string& service_name,
-                        MessagingPattern pattern) -> ::iox2::bb::Optional<ServiceDetails<S>>;
+    auto lookup_service(const std::string& service_name, MessagingPattern pattern)
+        -> ::iox2::bb::Optional<ServiceDetails<S>>;
 
 private:
     ::iox2::bb::Optional<Local::Handle> m_local;
@@ -186,8 +186,8 @@ auto Iceoryx2::service_builder(const std::string& service_name) -> ::iox2::Servi
 }
 
 template <::iox2::ServiceType S>
-auto Iceoryx2::lookup_service(const std::string& service_name,
-                              MessagingPattern pattern) -> ::iox2::bb::Optional<ServiceDetails<S>> {
+auto Iceoryx2::lookup_service(const std::string& service_name, MessagingPattern pattern)
+    -> ::iox2::bb::Optional<ServiceDetails<S>> {
     auto name = ::iox2::ServiceName::create(service_name.c_str());
     if (!name.has_value()) {
         return ::iox2::bb::NULLOPT;

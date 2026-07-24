@@ -76,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
+        ros-distribution: [rolling]
         compiler: [clang, gcc]
         include:
           - compiler: clang
@@ -87,16 +87,15 @@ jobs:
             cxx: g++
           # clang >= 17 is required to parse the libstdc++-13 headers of the
           # ros:rolling (noble) container (consteval propagation, P2564)
-          - os: ubuntu-22.04
-            clang-version: 17
-            gcc-version: 11
-          - os: ubuntu-24.04
-            clang-version: 18
-            gcc-version: 13
-    runs-on: ${{ matrix.os }}
+          - ros-distribution: rolling
+            clang-version: 21
+            gcc-version: 15
+    runs-on: ubuntu-latest
     container:
-      image: ros:rolling
+      image: ros:${{ matrix.ros-distribution }}
     steps:
+      - name: Print /etc/os-release
+        run: cat /etc/os-release
       - name: Install common build dependencies
         run: |
           apt-get update
@@ -176,6 +175,7 @@ jobs:
           . install/setup.sh
           colcon test \
             --packages-select rmw_iceoryx2_cxx \
+            --event-handlers console_direct+ \
             --return-code-on-test-failure
 
       - name: Generate test reports
@@ -188,7 +188,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.os }}-${{ matrix.compiler }}
+          name: test-results-${{ matrix.ros-distribution }}-${{ matrix.compiler }}
           path: |
             ${{ env.WORKSPACE_DIR }}/build/*/test_results/*/*.xml
             ${{ env.WORKSPACE_DIR }}/log/**/test*.log
