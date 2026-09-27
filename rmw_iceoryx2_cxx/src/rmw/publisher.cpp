@@ -414,7 +414,12 @@ rmw_ret_t rmw_publisher_assert_liveliness(const rmw_publisher_t* rmw_publisher) 
 }
 
 rmw_ret_t rmw_publisher_wait_for_all_acked(const rmw_publisher_t* rmw_publisher, rmw_time_t wait_timeout) {
-    return RMW_RET_UNSUPPORTED;
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_publisher_get_network_flow_endpoints(const rmw_publisher_t* rmw_publisher,

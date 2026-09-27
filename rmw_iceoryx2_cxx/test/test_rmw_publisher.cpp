@@ -157,6 +157,12 @@ TEST_F(RmwPublisherTest, counts_matched_subscriptions) {
     ASSERT_EQ(count, 2u);
 }
 
+TEST_F(RmwPublisherTest, wait_for_all_acked_returns_ok) {
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+
+    EXPECT_RMW_OK(rmw_publisher_wait_for_all_acked(publisher, {0, 0}));
+}
+
 // ---------------------------------------------------------------------------
 // Environment configuration
 // ---------------------------------------------------------------------------
