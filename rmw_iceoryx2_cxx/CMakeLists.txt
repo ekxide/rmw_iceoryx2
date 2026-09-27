@@ -166,6 +166,7 @@ if(BUILD_TESTING)
     test/test_impl_subscriber.cpp
     test/test_impl_waitset.cpp
     test/test_rmw_allocator.cpp
+    test/test_rmw_event.cpp
     test/test_rmw_gid.cpp
     test/test_rmw_graph.cpp
     test/test_rmw_guard_condition.cpp
