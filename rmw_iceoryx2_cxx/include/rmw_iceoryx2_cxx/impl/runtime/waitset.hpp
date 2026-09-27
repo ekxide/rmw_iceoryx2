@@ -14,7 +14,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/into.hpp"
 #include "iox2/bb/optional.hpp"
-#include "iox2/legacy/type_traits.hpp"
+#include "iox2/legacy/variant.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -55,40 +55,15 @@ class RMW_PUBLIC WaitSet
     using Guard = Iceoryx2::WaitSet::Guard;
     using AttachmentId = Iceoryx2::WaitSet::AttachmentId;
     using IceoryxWaitSet = Iceoryx2::WaitSet::Handle;
-    using GuardConditionListener = Iceoryx2::Local::Listener;
-    using SubscriberListener = Iceoryx2::InterProcess::Listener;
+    using Waitable = ::iox2::legacy::variant<Subscriber*, GuardCondition*>;
 
-    /// @brief Helper to map listener types to their corresponding iceoryx2 service type
-    /// @tparam ListenerType The type of listener to get the service type for
-    /// @return The iceoryx2 service type corresponding to the listener type
-    template <typename ListenerType>
-    inline static constexpr auto ServiceType = []() -> Iceoryx2::ServiceType {
-        if constexpr (std::is_same_v<ListenerType, GuardConditionListener>) {
-            return Iceoryx2::ServiceType::Local;
-        } else if constexpr (std::is_same_v<ListenerType, SubscriberListener>) {
-            return Iceoryx2::ServiceType::Ipc;
-        } else {
-            static_assert(::iox2::legacy::always_false_v<ListenerType>, "Unsupported listener type");
-        }
-    }();
-
-    /// @brief Details about a listener including its service name and the listener itself
-    /// @tparam ListenerType The type of listener (GuardConditionListener or SubscriberListener)
-    template <typename ListenerType>
-    struct ListenerDetails
-    {
-        std::string service_name;
-        ListenerType listener;
-    };
-    using StorageIndex = size_t;
-
-    /// @brief Mapping from RMW index to a stored listener.
+    /// @brief Mapping from RMW index to a waitable entity.
     /// @details Allows for triggered listeners to be mapped back to the index that RMW uses for tracking
     struct RmwMapping
     {
         WaitableEntity waitable_type;
-        StorageIndex storage_index;
         RmwIndex rmw_index;
+        Waitable entity;
     };
 
     /// @brief Description of a waitable that has been triggered
@@ -152,15 +127,13 @@ public:
     WaitSet(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context);
 
     /// @brief Maps a guard condition to an RMW index
-    /// @details A listener is created for the mapped guard condition which will be waited on in subsequent wait calls
-    ///          unless unmapped
+    /// @details The mapped guard condition is waited on in subsequent wait calls unless unmapped
     /// @param[in] rmw_index The index used to track the guard condition in the RMW
     /// @param[in] guard_condition The guard condition to be mapped
     auto map(RmwIndex rmw_index, GuardCondition& guard_condition) -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Maps a subscriber to an RMW index
-    /// @details A listener is created for the mapped subscriber which will be waited on in subsequent wait calls
-    ///          unless unmapped
+    /// @details The mapped subscriber is waited on in subsequent wait calls unless unmapped
     /// @param[in] rmw_index The index used to track the subscriber in the RMW
     /// @param[in] subscribe The subscriber to be mapped
     auto map(RmwIndex rmw_index, Subscriber& subscriber) -> ::iox2::bb::Expected<void, ErrorType>;
@@ -186,40 +159,6 @@ public:
         -> ::iox2::bb::Expected<std::vector<TriggeredWaitable>, ErrorType>;
 
 private:
-    /// @brief Gets the storage index of the listener for the provided service.
-    /// @details Creates a listener for the service if one does not exist in the storage.
-    /// @tparam ListenerType The type of listener (GuardConditionListener or SubscriberListener)
-    /// @param[in] The service name to use for the iceoryx2 listener
-    /// @return The index where the listener is stored in its specific storage
-    template <typename ListenerType>
-    auto get_storage_index(const std::string& service_name) -> ::iox2::bb::Expected<StorageIndex, ErrorType>;
-
-    /// @brief Get the listener at the given storage index.
-    /// @tparam ListenerType The type of listener (GuardConditionListener or SubscriberListener)
-    /// @param[in] storage_index The index to retrieve the listener from
-    /// @details Listeners of different types are stored in different storages.
-    ///
-    /// This method retrieves the listener from the appropriate storage identified by the template argument.
-    ///
-    /// @note The storage index is unique within each storage type and is used to identify listeners of the same type
-    /// @return Optional pointer to the listener details if found, nullopt otherwise
-    template <typename ListenerType>
-    inline auto get_stored_listener(StorageIndex storage_index) -> ::iox2::bb::Optional<ListenerDetails<ListenerType>*>;
-
-    /// @brief Maps a stored listener to an RMW index.
-    /// @param[in] entity_type
-    /// @param[in] storage_index The index where associated listener is stored in its given storage
-    /// @param[in] rmw_index The index used by RMW to track attached entities.
-    auto map_stored_listener(WaitableEntity entity_type, StorageIndex storage_index, RmwIndex rmw_index) -> void;
-
-    /// @brief Get the storage of a specific listener type.
-    /// @details Each listener type has its own dedicated storage. This method returns a reference to the
-    ///          corresponding storage based on the template parameter.
-    /// @tparam ListenerType The type of listener to get storage for (GuardConditionListener or SubscriberListener)
-    /// @return Reference to the storage vector containing listeners of the specified type
-    template <typename ListenerType>
-    inline auto listener_storage() -> std::vector<ListenerDetails<ListenerType>>&;
-
     /// @brief Determine if provided timeout exists AND is zero
     /// @return True if timeout provided but it is zero i.e. process events without waiting
     auto zero_timeout(const ::iox2::bb::Optional<Duration>& timeout) const -> bool;
@@ -243,28 +182,37 @@ private:
     auto attach_mapped_listeners(WaitContext& ctx) -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Attach a mapped listener to the waitset.
-    /// @details Creates a notification attachment to the waitset for the given mapping. The mapping must reference
-    ///          a valid listener in storage.
+    /// @details Creates a notification attachment to the waitset for the listener of the mapped entity.
     /// @param[in] mapping The mapping containing details about the listener to attach
     /// @return Success with the attachment details if successful, error otherwise
     auto attach_mapped_listener(const RmwMapping& mapping) -> ::iox2::bb::Expected<AttachmentDetails, ErrorType>;
 
-    /// @brief Attach a mapped listener of a specific type to the waitset.
-    /// @details Creates a notification attachment to the waitset for the given mapping. The mapping must reference
-    ///          a valid listener in storage.
-    /// @tparam ListenerType The type of listener (GuardConditionListener or SubscriberListener)
-    /// @param[in] mapping The mapping containing details about the listener to attach
+    /// @brief Attach the listener of a mapped entity to the waitset.
+    /// @details Creates a notification attachment to the waitset for the given listener.
+    /// @tparam ListenerType The type of listener
+    /// @param[in] listener The listener to attach
+    /// @param[in] mapping The mapping of the entity that owns the listener
     /// @return Success with the attachment details if successful, error otherwise
     template <typename ListenerType>
-    auto attach_mapped_listener_impl(const RmwMapping& mapping) -> ::iox2::bb::Expected<AttachmentDetails, ErrorType>;
+    auto attach_mapped_listener_impl(const ListenerType& listener, const RmwMapping& mapping)
+        -> ::iox2::bb::Expected<AttachmentDetails, ErrorType>;
 
     /// @brief Process a triggered waitable entity
-    /// @details Processes a triggered waitable entity by consuming the events from the associated listener
-    /// @param[in] waitable_type The type of waitable entity that was triggered
-    /// @param[in] storage_index The index where the triggered entity's listener is stored
-    /// @return Success if all events were consumed successfully, error otherwise
-    auto process_trigger(const WaitableEntity waitable_type, const StorageIndex storage_index)
-        -> ::iox2::bb::Expected<void, ErrorType>;
+    /// @details Consumes the events from the listener of a triggered subscriber. A triggered guard condition keeps
+    ///          its trigger until it is collected.
+    /// @param[in] mapping The mapping of the triggered entity
+    /// @return True if the entity is ready, error if the events could not be consumed
+    auto process_trigger(const RmwMapping& mapping) -> ::iox2::bb::Expected<bool, ErrorType>;
+
+    /// @brief Check whether a mapped entity is ready
+    /// @details A subscriber is ready while it has samples, a guard condition once per trigger.
+    /// @param[in] mapping The mapping of the entity
+    /// @return True if the entity is ready
+    auto is_ready(const RmwMapping& mapping) -> bool;
+
+    /// @brief Collect all mapped entities that are ready
+    /// @param[out] ctx The context for the given wait call where the ready entities are stored
+    auto collect_ready(WaitContext& ctx) -> void;
 
     /// @brief Reference to RMW context that this WaitSet belongs to.
     auto context() -> Context&;
@@ -275,13 +223,6 @@ private:
     std::reference_wrapper<Context> m_context;
     ::iox2::bb::Optional<IceoryxWaitSet> m_waitset;
 
-    // Storage for all attached listeners.
-    // Listeners for entities are created on first mapping, and re-used in subsequent calls.
-    // WARNING: Listeners must not be removed once added to the storage as this invalidates held storage indicies.
-    // TODO: A less error-prone solution. This is the quickest "dumb" implementation to get things working.
-    std::vector<ListenerDetails<GuardConditionListener>> m_guard_condition_listeners;
-    std::vector<ListenerDetails<SubscriberListener>> m_subscriber_listeners;
-
     // Listeners staged to be waited on in the next wait call.
     // Maps the attachment to the index used in the RMW for tracking.
     std::vector<RmwMapping> m_mapping;
@@ -290,77 +231,16 @@ private:
 // ===================================================================================================================
 
 template <typename ListenerType>
-auto WaitSet::get_storage_index(const std::string& service_name) -> ::iox2::bb::Expected<StorageIndex, ErrorType> {
-    using ::iox2::bb::err;
-
-    auto& storage = listener_storage<ListenerType>();
-
-    auto it = std::find_if(storage.begin(), storage.end(), [&service_name](const auto& listener) {
-        return listener.service_name == service_name;
-    });
-
-    if (it == storage.end()) {
-        auto service_result =
-            context().iox2().service_builder<ServiceType<ListenerType>>(service_name).event().open_or_create();
-        if (!service_result.has_value()) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(service_result.error()));
-            return err(ErrorType::SERVICE_CREATION_FAILURE);
-        }
-        auto& service = service_result.value();
-
-        auto listener = service.listener_builder().create();
-        if (!listener.has_value()) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(listener.error()));
-            return err(ErrorType::LISTENER_CREATION_FAILURE);
-        }
-
-        storage.emplace_back(ListenerDetails<ListenerType>{service_name, std::move(listener.value())});
-        auto storage_index = static_cast<StorageIndex>(storage.size() - 1);
-        return storage_index;
-    } else {
-        // An iceoryx2 listener already exists. Reuse it and mark it for attachment.
-        auto storage_index = static_cast<StorageIndex>(it - storage.begin());
-        return storage_index;
-    }
-}
-
-template <typename ListenerType>
-auto WaitSet::get_stored_listener(StorageIndex storage_index) -> ::iox2::bb::Optional<ListenerDetails<ListenerType>*> {
-    auto& storage = listener_storage<ListenerType>();
-
-    if (storage_index < storage.size()) {
-        return &storage[storage_index];
-    }
-    return ::iox2::bb::NULLOPT;
-}
-
-template <typename ListenerType>
-inline auto WaitSet::listener_storage() -> std::vector<ListenerDetails<ListenerType>>& {
-    if constexpr (std::is_same_v<ListenerType, GuardConditionListener>) {
-        return m_guard_condition_listeners;
-    } else if constexpr (std::is_same_v<ListenerType, SubscriberListener>) {
-        return m_subscriber_listeners;
-    } else {
-        static_assert(::iox2::legacy::always_false_v<ListenerType>, "Attempted to retrieve a listener of unknown type");
-    }
-}
-
-template <typename ListenerType>
-auto WaitSet::attach_mapped_listener_impl(const RmwMapping& mapping)
+auto WaitSet::attach_mapped_listener_impl(const ListenerType& listener, const RmwMapping& mapping)
     -> ::iox2::bb::Expected<AttachmentDetails, ErrorType> {
     using ::iox2::bb::err;
 
-    if (auto result = get_stored_listener<ListenerType>(mapping.storage_index); result.has_value()) {
-        auto& listener_details = result.value();
-        auto guard = m_waitset->attach_notification(listener_details->listener.file_descriptor());
-        if (!guard.has_value()) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(guard.error()));
-            return err(ErrorType::ATTACHMENT_FAILURE);
-        }
-        return AttachmentDetails(std::move(guard.value()), mapping);
+    auto guard = m_waitset->attach_notification(listener.file_descriptor());
+    if (!guard.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(guard.error()));
+        return err(ErrorType::ATTACHMENT_FAILURE);
     }
-    RMW_IOX2_CHAIN_ERROR_MSG("mapped listener not found in listener storage");
-    return err(ErrorType::INVALID_STORAGE_INDEX);
+    return AttachmentDetails(std::move(guard.value()), mapping);
 }
 
 } // namespace rmw::iox2

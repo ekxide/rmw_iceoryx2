@@ -417,4 +417,87 @@ TEST_F(RmwWaitSetTest, can_get_triggers_from_all_entity_types_in_single_wait) {
     EXPECT_EQ(got.guard_conditions, expected_guard_conditions);
 }
 
+TEST_F(RmwWaitSetTest, reports_subscription_until_all_messages_are_taken) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(waitset, nullptr);
+
+    auto message = Defaults{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+
+    for (int i = 0; i < 2; ++i) {
+        void* subscribers[] = {subscription->data};
+        rmw_subscriptions_t subscriptions{1, subscribers};
+        auto timeout = TIMEOUT_AFTER_20MS;
+        ASSERT_RMW_OK(rmw_wait(&subscriptions, nullptr, nullptr, nullptr, nullptr, waitset, &timeout));
+        ASSERT_NE(subscriptions.subscribers[0], nullptr);
+
+        bool taken{false};
+        ASSERT_RMW_OK(rmw_take(subscription, &message, &taken, nullptr));
+        ASSERT_TRUE(taken);
+    }
+
+    void* subscribers[] = {subscription->data};
+    rmw_subscriptions_t subscriptions{1, subscribers};
+    auto timeout = TIMEOUT_AFTER_20MS;
+    auto start = std::chrono::steady_clock::now();
+    EXPECT_EQ(rmw_wait(&subscriptions, nullptr, nullptr, nullptr, nullptr, waitset, &timeout), RMW_RET_TIMEOUT);
+    EXPECT_GE(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(20));
+    EXPECT_EQ(subscriptions.subscribers[0], nullptr);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+}
+
+TEST_F(RmwWaitSetTest, reports_every_subscription_of_a_topic) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* first = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(first, nullptr);
+    auto* second = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(second, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 2);
+    ASSERT_NE(waitset, nullptr);
+
+    auto message = Defaults{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+
+    void* subscribers[] = {first->data, second->data};
+    rmw_subscriptions_t subscriptions{2, subscribers};
+    auto timeout = TIMEOUT_AFTER_20MS;
+    ASSERT_RMW_OK(rmw_wait(&subscriptions, nullptr, nullptr, nullptr, nullptr, waitset, &timeout));
+    EXPECT_NE(subscriptions.subscribers[0], nullptr);
+    EXPECT_NE(subscriptions.subscribers[1], nullptr);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+}
+
+TEST_F(RmwWaitSetTest, reports_guard_condition_triggered_before_wait_once) {
+    auto* guard_condition = rmw_create_guard_condition(test_context());
+    ASSERT_NE(guard_condition, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(waitset, nullptr);
+
+    ASSERT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
+
+    void* conditions[] = {guard_condition->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    auto timeout = TIMEOUT_AFTER_20MS;
+    ASSERT_RMW_OK(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+
+    guard_conditions.guard_conditions[0] = guard_condition->data;
+    EXPECT_EQ(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout), RMW_RET_TIMEOUT);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+    ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
+}
+
 } // namespace

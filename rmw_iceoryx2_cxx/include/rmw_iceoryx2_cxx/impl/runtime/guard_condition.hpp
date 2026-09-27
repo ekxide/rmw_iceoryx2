@@ -41,6 +41,7 @@ class RMW_PUBLIC GuardCondition
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniquePublisherId;
     using IceoryxNotifier = Iceoryx2::Local::Notifier;
+    using IceoryxListener = Iceoryx2::Local::Listener;
 
 public:
     using ErrorType = Error<GuardCondition>::Type;
@@ -68,12 +69,21 @@ public:
     /// @return Error if trigger via iceoryx2 failed
     auto trigger() -> ::iox2::bb::Expected<void, ErrorType>;
 
+    /// @brief Consume the triggers received since the last call
+    /// @return True if the guard condition was triggered since the last call
+    auto take_trigger() -> bool;
+
+    /// @brief Get the listener that receives the triggers, to wait on it
+    /// @return Reference to the listener
+    auto listener() -> IceoryxListener&;
+
 private:
     uint32_t m_trigger_id;
     std::string m_service_name;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
+    ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
 };
 
 } // namespace rmw::iox2

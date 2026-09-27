@@ -44,6 +44,15 @@ GuardCondition::GuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& er
     }
 
     m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
+
+    auto iox2_listener = iox2_service.value().listener_builder().create();
+    if (!iox2_listener.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
+        error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
+        return;
+    }
+
+    m_iox2_listener.emplace(std::move(iox2_listener.value()));
 };
 
 auto GuardCondition::trigger_id() const -> uint32_t {
@@ -70,6 +79,16 @@ auto GuardCondition::trigger() -> ::iox2::bb::Expected<void, ErrorType> {
     };
 
     return {};
+}
+
+auto GuardCondition::take_trigger() -> bool {
+    bool triggered = false;
+    (void)m_iox2_listener->try_wait([&triggered](auto) { triggered = true; });
+    return triggered;
+}
+
+auto GuardCondition::listener() -> IceoryxListener& {
+    return m_iox2_listener.value();
 }
 
 } // namespace rmw::iox2

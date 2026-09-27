@@ -121,6 +121,22 @@ Subscriber::Subscriber(CreationLock,
 
     m_iox2_unique_id.emplace(iox2_subscriber->id());
     m_iox2_subscriber.emplace(std::move(iox2_subscriber.value()));
+
+    auto iox2_event_service = node.iox2().ipc().service_builder(iox2_service_name.value()).event().open_or_create();
+    if (!iox2_event_service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_event_service.error()));
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
+    auto iox2_listener = iox2_event_service.value().listener_builder().create();
+    if (!iox2_listener.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
+        error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
+        return;
+    }
+
+    m_iox2_listener.emplace(std::move(iox2_listener.value()));
 }
 
 auto Subscriber::unique_id() -> const ::iox2::bb::Optional<RawIdType>& {
@@ -138,6 +154,15 @@ auto Subscriber::typesupport() const -> const rosidl_message_type_support_t* {
 
 auto Subscriber::service_name() const -> const std::string& {
     return m_service_name;
+}
+
+auto Subscriber::has_samples() const -> bool {
+    auto result = m_iox2_subscriber->has_samples();
+    return result.has_value() && result.value();
+}
+
+auto Subscriber::listener() -> IceoryxListener& {
+    return m_iox2_listener.value();
 }
 
 auto Subscriber::qos() const -> const Qos& {
