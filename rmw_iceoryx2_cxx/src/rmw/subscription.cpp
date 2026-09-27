@@ -458,7 +458,22 @@ rmw_ret_t rmw_take_sequence(const rmw_subscription_t* rmw_subscription,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    *taken = 0;
+    for (; *taken < count; ++(*taken)) {
+        bool message_taken{false};
+        auto result = take_impl(
+            rmw_subscription, message_sequence->data[*taken], &message_taken, &message_info_sequence->data[*taken]);
+        if (result != RMW_RET_OK) {
+            return result;
+        }
+        if (!message_taken) {
+            break;
+        }
+    }
+    message_sequence->size = *taken;
+    message_info_sequence->size = *taken;
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_take_serialized_message_with_info(const rmw_subscription_t* rmw_subscription,
