@@ -383,6 +383,54 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info) {
     free(recv_payload);
 }
 
+TEST_F(RmwPublishSubscribeTest, take_with_info_populates_publisher_gid) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    auto send_payload = Defaults{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+
+    auto recv_payload = Defaults{};
+    bool taken{false};
+    rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+    ASSERT_RMW_OK(rmw_take_with_info(subscription, &recv_payload, &taken, &message_info, nullptr));
+    ASSERT_TRUE(taken);
+
+    rmw_gid_t publisher_gid{};
+    ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher, &publisher_gid));
+    bool equal{false};
+    ASSERT_RMW_OK(rmw_compare_gids_equal(&publisher_gid, &message_info.publisher_gid, &equal));
+    EXPECT_TRUE(equal);
+}
+
+TEST_F(RmwPublishSubscribeTest, take_with_info_populates_publisher_gid_non_self_contained) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    auto send_payload = Strings{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+
+    auto recv_payload = Strings{};
+    bool taken{false};
+    rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+    ASSERT_RMW_OK(rmw_take_with_info(subscription, &recv_payload, &taken, &message_info, nullptr));
+    ASSERT_TRUE(taken);
+
+    rmw_gid_t publisher_gid{};
+    ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher, &publisher_gid));
+    bool equal{false};
+    ASSERT_RMW_OK(rmw_compare_gids_equal(&publisher_gid, &message_info.publisher_gid, &equal));
+    EXPECT_TRUE(equal);
+}
+
 TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info_non_self_contained) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
 

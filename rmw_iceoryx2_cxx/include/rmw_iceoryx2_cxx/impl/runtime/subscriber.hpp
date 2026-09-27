@@ -34,11 +34,18 @@ struct Error<Subscriber>
     using Type = SubscriberError;
 };
 
+/// @brief Message info of a received sample
+struct SampleInfo
+{
+    ::rmw_iceoryx2_interoperability::MessageInfoHeader header;
+    ::iox2::bb::Optional<::iox2::RawIdType> publisher_id;
+};
+
 struct SubscriberLoan
 {
     uint8_t* bytes;
     size_t number_of_bytes;
-    ::rmw_iceoryx2_interoperability::MessageInfoHeader message_info;
+    SampleInfo message_info;
 };
 
 /// @brief Implementation of the RMW subscriber for iceoryx2
@@ -112,8 +119,8 @@ public:
 
     /// @brief Take a message by copying its payload to the destination buffer
     /// @param[out] dest Pointer to the destination buffer
-    /// @return Expected containing the sample's user header if a message was taken, empty otherwise
-    auto take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType>;
+    /// @return Expected containing the sample's message info if a message was taken, empty otherwise
+    auto take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<SampleInfo>, ErrorType>;
 
     /// @brief Take a loaned message without copying
     /// @return Expected containing optional pointer to the loaned message memory

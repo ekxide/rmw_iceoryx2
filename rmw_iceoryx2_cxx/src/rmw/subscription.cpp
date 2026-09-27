@@ -30,17 +30,22 @@
 namespace
 {
 
-void populate_message_info(rmw_message_info_t* message_info,
-                           const ::rmw_iceoryx2_interoperability::MessageInfoHeader& header) {
+void populate_message_info(rmw_message_info_t* message_info, const ::rmw::iox2::SampleInfo& info) {
     rcutils_time_point_value_t received = 0;
     if (rcutils_system_time_now(&received) != RCUTILS_RET_OK) {
         received = 0;
     }
-    message_info->source_timestamp = header.source_timestamp;
+    message_info->source_timestamp = info.header.source_timestamp;
     message_info->received_timestamp = received;
-    message_info->publication_sequence_number = header.publication_sequence_number;
+    message_info->publication_sequence_number = info.header.publication_sequence_number;
     message_info->reception_sequence_number = RMW_MESSAGE_INFO_SEQUENCE_NUMBER_UNSUPPORTED;
     message_info->from_intra_process = false;
+    if (info.publisher_id.has_value()) {
+        message_info->publisher_gid.implementation_identifier = rmw_get_implementation_identifier();
+        std::copy(info.publisher_id.value().unchecked_access().data(),
+                  info.publisher_id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
+                  message_info->publisher_gid.data);
+    }
 }
 
 // Shared implementation for rmw_take and rmw_take_with_info. Invoked only after the rmw entry

@@ -174,7 +174,7 @@ auto Subscriber::number_of_publishers() const -> uint64_t {
     return m_iox2_service->dynamic_config().number_of_publishers();
 }
 
-auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType> {
+auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<SampleInfo>, ErrorType> {
     using ::iox2::bb::err;
     using ::iox2::bb::Optional;
 
@@ -186,12 +186,12 @@ auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optio
     auto sample = std::move(result.value());
 
     if (!sample.has_value()) {
-        return Optional<UserHeader>{::iox2::bb::NULLOPT};
+        return Optional<SampleInfo>{::iox2::bb::NULLOPT};
     }
 
     auto payload = sample.value().payload();
     std::memcpy(dest, payload.data(), payload.number_of_bytes());
-    return Optional<UserHeader>(sample.value().user_header());
+    return Optional<SampleInfo>(SampleInfo{sample.value().user_header(), sample.value().origin().bytes()});
 }
 
 auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<SubscriberLoan>, ErrorType> {
@@ -210,7 +210,7 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
         // const_cast required because of the RMW API.
         auto* data = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(sample->payload().data()));
         auto number_of_bytes = sample->payload().number_of_bytes();
-        auto message_info = sample->user_header();
+        auto message_info = SampleInfo{sample->user_header(), sample->origin().bytes()};
         m_registry.store(std::move(sample.value()));
 
         return Optional<SubscriberLoan>(SubscriberLoan{data, number_of_bytes, message_info});
