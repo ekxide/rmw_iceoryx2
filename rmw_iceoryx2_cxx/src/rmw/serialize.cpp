@@ -9,6 +9,7 @@
 
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
+#include "rmw/serialized_message.h"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/typesupport.hpp"
@@ -66,6 +67,13 @@ rmw_ret_t rmw_serialize(const void* ros_message,
     }
 
     // Prepare the buffer
+    const auto serialized_size = callbacks->get_serialized_size(ros_message);
+    if (serialized_message->buffer_capacity < serialized_size) {
+        if (rmw_serialized_message_resize(serialized_message, serialized_size) != RMW_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to resize serialized message");
+            return RMW_RET_ERROR;
+        }
+    }
     auto fast_buffer = eprosima::fastcdr::FastBuffer(reinterpret_cast<char*>(serialized_message->buffer),
                                                      serialized_message->buffer_capacity);
     auto serializer = eprosima::fastcdr::Cdr(

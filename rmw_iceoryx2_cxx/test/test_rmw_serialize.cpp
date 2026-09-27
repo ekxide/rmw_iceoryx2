@@ -69,4 +69,20 @@ TEST_F(RmwSerializeTest, serialize_deserialize_non_pod_type) {
     ASSERT_EQ(input, output);
 }
 
+TEST_F(RmwSerializeTest, serialize_resizes_the_serialized_message) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    Strings input{};
+    input.string_value = "GloryToHypnoToad";
+
+    rmw_serialized_message_t serialized_msg = rmw_get_zero_initialized_serialized_message();
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, 0, &test_allocator()));
+    ASSERT_RMW_OK(rmw_serialize(&input, test_type_support<Strings>(), &serialized_msg));
+
+    Strings output{};
+    ASSERT_RMW_OK(rmw_deserialize(&serialized_msg, test_type_support<Strings>(), &output));
+    ASSERT_EQ(input, output);
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&serialized_msg));
+}
+
 } // namespace
