@@ -20,14 +20,10 @@ const char* const rmw_iox2_serialization_format = "iceoryx2";
 namespace
 {
 
-// Walk the typesupport chain to find the fastrtps_cpp handle and extract its
+// Find the fastrtps_c or fastrtps_cpp handle and extract its
 // serialization callbacks. Returns null on failure.
 const message_type_support_callbacks_t* get_typesupport_callbacks(const rosidl_message_type_support_t* type_support) {
-    const auto* handle = get_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
-    if (!handle) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get fastrtps typesupport handle");
-        return nullptr;
-    }
+    RMW_IOX2_ENSURE_VALID_TYPESUPPORT(type_support, nullptr);
     const auto* callbacks = static_cast<const message_type_support_callbacks_t*>(handle->data);
     if (!callbacks) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get fastrtps typesupport callbacks");

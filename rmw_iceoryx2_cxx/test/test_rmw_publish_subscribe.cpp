@@ -13,7 +13,9 @@
 #include "rcutils/time.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/strings.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.hpp"
+#include "rosidl_runtime_c/string_functions.h"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -111,6 +113,30 @@ TEST_F(RmwPublishSubscribeTest, take_non_self_contained_one_new_message) {
     ASSERT_EQ(*reinterpret_cast<Strings*>(recv_payload), send_payload);
 
     free(recv_payload);
+}
+
+TEST_F(RmwPublishSubscribeTest, take_non_self_contained_one_new_message_c_type_support) {
+    const auto* type_support = ROSIDL_GET_MSG_TYPE_SUPPORT(rmw_iceoryx2_cxx_test_msgs, msg, Strings);
+
+    auto* publisher = create_publisher(type_support, create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_subscriber(type_support, create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    rmw_iceoryx2_cxx_test_msgs__msg__Strings send_payload;
+    ASSERT_TRUE(rmw_iceoryx2_cxx_test_msgs__msg__Strings__init(&send_payload));
+    ASSERT_TRUE(rosidl_runtime_c__String__assign(&send_payload.string_value, "GloryToHypnoToad"));
+    ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+
+    rmw_iceoryx2_cxx_test_msgs__msg__Strings recv_payload;
+    ASSERT_TRUE(rmw_iceoryx2_cxx_test_msgs__msg__Strings__init(&recv_payload));
+    bool taken{false};
+    ASSERT_RMW_OK(rmw_take(subscription, &recv_payload, &taken, nullptr));
+    ASSERT_TRUE(taken);
+    EXPECT_TRUE(rmw_iceoryx2_cxx_test_msgs__msg__Strings__are_equal(&send_payload, &recv_payload));
+
+    rmw_iceoryx2_cxx_test_msgs__msg__Strings__fini(&recv_payload);
+    rmw_iceoryx2_cxx_test_msgs__msg__Strings__fini(&send_payload);
 }
 
 TEST_F(RmwPublishSubscribeTest, take_non_self_contained_message_larger_than_struct) {

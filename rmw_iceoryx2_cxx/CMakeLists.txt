@@ -184,6 +184,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_rmw_iceoryx2_cxx
     ${PROJECT_NAME}
     rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs__rosidl_typesupport_cpp
+    rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs__rosidl_generator_c
+    rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs__rosidl_typesupport_c
   )
 
 endif()
