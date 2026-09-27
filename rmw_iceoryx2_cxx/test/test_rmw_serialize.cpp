@@ -108,4 +108,16 @@ TEST_F(RmwSerializeTest, serialize_resizes_the_serialized_message) {
     ASSERT_RMW_OK(rmw_serialized_message_fini(&serialized_msg));
 }
 
+TEST_F(RmwSerializeTest, deserialize_truncated_message_fails) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    rmw_serialized_message_t serialized_msg = rmw_get_zero_initialized_serialized_message();
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized_msg, 2, &test_allocator()));
+    serialized_msg.buffer_length = 2;
+
+    Strings output{};
+    EXPECT_RMW_ERR(RMW_RET_ERROR, rmw_deserialize(&serialized_msg, test_type_support<Strings>(), &output));
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&serialized_msg));
+}
+
 } // namespace

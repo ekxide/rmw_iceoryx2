@@ -7,6 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "fastcdr/exceptions/Exception.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw/serialized_message.h"
@@ -77,7 +78,10 @@ rmw_ret_t rmw_serialize(const void* ros_message,
 
     // Serialize ros message into target buffer
     try {
-        callbacks->cdr_serialize(ros_message, serializer);
+        if (!callbacks->cdr_serialize(ros_message, serializer)) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize");
+            return RMW_RET_ERROR;
+        }
     }
     catch (std::exception& e) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize");
@@ -111,7 +115,14 @@ rmw_ret_t rmw_deserialize(const rmw_serialized_message_t* serialized_message,
 
     // Deserialize ros message into target buffer
     try {
-        callbacks->cdr_deserialize(deserializer, ros_message);
+        if (!callbacks->cdr_deserialize(deserializer, ros_message)) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize");
+            return RMW_RET_ERROR;
+        }
+    }
+    catch (eprosima::fastcdr::exception::Exception& e) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize");
+        return RMW_RET_ERROR;
     }
     catch (std::exception& e) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize");
