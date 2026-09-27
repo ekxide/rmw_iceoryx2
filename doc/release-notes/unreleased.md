@@ -28,6 +28,7 @@
 * Fix non-triggered attachments not being set to `nullptr` on timeout [#36](https://github.com/ekxide/rmw_iceoryx2/issues/36)
 * Delegate signal handling to `rcl` [#40](https://github.com/ekxide/rmw_iceoryx2/issues/40)
 * Export missing rmw functions [#55](https://github.com/ekxide/rmw_iceoryx2/issues/55)
+* Publish and serialize messages with C typesupport [#57](https://github.com/ekxide/rmw_iceoryx2/issues/57)
 
 ### Refactoring
 
