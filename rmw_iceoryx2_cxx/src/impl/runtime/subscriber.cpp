@@ -121,6 +121,7 @@ Subscriber::Subscriber(CreationLock,
 
     m_iox2_unique_id.emplace(iox2_subscriber->id());
     m_iox2_subscriber.emplace(std::move(iox2_subscriber.value()));
+    m_iox2_service.emplace(std::move(iox2_pubsub_service.value()));
 
     auto iox2_event_service = node.iox2().ipc().service_builder(iox2_service_name.value()).event().open_or_create();
     if (!iox2_event_service.has_value()) {
@@ -167,6 +168,10 @@ auto Subscriber::listener() -> IceoryxListener& {
 
 auto Subscriber::qos() const -> const Qos& {
     return m_qos;
+}
+
+auto Subscriber::number_of_publishers() const -> uint64_t {
+    return m_iox2_service->dynamic_config().number_of_publishers();
 }
 
 auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType> {

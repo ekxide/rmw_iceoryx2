@@ -57,6 +57,7 @@ public:
 private:
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniqueSubscriberId;
+    using IceoryxService = Iceoryx2::InterProcess::PublishSubscribe<Payload, UserHeader>;
     using IceoryxSubscriber = Iceoryx2::InterProcess::Subscriber<Payload, UserHeader>;
     using IceoryxSample = Iceoryx2::InterProcess::Sample<Payload, UserHeader>;
     using IceoryxListener = Iceoryx2::InterProcess::Listener;
@@ -105,6 +106,10 @@ public:
     /// @return Reference to the resolved QoS
     auto qos() const -> const Qos&;
 
+    /// @brief Get the number of publishers connected to this subscriber's topic
+    /// @return The number of publishers
+    auto number_of_publishers() const -> uint64_t;
+
     /// @brief Take a message by copying its payload to the destination buffer
     /// @param[out] dest Pointer to the destination buffer
     /// @return Expected containing the sample's user header if a message was taken, empty otherwise
@@ -130,6 +135,7 @@ private:
     Qos m_qos;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
+    ::iox2::bb::Optional<IceoryxService> m_iox2_service;
     ::iox2::bb::Optional<IceoryxSubscriber> m_iox2_subscriber;
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
     IceoryxSampleRegistry m_registry;

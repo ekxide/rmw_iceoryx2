@@ -54,6 +54,7 @@ private:
     using IdType = ::iox2::UniquePublisherId;
 
     using IceoryxNotifier = Iceoryx2::InterProcess::Notifier;
+    using IceoryxService = Iceoryx2::InterProcess::PublishSubscribe<Payload, UserHeader>;
     using IceoryxPublisher = Iceoryx2::InterProcess::Publisher<Payload, UserHeader>;
     using IceoryxSample = Iceoryx2::InterProcess::SampleMutUninit<Payload, UserHeader>;
     using IceoryxSampleRegistry = SampleRegistry<IceoryxSample>;
@@ -97,6 +98,10 @@ public:
     /// @return Reference to the resolved QoS
     auto qos() const -> const Qos&;
 
+    /// @brief Get the number of subscribers connected to this publisher's topic
+    /// @return The number of subscribers
+    auto number_of_subscribers() const -> uint64_t;
+
     /// @brief Loan memory for publishing
     /// @param[in] number_of_bytes Required buffer size in bytes. Honored for serialized payloads;
     ///            ignored for self-contained payloads, which always loan the size of the
@@ -138,6 +143,7 @@ private:
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
+    ::iox2::bb::Optional<IceoryxService> m_iox2_service;
     ::iox2::bb::Optional<IceoryxPublisher> m_iox2_publisher;
     IceoryxSampleRegistry m_registry;
     uint64_t m_publication_sequence_number{0};

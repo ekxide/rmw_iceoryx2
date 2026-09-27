@@ -480,7 +480,18 @@ rmw_ret_t rmw_subscription_count_matched_publishers(const rmw_subscription_t* rm
     RMW_IOX2_ENSURE_NOT_NULL(publisher_count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ::rmw::iox2::unsafe_cast;
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
+
+    auto subscriber_impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
+    if (!subscriber_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
+        return RMW_RET_ERROR;
+    }
+
+    *publisher_count = subscriber_impl.value()->number_of_publishers();
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_subscription_get_actual_qos(const rmw_subscription_t* rmw_subscription, rmw_qos_profile_t* qos) {

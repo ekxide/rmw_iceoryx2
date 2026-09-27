@@ -137,4 +137,14 @@ TEST_F(RmwSubscriptionTest, rejects_keep_all_history) {
     EXPECT_EQ(create_subscriber<Defaults>(create_test_topic(), profile), nullptr);
 }
 
+TEST_F(RmwSubscriptionTest, counts_matched_publishers) {
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    create_default_publisher<Defaults>(create_test_topic());
+    create_default_publisher<Defaults>(create_test_topic());
+
+    size_t count{0};
+    ASSERT_RMW_OK(rmw_subscription_count_matched_publishers(subscription, &count));
+    ASSERT_EQ(count, 2u);
+}
+
 } // namespace
