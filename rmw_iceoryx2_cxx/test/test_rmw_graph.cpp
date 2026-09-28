@@ -374,7 +374,7 @@ TEST_F(RmwGraphTest, can_get_subscriber_names_and_types_by_node) {
     ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
 }
 
-TEST_F(RmwGraphTest, gets_empty_names_and_types_for_unknown_node) {
+TEST_F(RmwGraphTest, names_and_types_by_node_of_an_unknown_node_do_not_exist) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto topic = create_test_topic("/OwnedByTestNode");
@@ -382,12 +382,20 @@ TEST_F(RmwGraphTest, gets_empty_names_and_types_for_unknown_node) {
 
     auto allocator = rcutils_get_default_allocator();
     auto names_and_types = rmw_get_zero_initialized_names_and_types();
-    ASSERT_RMW_OK(rmw_get_publisher_names_and_types_by_node(
-        test_node(), &allocator, "UnknownNode", test_node()->namespace_, false, &names_and_types));
-
-    EXPECT_EQ(names_and_types.names.size, 0u);
-
-    ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+    const auto* node_namespace = test_node()->namespace_;
+    EXPECT_RMW_ERR(RMW_RET_NODE_NAME_NON_EXISTENT,
+                   rmw_get_publisher_names_and_types_by_node(
+                       test_node(), &allocator, "UnknownNode", node_namespace, false, &names_and_types));
+    EXPECT_RMW_ERR(RMW_RET_NODE_NAME_NON_EXISTENT,
+                   rmw_get_subscriber_names_and_types_by_node(
+                       test_node(), &allocator, "UnknownNode", node_namespace, false, &names_and_types));
+    EXPECT_RMW_ERR(RMW_RET_NODE_NAME_NON_EXISTENT,
+                   rmw_get_service_names_and_types_by_node(
+                       test_node(), &allocator, "UnknownNode", node_namespace, &names_and_types));
+    EXPECT_RMW_ERR(RMW_RET_NODE_NAME_NON_EXISTENT,
+                   rmw_get_client_names_and_types_by_node(
+                       test_node(), &allocator, "UnknownNode", node_namespace, &names_and_types));
+    EXPECT_RMW_OK(rmw_names_and_types_check_zero(&names_and_types));
 }
 
 } // namespace

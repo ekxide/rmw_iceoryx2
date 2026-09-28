@@ -111,6 +111,14 @@ auto build_node_id_lookup(::rmw::iox2::Node& node) -> std::map<NodeIdKey, ::rmw:
     return nodes;
 }
 
+auto contains_node(const std::map<NodeIdKey, ::rmw::iox2::NodeName>& nodes,
+                   const std::string& node_name,
+                   const std::string& node_namespace) -> bool {
+    return std::any_of(nodes.begin(), nodes.end(), [&](const auto& entry) {
+        return entry.second.node_name == node_name && entry.second.node_namespace == node_namespace;
+    });
+}
+
 /// The opened publish-subscribe service backing a ROS topic, as used by this RMW.
 using TopicService = ::iox2::PortFactoryPublishSubscribe<::rmw::iox2::Iceoryx2::ServiceType::Ipc,
                                                          ::rmw::iox2::Publisher::Payload,
@@ -193,6 +201,10 @@ auto Graph::node_names() -> ::iox2::bb::Expected<std::vector<NodeName>, ErrorTyp
     }
 
     return std::vector<NodeName>{names.begin(), names.end()};
+}
+
+auto Graph::has_node(const std::string& node_name, const std::string& node_namespace) -> bool {
+    return contains_node(build_node_id_lookup(m_node.get()), node_name, node_namespace);
 }
 
 auto Graph::topic_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
@@ -279,6 +291,9 @@ auto Graph::endpoints_by_node(const std::string& node_name, const std::string& n
         return err(topics.error());
     }
     auto nodes = build_node_id_lookup(node);
+    if (!contains_node(nodes, node_name, node_namespace)) {
+        return err(ErrorType::NODE_NOT_FOUND);
+    }
 
     auto owned_by_target = [&](const ::iox2::UniqueNodeId& node_id) -> bool {
         auto entry = nodes.find(to_key(node_id));

@@ -92,6 +92,12 @@ public:
     ///         or an error if the iceoryx2 registry cannot be read.
     auto node_names() -> ::iox2::bb::Expected<std::vector<NodeName>, ErrorType>;
 
+    /// @brief Check whether a node is in the graph.
+    /// @param[in] node_name The node's name.
+    /// @param[in] node_namespace The node's namespace.
+    /// @return True if an alive node with that name and namespace exists.
+    auto has_node(const std::string& node_name, const std::string& node_namespace) -> bool;
+
     /// @brief List all discoverable topics and their types.
     /// @return The name and type of each topic, deduplicated and ordered, or an
     ///         error if the iceoryx2 registry cannot be read.
@@ -125,8 +131,8 @@ public:
     /// @param[in] node_name The node's name.
     /// @param[in] node_namespace The node's namespace.
     /// @return The name and type of each topic the node has a publisher on,
-    ///         deduplicated and ordered, or an error if the registry cannot be
-    ///         read.
+    ///         deduplicated and ordered, `NODE_NOT_FOUND` if the node is not in
+    ///         the graph, or an error if the registry cannot be read.
     auto publishers_by_node(const std::string& node_name, const std::string& node_namespace)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
@@ -134,8 +140,8 @@ public:
     /// @param[in] node_name The node's name.
     /// @param[in] node_namespace The node's namespace.
     /// @return The name and type of each topic the node has a subscriber on,
-    ///         deduplicated and ordered, or an error if the registry cannot be
-    ///         read.
+    ///         deduplicated and ordered, `NODE_NOT_FOUND` if the node is not in
+    ///         the graph, or an error if the registry cannot be read.
     auto subscriptions_by_node(const std::string& node_name, const std::string& node_namespace)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 

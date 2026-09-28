@@ -332,6 +332,11 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* rmw_node,
 
     auto result = Graph{*node_impl}.publishers_by_node(node_name, node_namespace);
     if (!result.has_value()) {
+        if (result.error() == Graph::ErrorType::NODE_NOT_FOUND) {
+            RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+                "node %s in namespace %s does not exist", node_name, node_namespace);
+            return RMW_RET_NODE_NAME_NON_EXISTENT;
+        }
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get publisher names and types by node");
         return RMW_RET_ERROR;
     }
@@ -447,6 +452,11 @@ rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* rmw_node,
 
     auto result = Graph{*node_impl}.subscriptions_by_node(node_name, node_namespace);
     if (!result.has_value()) {
+        if (result.error() == Graph::ErrorType::NODE_NOT_FOUND) {
+            RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+                "node %s in namespace %s does not exist", node_name, node_namespace);
+            return RMW_RET_NODE_NAME_NON_EXISTENT;
+        }
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get subscriber names and types by node");
         return RMW_RET_ERROR;
     }
@@ -584,6 +594,16 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
+    auto node_impl_result = ::rmw::iox2::unsafe_cast<::rmw::iox2::Node*>(rmw_node->data);
+    if (!node_impl_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+        return RMW_RET_ERROR;
+    }
+    if (!::rmw::iox2::Graph{*node_impl_result.value()}.has_node(node_name, node_namespace)) {
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+            "node %s in namespace %s does not exist", node_name, node_namespace);
+        return RMW_RET_NODE_NAME_NON_EXISTENT;
+    }
     return RMW_RET_UNSUPPORTED;
 }
 
@@ -641,6 +661,16 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
+    auto node_impl_result = ::rmw::iox2::unsafe_cast<::rmw::iox2::Node*>(rmw_node->data);
+    if (!node_impl_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+        return RMW_RET_ERROR;
+    }
+    if (!::rmw::iox2::Graph{*node_impl_result.value()}.has_node(node_name, node_namespace)) {
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+            "node %s in namespace %s does not exist", node_name, node_namespace);
+        return RMW_RET_NODE_NAME_NON_EXISTENT;
+    }
     return RMW_RET_UNSUPPORTED;
 }
 

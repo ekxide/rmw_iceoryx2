@@ -76,6 +76,7 @@ enum class GraphError : uint8_t {
     SERVICE_NAME_CREATION_FAILURE,
     SERVICE_OPEN_FAILURE,
     QOS_DECODING_FAILURE,
+    NODE_NOT_FOUND,
 };
 
 /**
