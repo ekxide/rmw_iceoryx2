@@ -61,6 +61,9 @@ enum class ServerError : uint8_t {
     SERVICE_CREATION_FAILURE,
     SERVER_CREATION_FAILURE,
     RECV_FAILURE,
+    LOAN_FAILURE,
+    SEND_FAILURE,
+    INVALID_PAYLOAD,
 };
 enum class ClientError : uint8_t {
     INVARIANT_VIOLATION,
@@ -69,6 +72,7 @@ enum class ClientError : uint8_t {
     CLIENT_CREATION_FAILURE,
     LOAN_FAILURE,
     SEND_FAILURE,
+    RECV_FAILURE,
     INVALID_PAYLOAD,
 };
 enum class WaitSetError : uint8_t {

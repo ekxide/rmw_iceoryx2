@@ -38,6 +38,14 @@ struct Error<Client>
     using Type = ClientError;
 };
 
+/// @brief A response taken by a client, valid until the loan is returned
+struct ClientResponse
+{
+    uint8_t* bytes;
+    size_t number_of_bytes;
+    ::rmw_iceoryx2_interoperability::MessageInfoHeader message_info;
+};
+
 /// @brief Implementation of the RMW client for iceoryx2
 ///
 /// @details Requests and responses are exchanged as CDR-serialized payloads of an iceoryx2
@@ -58,6 +66,7 @@ private:
     using IceoryxClient = Iceoryx2::InterProcess::Client<Payload, UserHeader>;
     using IceoryxRequest = Iceoryx2::InterProcess::RequestMutUninit<Payload, UserHeader>;
     using IceoryxPendingResponse = Iceoryx2::InterProcess::PendingResponse<Payload, UserHeader>;
+    using IceoryxResponse = Iceoryx2::InterProcess::Response<Payload, UserHeader>;
 
 public:
     /// @brief Constructor for Client
@@ -114,6 +123,15 @@ public:
     /// @return Expected containing the sequence number of the request or error if sending failed
     auto send_request(void* loaned_memory) -> ::iox2::bb::Expected<uint64_t, ErrorType>;
 
+    /// @brief Take the next response to a request of this client
+    /// @return Expected containing the response if one was available
+    auto take_response() -> ::iox2::bb::Expected<::iox2::bb::Optional<ClientResponse>, ErrorType>;
+
+    /// @brief Return the memory of a taken response
+    /// @param[in] loaned_memory Pointer to the loaned memory to return
+    /// @return Expected containing void or error if the return failed
+    auto return_response_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType>;
+
 private:
     const std::string m_service;
     const rosidl_service_type_support_t* const m_typesupport;
@@ -126,6 +144,7 @@ private:
     std::mutex m_mutex;
     SampleRegistry<IceoryxRequest> m_requests;
     std::map<uint64_t, IceoryxPendingResponse> m_pending_responses;
+    SampleRegistry<IceoryxResponse> m_responses;
     uint64_t m_sequence_number{0};
 };
 
