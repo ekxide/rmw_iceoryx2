@@ -298,22 +298,6 @@ TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
 }
 
-TEST_F(RmwGraphTest, get_clients_info_by_service_is_unsupported) {
-    auto allocator = rcutils_get_default_allocator();
-    auto clients_info = rmw_get_zero_initialized_service_endpoint_info_array();
-
-    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
-                   rmw_get_clients_info_by_service(test_node(), &allocator, "/service", false, &clients_info));
-}
-
-TEST_F(RmwGraphTest, get_servers_info_by_service_is_unsupported) {
-    auto allocator = rcutils_get_default_allocator();
-    auto servers_info = rmw_get_zero_initialized_service_endpoint_info_array();
-
-    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
-                   rmw_get_servers_info_by_service(test_node(), &allocator, "/service", false, &servers_info));
-}
-
 TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {
     // Callers such as `ros2 topic list` pass a zero-initialized
     // `rmw_names_and_types_t`, whose `types` member is NULL. The query must
@@ -326,17 +310,37 @@ TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
 }
 
-TEST_F(RmwGraphTest, service_queries_accept_zero_initialized_names_and_types) {
+TEST_F(RmwGraphTest, reports_no_services_or_clients) {
     auto allocator = rcutils_get_default_allocator();
-    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    const auto* node_name = test_node()->name;
+    const auto* node_namespace = test_node()->namespace_;
 
-    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED, rmw_get_service_names_and_types(test_node(), &allocator, &names_and_types));
-    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
-                   rmw_get_service_names_and_types_by_node(
-                       test_node(), &allocator, test_node()->name, test_node()->namespace_, &names_and_types));
-    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
-                   rmw_get_client_names_and_types_by_node(
-                       test_node(), &allocator, test_node()->name, test_node()->namespace_, &names_and_types));
+    size_t count{1};
+    EXPECT_RMW_OK(rmw_count_services(test_node(), "/service", &count));
+    EXPECT_EQ(count, 0U);
+    count = 1;
+    EXPECT_RMW_OK(rmw_count_clients(test_node(), "/service", &count));
+    EXPECT_EQ(count, 0U);
+
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    EXPECT_RMW_OK(rmw_get_service_names_and_types(test_node(), &allocator, &names_and_types));
+    EXPECT_EQ(names_and_types.names.size, 0U);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+    EXPECT_RMW_OK(
+        rmw_get_service_names_and_types_by_node(test_node(), &allocator, node_name, node_namespace, &names_and_types));
+    EXPECT_EQ(names_and_types.names.size, 0U);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+    EXPECT_RMW_OK(
+        rmw_get_client_names_and_types_by_node(test_node(), &allocator, node_name, node_namespace, &names_and_types));
+    EXPECT_EQ(names_and_types.names.size, 0U);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+
+    auto servers_info = rmw_get_zero_initialized_service_endpoint_info_array();
+    EXPECT_RMW_OK(rmw_get_servers_info_by_service(test_node(), &allocator, "/service", false, &servers_info));
+    EXPECT_EQ(servers_info.size, 0U);
+    auto clients_info = rmw_get_zero_initialized_service_endpoint_info_array();
+    EXPECT_RMW_OK(rmw_get_clients_info_by_service(test_node(), &allocator, "/service", false, &clients_info));
+    EXPECT_EQ(clients_info.size, 0U);
 }
 
 TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {

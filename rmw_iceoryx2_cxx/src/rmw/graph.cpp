@@ -554,7 +554,8 @@ rmw_ret_t rmw_count_services(const rmw_node_t* rmw_node, const char* service_nam
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    *count = 0;
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* rmw_node,
@@ -571,7 +572,7 @@ rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    return fill_names_and_types(service_names_and_types, {}, allocator);
 }
 
 rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
@@ -604,7 +605,7 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
             "node %s in namespace %s does not exist", node_name, node_namespace);
         return RMW_RET_NODE_NAME_NON_EXISTENT;
     }
-    return RMW_RET_UNSUPPORTED;
+    return fill_names_and_types(service_names_and_types, {}, allocator);
 }
 
 rmw_ret_t rmw_get_servers_info_by_service(const rmw_node_t* rmw_node,
@@ -623,7 +624,7 @@ rmw_ret_t rmw_get_servers_info_by_service(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    return RMW_RET_OK;
 }
 
 // Clients ==========================================================================================================
@@ -637,7 +638,8 @@ rmw_ret_t rmw_count_clients(const rmw_node_t* rmw_node, const char* service_name
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    *count = 0;
+    return RMW_RET_OK;
 }
 
 
@@ -671,7 +673,7 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
             "node %s in namespace %s does not exist", node_name, node_namespace);
         return RMW_RET_NODE_NAME_NON_EXISTENT;
     }
-    return RMW_RET_UNSUPPORTED;
+    return fill_names_and_types(service_names_and_types, {}, allocator);
 }
 
 rmw_ret_t rmw_get_clients_info_by_service(const rmw_node_t* rmw_node,
@@ -690,6 +692,6 @@ rmw_ret_t rmw_get_clients_info_by_service(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    return RMW_RET_OK;
 }
 }
