@@ -7,13 +7,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "rmw_iceoryx2_cxx/impl/runtime/client.hpp"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw/validate_full_topic_name.h"
 #include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
+#include "rmw_iceoryx2_cxx/rmw/node.hpp"
 
 extern "C" {
 
@@ -32,7 +36,16 @@ rmw_client_t* rmw_create_client(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_VALID_QOS(qos, nullptr);
 
     // Implementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::allocate;
     using ::rmw::iox2::allocate_copy;
+    using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
+    using ClientImpl = ::rmw::iox2::Client;
+    using ::rmw::iox2::NodeData;
+    using ::rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_LOG_DEBUG("Creating client to '%s'", service_name);
 
     auto rmw_client = rmw_client_allocate();
     if (rmw_client == nullptr) {
@@ -43,10 +56,37 @@ rmw_client_t* rmw_create_client(const rmw_node_t* rmw_node,
 
     if (auto ptr = allocate_copy(service_name); !ptr.has_value()) {
         rmw_client_free(rmw_client);
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for service name");
         return nullptr;
     } else {
         rmw_client->service_name = ptr.value();
+    }
+
+    auto node_data = unsafe_cast<NodeData*>(rmw_node->data);
+    if (!node_data.has_value()) {
+        deallocate(rmw_client->service_name);
+        rmw_client_free(rmw_client);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
+        return nullptr;
+    }
+
+    if (auto client_impl = allocate<ClientImpl>(); !client_impl.has_value()) {
+        deallocate(rmw_client->service_name);
+        rmw_client_free(rmw_client);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Client");
+        return nullptr;
+    } else {
+        if (auto result = create_in_place<ClientImpl>(
+                client_impl.value(), node_data.value()->node.value(), service_name, type_support, *qos);
+            !result.has_value()) {
+            destruct<ClientImpl>(client_impl.value());
+            deallocate<ClientImpl>(client_impl.value());
+            deallocate(rmw_client->service_name);
+            rmw_client_free(rmw_client);
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Client");
+            return nullptr;
+        }
+        rmw_client->data = client_impl.value();
     }
 
     return rmw_client;
@@ -61,7 +101,15 @@ rmw_ret_t rmw_destroy_client(rmw_node_t* rmw_node, rmw_client_t* rmw_client) {
 
     // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
+    using ClientImpl = ::rmw::iox2::Client;
 
+    RMW_IOX2_LOG_DEBUG("Destroying client to '%s'", rmw_client->service_name);
+
+    if (rmw_client->data) {
+        destruct<ClientImpl>(rmw_client->data);
+        deallocate(rmw_client->data);
+    }
     if (rmw_client->service_name != nullptr) {
         deallocate(rmw_client->service_name);
     }
@@ -100,7 +148,16 @@ rmw_ret_t rmw_client_request_publisher_get_actual_qos(const rmw_client_t* rmw_cl
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    *qos = rmw_qos_profile_services_default;
+    using ClientImpl = ::rmw::iox2::Client;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto client_impl = unsafe_cast<ClientImpl*>(rmw_client->data);
+    if (!client_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Client");
+        return RMW_RET_ERROR;
+    }
+
+    *qos = client_impl.value()->qos();
 
     return RMW_RET_OK;
 }
@@ -112,7 +169,16 @@ rmw_ret_t rmw_client_response_subscription_get_actual_qos(const rmw_client_t* rm
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    *qos = rmw_qos_profile_services_default;
+    using ClientImpl = ::rmw::iox2::Client;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto client_impl = unsafe_cast<ClientImpl*>(rmw_client->data);
+    if (!client_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Client");
+        return RMW_RET_ERROR;
+    }
+
+    *qos = client_impl.value()->qos();
 
     return RMW_RET_OK;
 }
@@ -139,6 +205,17 @@ rmw_service_server_is_available(const rmw_node_t* rmw_node, const rmw_client_t* 
     RMW_IOX2_ENSURE_NOT_NULL(is_available, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ClientImpl = ::rmw::iox2::Client;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto client_impl = unsafe_cast<ClientImpl*>(rmw_client->data);
+    if (!client_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Client");
+        return RMW_RET_ERROR;
+    }
+
+    *is_available = client_impl.value()->is_server_available();
+
+    return RMW_RET_OK;
 }
 }

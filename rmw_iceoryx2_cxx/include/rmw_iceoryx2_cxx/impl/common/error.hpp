@@ -61,6 +61,12 @@ enum class ServerError : uint8_t {
     SERVICE_CREATION_FAILURE,
     SERVER_CREATION_FAILURE,
 };
+enum class ClientError : uint8_t {
+    INVARIANT_VIOLATION,
+    SERVICE_NAME_CREATION_FAILURE,
+    SERVICE_CREATION_FAILURE,
+    CLIENT_CREATION_FAILURE,
+};
 enum class WaitSetError : uint8_t {
     INVARIANT_VIOLATION,
     WAITSET_CREATION_FAILURE,

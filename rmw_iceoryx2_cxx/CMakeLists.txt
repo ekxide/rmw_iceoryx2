@@ -67,6 +67,7 @@ add_library(${PROJECT_NAME} SHARED
   src/impl/message/introspection.cpp
   src/impl/message/typesupport.cpp
   src/impl/middleware/iceoryx2.cpp
+  src/impl/runtime/client.cpp
   src/impl/runtime/context.cpp
   src/impl/runtime/graph.cpp
   src/impl/runtime/guard_condition.cpp
@@ -170,6 +171,7 @@ if(BUILD_TESTING)
     test/test_impl_subscriber.cpp
     test/test_impl_waitset.cpp
     test/test_rmw_allocator.cpp
+    test/test_rmw_client.cpp
     test/test_rmw_event.cpp
     test/test_rmw_gid.cpp
     test/test_rmw_graph.cpp
