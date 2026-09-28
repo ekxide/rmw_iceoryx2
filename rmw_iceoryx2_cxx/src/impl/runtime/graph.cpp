@@ -182,7 +182,7 @@ auto Graph::node_names() -> ::iox2::bb::Expected<std::vector<NodeName>, ErrorTyp
     using ::iox2::CallbackProgression;
     using ::iox2::bb::err;
 
-    std::set<NodeName> names{};
+    std::multiset<NodeName> names{};
     auto config = m_node.get().iox2().ipc().config();
     auto list_result = Iceoryx2::InterProcess::Handle::list(config, [&names](auto node_state) {
         node_state.alive([&names](const auto view) {

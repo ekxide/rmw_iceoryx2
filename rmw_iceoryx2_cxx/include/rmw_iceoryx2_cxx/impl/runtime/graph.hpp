@@ -88,8 +88,7 @@ public:
     explicit Graph(Node& node);
 
     /// @brief List all discoverable nodes in the graph.
-    /// @return The name and namespace of each node, deduplicated and ordered,
-    ///         or an error if the iceoryx2 registry cannot be read.
+    /// @return The name and namespace of each node, ordered, or an error if the registry cannot be read.
     auto node_names() -> ::iox2::bb::Expected<std::vector<NodeName>, ErrorType>;
 
     /// @brief Check whether a node is in the graph.

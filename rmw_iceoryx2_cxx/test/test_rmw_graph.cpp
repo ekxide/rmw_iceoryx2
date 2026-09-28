@@ -111,6 +111,30 @@ TEST_F(RmwGraphTest, can_get_node_names) {
     ASSERT_RMW_OK(rmw_destroy_node(perception_node));
 }
 
+TEST_F(RmwGraphTest, lists_every_node_that_shares_a_name) {
+    auto first = rmw_create_node(test_context(), "Twin", "/Sensors");
+    auto second = rmw_create_node(test_context(), "Twin", "/Sensors");
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+
+    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
+    EXPECT_RMW_OK(rmw_get_node_names(test_node(), &names, &namespaces));
+
+    size_t twins = 0;
+    for (size_t i = 0; i < names.size; ++i) {
+        if (strcmp(names.data[i], "Twin") == 0 && strcmp(namespaces.data[i], "/Sensors") == 0) {
+            ++twins;
+        }
+    }
+    EXPECT_EQ(twins, 2U);
+
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+    ASSERT_RMW_OK(rmw_destroy_node(first));
+    ASSERT_RMW_OK(rmw_destroy_node(second));
+}
+
 TEST_F(RmwGraphTest, can_get_node_names_with_enclaves) {
     auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
 
