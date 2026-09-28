@@ -20,6 +20,7 @@
 #include "iox2/sample.hpp"
 #include "iox2/sample_mut.hpp"
 #include "iox2/sample_mut_uninit.hpp"
+#include "iox2/server.hpp"
 #include "iox2/service.hpp"
 #include "iox2/service_builder.hpp"
 #include "iox2/service_name.hpp"
@@ -109,6 +110,9 @@ public:
         static inline auto send = [](SampleMutUninit<Payload, UserHeader>&& sample) {
             return ::iox2::send(::iox2::assume_init(std::move(sample)));
         };
+
+        template <typename Payload, typename UserHeader>
+        using Server = ::iox2::Server<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
     };
 
     struct WaitSet

@@ -30,6 +30,9 @@ std::string topic(const char* topic);
 RMW_PUBLIC
 std::string graph();
 
+RMW_PUBLIC
+std::string service(const char* service);
+
 } // namespace rmw::iox2::names
 
 #endif // RMW_IOX2_SERVICE_NAMES_HPP_

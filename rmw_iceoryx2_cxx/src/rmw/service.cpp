@@ -12,8 +12,12 @@
 #include "rmw/rmw.h"
 #include "rmw/validate_full_topic_name.h"
 #include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
+#include "rmw_iceoryx2_cxx/rmw/node.hpp"
 
 extern "C" {
 
@@ -32,21 +36,57 @@ rmw_service_t* rmw_create_service(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_VALID_QOS(qos, nullptr);
 
     // Implementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::allocate;
     using ::rmw::iox2::allocate_copy;
+    using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
+    using ::rmw::iox2::NodeData;
+    using ServerImpl = ::rmw::iox2::Server;
+    using ::rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_LOG_DEBUG("Creating service '%s'", service_name);
 
     auto rmw_service = rmw_service_allocate();
     if (rmw_service == nullptr) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_publisher_t");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_service_t");
         return nullptr;
     }
     rmw_service->implementation_identifier = rmw_get_implementation_identifier();
 
     if (auto ptr = allocate_copy(service_name); !ptr.has_value()) {
         rmw_service_free(rmw_service);
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for service name");
         return nullptr;
     } else {
         rmw_service->service_name = ptr.value();
+    }
+
+    auto node_data = unsafe_cast<NodeData*>(rmw_node->data);
+    if (!node_data.has_value()) {
+        deallocate(rmw_service->service_name);
+        rmw_service_free(rmw_service);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
+        return nullptr;
+    }
+
+    if (auto server_impl = allocate<ServerImpl>(); !server_impl.has_value()) {
+        deallocate(rmw_service->service_name);
+        rmw_service_free(rmw_service);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Server");
+        return nullptr;
+    } else {
+        if (auto result = create_in_place<ServerImpl>(
+                server_impl.value(), node_data.value()->node.value(), service_name, type_support, *qos);
+            !result.has_value()) {
+            destruct<ServerImpl>(server_impl.value());
+            deallocate<ServerImpl>(server_impl.value());
+            deallocate(rmw_service->service_name);
+            rmw_service_free(rmw_service);
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Server");
+            return nullptr;
+        }
+        rmw_service->data = server_impl.value();
     }
 
     return rmw_service;
@@ -61,7 +101,15 @@ rmw_ret_t rmw_destroy_service(rmw_node_t* rmw_node, rmw_service_t* rmw_service) 
 
     // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
+    using ServerImpl = ::rmw::iox2::Server;
 
+    RMW_IOX2_LOG_DEBUG("Destroying service '%s'", rmw_service->service_name);
+
+    if (rmw_service->data) {
+        destruct<ServerImpl>(rmw_service->data);
+        deallocate(rmw_service->data);
+    }
     if (rmw_service->service_name != nullptr) {
         deallocate(rmw_service->service_name);
     }
@@ -100,9 +148,18 @@ rmw_ret_t rmw_service_request_subscription_get_actual_qos(const rmw_service_t* r
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
-    *qos = rmw_qos_profile_services_default;
-
     // Implementation -------------------------------------------------------------------------------
+    using ServerImpl = ::rmw::iox2::Server;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto server_impl = unsafe_cast<ServerImpl*>(rmw_service->data);
+    if (!server_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Server");
+        return RMW_RET_ERROR;
+    }
+
+    *qos = server_impl.value()->qos();
+
     return RMW_RET_OK;
 }
 
@@ -113,7 +170,16 @@ rmw_ret_t rmw_service_response_publisher_get_actual_qos(const rmw_service_t* rmw
     RMW_IOX2_ENSURE_NOT_NULL(qos, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    *qos = rmw_qos_profile_services_default;
+    using ServerImpl = ::rmw::iox2::Server;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto server_impl = unsafe_cast<ServerImpl*>(rmw_service->data);
+    if (!server_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Server");
+        return RMW_RET_ERROR;
+    }
+
+    *qos = server_impl.value()->qos();
 
     return RMW_RET_OK;
 }

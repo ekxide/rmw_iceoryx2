@@ -72,6 +72,7 @@ add_library(${PROJECT_NAME} SHARED
   src/impl/runtime/guard_condition.cpp
   src/impl/runtime/node.cpp
   src/impl/runtime/publisher.cpp
+  src/impl/runtime/server.cpp
   src/impl/runtime/subscriber.cpp
   src/impl/runtime/waitset.cpp
 
@@ -179,6 +180,7 @@ if(BUILD_TESTING)
     test/test_rmw_publisher.cpp
     test/test_rmw_qos.cpp
     test/test_rmw_serialize.cpp
+    test/test_rmw_service.cpp
     test/test_rmw_subscription.cpp
     test/test_rmw_publish_subscribe.cpp
     test/test_rmw_waitset.cpp

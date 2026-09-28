@@ -12,6 +12,7 @@
 -->
 
 * Serialize/deserialized non-self-contained messages into `iceoryx2` payloads [#2](https://github.com/ekxide/rmw_iceoryx2/issues/2)
+* Add support for services and clients [#3](https://github.com/ekxide/rmw_iceoryx2/issues/3)
 * Add support for QoS [#5](https://github.com/ekxide/rmw_iceoryx2/issues/2)
 * Implement graph API for publish-subscribe topics [#6](https://github.com/ekxide/rmw_iceoryx2/issues/6)
 * Trigger graph guard conditions when the graph changes [#6](https://github.com/ekxide/rmw_iceoryx2/issues/6)
