@@ -7,6 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "rcutils/time.h"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -128,7 +129,48 @@ rmw_take_request(const rmw_service_t* rmw_service, rmw_service_info_t* request_h
     RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ServerImpl = ::rmw::iox2::Server;
+    using ::rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_LOG_DEBUG("Taking request from '%s'", rmw_service->service_name);
+
+    auto server_impl = unsafe_cast<ServerImpl*>(rmw_service->data);
+    if (!server_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Server");
+        return RMW_RET_ERROR;
+    }
+
+    auto request = server_impl.value()->take_request();
+    if (!request.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to take request");
+        return RMW_RET_ERROR;
+    }
+    *taken = request.value().has_value();
+    if (!*taken) {
+        return RMW_RET_OK;
+    }
+
+    auto& loan = request.value().value();
+    auto serialized_message = rmw_serialized_message_t{
+        loan.bytes, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
+    if (auto result =
+            rmw_deserialize(&serialized_message, server_impl.value()->typesupport()->request_typesupport, ros_request);
+        result != RMW_RET_OK) {
+        *taken = false;
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received request");
+        return RMW_RET_ERROR;
+    }
+
+    rcutils_time_point_value_t received = 0;
+    if (rcutils_system_time_now(&received) != RCUTILS_RET_OK) {
+        received = 0;
+    }
+    request_header->source_timestamp = loan.message_info.source_timestamp;
+    request_header->received_timestamp = received;
+    request_header->request_id.sequence_number = static_cast<int64_t>(loan.message_info.publication_sequence_number);
+    std::copy(loan.client_id.begin(), loan.client_id.end(), request_header->request_id.writer_guid);
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_send_response(const rmw_service_t* rmw_service, rmw_request_id_t* request_header, void* ros_response) {
