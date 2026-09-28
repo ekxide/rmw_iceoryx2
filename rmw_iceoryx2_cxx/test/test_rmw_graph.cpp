@@ -11,6 +11,7 @@
 
 #include "rmw/get_node_info_and_types.h"
 #include "rmw/get_service_endpoint_info.h"
+#include "rmw/get_service_names_and_types.h"
 #include "rmw/get_topic_endpoint_info.h"
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/names_and_types.h"
@@ -299,6 +300,19 @@ TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {
     EXPECT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+TEST_F(RmwGraphTest, service_queries_accept_zero_initialized_names_and_types) {
+    auto allocator = rcutils_get_default_allocator();
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+
+    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED, rmw_get_service_names_and_types(test_node(), &allocator, &names_and_types));
+    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
+                   rmw_get_service_names_and_types_by_node(
+                       test_node(), &allocator, test_node()->name, test_node()->namespace_, &names_and_types));
+    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
+                   rmw_get_client_names_and_types_by_node(
+                       test_node(), &allocator, test_node()->name, test_node()->namespace_, &names_and_types));
 }
 
 TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {

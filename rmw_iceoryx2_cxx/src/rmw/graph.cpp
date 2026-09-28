@@ -555,8 +555,10 @@ rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+    if (rmw_names_and_types_check_zero(service_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("service_names_and_types is not zero initialized");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
@@ -576,8 +578,10 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+    if (rmw_names_and_types_check_zero(service_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("service_names_and_types is not zero initialized");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
@@ -631,8 +635,10 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+    if (rmw_names_and_types_check_zero(service_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("service_names_and_types is not zero initialized");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
     return RMW_RET_UNSUPPORTED;
