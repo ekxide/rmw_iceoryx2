@@ -112,10 +112,28 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
             }
         }
     }
+    if (rmw_services) {
+        for (size_t index = 0; index < rmw_services->service_count; index++) {
+            if (rmw_services->services[index] == nullptr) {
+                RMW_IOX2_CHAIN_ERROR_MSG("waitset input service contains nullptr");
+                return RMW_RET_INVALID_ARGUMENT;
+            }
+        }
+    }
+    if (rmw_clients) {
+        for (size_t index = 0; index < rmw_clients->client_count; index++) {
+            if (rmw_clients->clients[index] == nullptr) {
+                RMW_IOX2_CHAIN_ERROR_MSG("waitset input client contains nullptr");
+                return RMW_RET_INVALID_ARGUMENT;
+            }
+        }
+    }
 
     // Implementation -------------------------------------------------------------------------------
+    using ClientImpl = ::rmw::iox2::Client;
     using Duration = ::iox2::bb::Duration;
     using GuardConditionImpl = ::rmw::iox2::GuardCondition;
+    using ServerImpl = ::rmw::iox2::Server;
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
     using ::rmw::iox2::WaitableEntity;
@@ -168,6 +186,34 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
         }
     }
 
+    if (rmw_services) {
+        for (size_t index = 0; index < rmw_services->service_count; index++) {
+            auto server = unsafe_cast<ServerImpl*>(rmw_services->services[index]);
+            if (!server.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Server");
+                return RMW_RET_ERROR;
+            }
+            if (auto result = waitset_impl->map(index, *server.value()); !result.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach Server to WaitSet");
+                return RMW_RET_ERROR;
+            }
+        }
+    }
+
+    if (rmw_clients) {
+        for (size_t index = 0; index < rmw_clients->client_count; index++) {
+            auto client = unsafe_cast<ClientImpl*>(rmw_clients->clients[index]);
+            if (!client.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Client");
+                return RMW_RET_ERROR;
+            }
+            if (auto result = waitset_impl->map(index, *client.value()); !result.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach Client to WaitSet");
+                return RMW_RET_ERROR;
+            }
+        }
+    }
+
     // Wait and process
     if (timeout.has_value()) {
         RMW_IOX2_LOG_DEBUG("Waiting on waitset (timeout=%lu)", timeout->as_nanos());
@@ -185,6 +231,8 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
     auto triggers = std::move(wait_result.value());
     std::set<size_t> triggered_subscribers;
     std::set<size_t> triggered_guard_conditions;
+    std::set<size_t> triggered_servers;
+    std::set<size_t> triggered_clients;
 
     if (!triggers.empty()) {
         return_code = RMW_RET_OK;
@@ -195,6 +243,12 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
                 break;
             case WaitableEntity::GUARD_CONDITION:
                 triggered_guard_conditions.insert(trigger.rmw_index);
+                break;
+            case WaitableEntity::SERVER:
+                triggered_servers.insert(trigger.rmw_index);
+                break;
+            case WaitableEntity::CLIENT:
+                triggered_clients.insert(trigger.rmw_index);
                 break;
             }
         }
@@ -224,12 +278,16 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
     }
     if (rmw_services) {
         for (size_t index = 0; index < rmw_services->service_count; index++) {
-            rmw_services->services[index] = nullptr;
+            if (triggered_servers.find(index) == triggered_servers.end()) {
+                rmw_services->services[index] = nullptr;
+            }
         }
     }
     if (rmw_clients) {
         for (size_t index = 0; index < rmw_clients->client_count; index++) {
-            rmw_clients->clients[index] = nullptr;
+            if (triggered_clients.find(index) == triggered_clients.end()) {
+                rmw_clients->clients[index] = nullptr;
+            }
         }
     }
 

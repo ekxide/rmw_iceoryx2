@@ -19,8 +19,10 @@
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/client.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
 #include <functional>
@@ -33,7 +35,7 @@ namespace rmw::iox2
 using RmwIndex = size_t;
 
 /// Types of entities that the waitset is capable of waiting on.
-enum class WaitableEntity { SUBSCRIBER, GUARD_CONDITION };
+enum class WaitableEntity { SUBSCRIBER, GUARD_CONDITION, SERVER, CLIENT };
 
 class WaitSet;
 
@@ -54,7 +56,7 @@ class RMW_PUBLIC WaitSet
     using Guard = Iceoryx2::WaitSet::Guard;
     using AttachmentId = Iceoryx2::WaitSet::AttachmentId;
     using IceoryxWaitSet = Iceoryx2::WaitSet::Handle;
-    using Waitable = ::iox2::legacy::variant<Subscriber*, GuardCondition*>;
+    using Waitable = ::iox2::legacy::variant<Subscriber*, GuardCondition*, Server*, Client*>;
 
     /// @brief Mapping from RMW index to a waitable entity.
     /// @details Allows for triggered listeners to be mapped back to the index that RMW uses for tracking
@@ -136,6 +138,16 @@ public:
     /// @param[in] rmw_index The index used to track the subscriber in the RMW
     /// @param[in] subscribe The subscriber to be mapped
     auto map(RmwIndex rmw_index, Subscriber& subscriber) -> ::iox2::bb::Expected<void, ErrorType>;
+
+    /// @brief Maps a server to an RMW index
+    /// @param[in] rmw_index The index used to track the server in the RMW
+    /// @param[in] server The server to be mapped
+    auto map(RmwIndex rmw_index, Server& server) -> ::iox2::bb::Expected<void, ErrorType>;
+
+    /// @brief Maps a client to an RMW index
+    /// @param[in] rmw_index The index used to track the client in the RMW
+    /// @param[in] client The client to be mapped
+    auto map(RmwIndex rmw_index, Client& client) -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Unmap all currently mapped waitable entities
     /// @note Unmapped entities will not be waited on in subsequent wait calls

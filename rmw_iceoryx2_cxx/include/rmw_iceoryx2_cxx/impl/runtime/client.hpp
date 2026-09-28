@@ -63,6 +63,8 @@ private:
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniqueClientId;
     using IceoryxService = Iceoryx2::InterProcess::RequestResponseService<Payload, UserHeader>;
+    using IceoryxNotifier = Iceoryx2::InterProcess::Notifier;
+    using IceoryxListener = Iceoryx2::InterProcess::Listener;
     using IceoryxClient = Iceoryx2::InterProcess::Client<Payload, UserHeader>;
     using IceoryxRequest = Iceoryx2::InterProcess::RequestMutUninit<Payload, UserHeader>;
     using IceoryxPendingResponse = Iceoryx2::InterProcess::PendingResponse<Payload, UserHeader>;
@@ -123,6 +125,14 @@ public:
     /// @return Expected containing the sequence number of the request or error if sending failed
     auto send_request(void* loaned_memory) -> ::iox2::bb::Expected<uint64_t, ErrorType>;
 
+    /// @brief Get the listener woken up when the other side of the service sends
+    /// @return Reference to the listener
+    auto listener() -> IceoryxListener&;
+
+    /// @brief Check if responses are available to take
+    /// @return True if at least one response can be taken
+    auto has_responses() -> bool;
+
     /// @brief Take the next response to a request of this client
     /// @return Expected containing the response if one was available
     auto take_response() -> ::iox2::bb::Expected<::iox2::bb::Optional<ClientResponse>, ErrorType>;
@@ -141,6 +151,8 @@ private:
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxService> m_iox2_service;
     ::iox2::bb::Optional<IceoryxClient> m_iox2_client;
+    ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
+    ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
     std::mutex m_mutex;
     SampleRegistry<IceoryxRequest> m_requests;
     std::map<uint64_t, IceoryxPendingResponse> m_pending_responses;

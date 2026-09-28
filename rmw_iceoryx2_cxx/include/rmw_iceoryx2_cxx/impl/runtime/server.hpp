@@ -65,6 +65,8 @@ public:
 
 private:
     using RequestId = std::pair<ClientId, uint64_t>;
+    using IceoryxNotifier = Iceoryx2::InterProcess::Notifier;
+    using IceoryxListener = Iceoryx2::InterProcess::Listener;
     using IceoryxServer = Iceoryx2::InterProcess::Server<Payload, UserHeader>;
     using IceoryxActiveRequest = Iceoryx2::InterProcess::ActiveRequest<Payload, UserHeader>;
     using IceoryxResponse = Iceoryx2::InterProcess::ResponseMutUninit<Payload, UserHeader>;
@@ -110,6 +112,14 @@ public:
     /// @return Reference to the QoS
     auto qos() const -> const rmw_qos_profile_t&;
 
+    /// @brief Get the listener woken up when the other side of the service sends
+    /// @return Reference to the listener
+    auto listener() -> IceoryxListener&;
+
+    /// @brief Check if requests are available to take
+    /// @return True if at least one request can be taken
+    auto has_requests() -> bool;
+
     /// @brief Take the next request sent by a client
     /// @return Expected containing the request if one was available
     auto take_request() -> ::iox2::bb::Expected<::iox2::bb::Optional<ServerRequest>, ErrorType>;
@@ -146,6 +156,8 @@ private:
 
     std::mutex m_mutex;
     ::iox2::bb::Optional<IceoryxServer> m_iox2_server;
+    ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
+    ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
     std::map<RequestId, IceoryxActiveRequest> m_active_requests;
     SampleRegistry<LoanedResponse> m_responses;
 };

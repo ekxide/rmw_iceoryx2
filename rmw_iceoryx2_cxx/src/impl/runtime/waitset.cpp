@@ -43,6 +43,16 @@ auto WaitSet::map(RmwIndex rmw_index, Subscriber& subscriber) -> ::iox2::bb::Exp
     return {};
 }
 
+auto WaitSet::map(RmwIndex rmw_index, Server& server) -> ::iox2::bb::Expected<void, WaitSetError> {
+    m_mapping.push_back(RmwMapping{WaitableEntity::SERVER, rmw_index, Waitable{&server}});
+    return {};
+}
+
+auto WaitSet::map(RmwIndex rmw_index, Client& client) -> ::iox2::bb::Expected<void, WaitSetError> {
+    m_mapping.push_back(RmwMapping{WaitableEntity::CLIENT, rmw_index, Waitable{&client}});
+    return {};
+}
+
 auto WaitSet::unmap_all() -> void {
     m_mapping.clear();
 }
@@ -156,6 +166,12 @@ auto WaitSet::attach_mapped_listeners(WaitContext& ctx) -> ::iox2::bb::Expected<
         case WaitableEntity::SUBSCRIBER:
             file_descriptor.emplace((*staged.entity.get<Subscriber*>())->listener().file_descriptor());
             break;
+        case WaitableEntity::SERVER:
+            file_descriptor.emplace((*staged.entity.get<Server*>())->listener().file_descriptor());
+            break;
+        case WaitableEntity::CLIENT:
+            file_descriptor.emplace((*staged.entity.get<Client*>())->listener().file_descriptor());
+            break;
         default:
             RMW_IOX2_CHAIN_ERROR_MSG("attempted to attach an unknown waitable type");
             return err(ErrorType::INVALID_WAITABLE_TYPE);
@@ -193,6 +209,20 @@ auto WaitSet::process_trigger(const RmwMapping& mapping) -> ::iox2::bb::Expected
         }
         return subscriber->has_samples();
     }
+    case WaitableEntity::SERVER: {
+        auto* server = *mapping.entity.get<Server*>();
+        if (auto result = drain_events(server->listener()); !result.has_value()) {
+            return err(result.error());
+        }
+        return server->has_requests();
+    }
+    case WaitableEntity::CLIENT: {
+        auto* client = *mapping.entity.get<Client*>();
+        if (auto result = drain_events(client->listener()); !result.has_value()) {
+            return err(result.error());
+        }
+        return client->has_responses();
+    }
     default:
         RMW_IOX2_CHAIN_ERROR_MSG("received trigger for unknown waitable type");
         return err(ErrorType::INVALID_WAITABLE_TYPE);
@@ -205,6 +235,10 @@ auto WaitSet::is_ready(const RmwMapping& mapping) -> bool {
         return (*mapping.entity.get<GuardCondition*>())->drain();
     case WaitableEntity::SUBSCRIBER:
         return (*mapping.entity.get<Subscriber*>())->has_samples();
+    case WaitableEntity::SERVER:
+        return (*mapping.entity.get<Server*>())->has_requests();
+    case WaitableEntity::CLIENT:
+        return (*mapping.entity.get<Client*>())->has_responses();
     default:
         return false;
     }
