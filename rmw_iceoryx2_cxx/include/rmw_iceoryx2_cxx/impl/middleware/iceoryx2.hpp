@@ -22,6 +22,8 @@
 #include "iox2/port_factory_request_response.hpp"
 #include "iox2/publisher.hpp"
 #include "iox2/request_mut_uninit.hpp"
+#include "iox2/response.hpp"
+#include "iox2/response_mut_uninit.hpp"
 #include "iox2/sample.hpp"
 #include "iox2/sample_mut.hpp"
 #include "iox2/sample_mut_uninit.hpp"
@@ -131,6 +133,10 @@ public:
         template <typename Payload, typename UserHeader>
         using RequestMutUninit =
             ::iox2::RequestMutUninit<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader>
+        using Response = ::iox2::Response<::iox2::ServiceType::Ipc, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader>
+        using ResponseMutUninit = ::iox2::ResponseMutUninit<::iox2::ServiceType::Ipc, Payload, UserHeader>;
     };
 
     struct WaitSet

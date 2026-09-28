@@ -182,4 +182,44 @@ auto Client::send_request(void* loaned_memory) -> ::iox2::bb::Expected<uint64_t,
     return sequence_number;
 }
 
+auto Client::take_response() -> ::iox2::bb::Expected<::iox2::bb::Optional<ClientResponse>, ErrorType> {
+    using ::iox2::bb::err;
+    using ::iox2::bb::Optional;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    for (auto it = m_pending_responses.begin(); it != m_pending_responses.end();) {
+        auto result = it->second.receive();
+        if (!result.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
+            return err(ErrorType::RECV_FAILURE);
+        }
+        auto response = std::move(result.value());
+        if (response.has_value()) {
+            m_pending_responses.erase(it);
+
+            auto* bytes = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(response->payload().data()));
+            auto number_of_bytes = response->payload().number_of_bytes();
+            auto message_info = response->user_header();
+            m_responses.store(std::move(response.value()));
+
+            return Optional<ClientResponse>(ClientResponse{bytes, number_of_bytes, message_info});
+        }
+        it = it->second.is_connected() ? std::next(it) : m_pending_responses.erase(it);
+    }
+
+    return Optional<ClientResponse>{::iox2::bb::NULLOPT};
+}
+
+auto Client::return_response_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType> {
+    using ::iox2::bb::err;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    if (auto result = m_responses.release(static_cast<uint8_t*>(loaned_memory)); !result.has_value()) {
+        return err(ErrorType::INVALID_PAYLOAD);
+    }
+    return {};
+}
+
 } // namespace rmw::iox2

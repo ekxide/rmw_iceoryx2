@@ -162,6 +162,11 @@ protected:
         EXPECT_RMW_OK(rmw_destroy_service(test_node(), service));
     }
 
+    void destroy_client(rmw_client_t* client) {
+        m_clients.erase(std::find(m_clients.begin(), m_clients.end(), client));
+        EXPECT_RMW_OK(rmw_destroy_client(test_node(), client));
+    }
+
     void cleanup_endpoints() {
         for (auto pub : m_publishers) {
             EXPECT_RMW_OK(rmw_destroy_publisher(test_node(), pub));
