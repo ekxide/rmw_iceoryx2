@@ -36,11 +36,12 @@ struct Error<Graph>
     using Type = GraphError;
 };
 
-/// @brief A discovered node's name and namespace.
+/// @brief A discovered node's name, namespace and enclave.
 struct NodeName
 {
     std::string node_name;
     std::string node_namespace;
+    std::string enclave{"/"};
 
     auto operator<(const NodeName& other) const -> bool {
         return std::tie(node_namespace, node_name) < std::tie(other.node_namespace, other.node_name);
@@ -88,14 +89,15 @@ public:
     explicit Graph(Node& node);
 
     /// @brief List all discoverable nodes in the graph.
-    /// @return The name and namespace of each node, ordered, or an error if the registry cannot be read.
+    /// @return The name, namespace and enclave of each node, ordered, or an error if the registry cannot be read.
     auto node_names() -> ::iox2::bb::Expected<std::vector<NodeName>, ErrorType>;
 
     /// @brief Check whether a node is in the graph.
     /// @param[in] node_name The node's name.
     /// @param[in] node_namespace The node's namespace.
-    /// @return True if an alive node with that name and namespace exists.
-    auto has_node(const std::string& node_name, const std::string& node_namespace) -> bool;
+    /// @return True if the node exists, or an error if the registry cannot be read.
+    auto has_node(const std::string& node_name, const std::string& node_namespace)
+        -> ::iox2::bb::Expected<bool, ErrorType>;
 
     /// @brief List all discoverable topics and their types.
     /// @return The name and type of each topic, deduplicated and ordered, or an

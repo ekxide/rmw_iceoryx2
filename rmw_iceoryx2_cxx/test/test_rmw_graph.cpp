@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include "rcutils/strdup.h"
 #include "rmw/get_node_info_and_types.h"
 #include "rmw/get_service_endpoint_info.h"
 #include "rmw/get_service_names_and_types.h"
@@ -20,6 +21,8 @@
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
+
+#include <string>
 
 namespace
 {
@@ -151,25 +154,41 @@ TEST_F(RmwGraphTest, accepts_string_arrays_that_were_finalized_before) {
 
 TEST_F(RmwGraphTest, can_get_node_names_with_enclaves) {
     auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
+    ASSERT_NE(camera_node, nullptr);
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    test_allocator().deallocate(options.enclave, test_allocator().state);
+    options.enclave = rcutils_strdup("/sensors", test_allocator());
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    auto lidar_node = rmw_create_node(&context, "Lidar", "/Sensors");
+    ASSERT_NE(lidar_node, nullptr);
 
     rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
     rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
     rcutils_string_array_t enclaves = rcutils_get_zero_initialized_string_array();
-
     EXPECT_RMW_OK(rmw_get_node_names_with_enclaves(test_node(), &names, &namespaces, &enclaves));
 
-    ASSERT_TRUE(contains_node_name_and_namespace("Camera", "/Sensors", names, namespaces));
-    // Names, namespaces and enclaves are parallel arrays; every node reports the
-    // default enclave since the transport carries no SROS2 information.
     ASSERT_EQ(enclaves.size, names.size);
-    for (size_t i = 0; i < enclaves.size; ++i) {
-        EXPECT_STREQ(enclaves.data[i], "/");
-    }
+    auto enclave_of = [&](const char* name) -> std::string {
+        for (size_t i = 0; i < names.size; ++i) {
+            if (strcmp(names.data[i], name) == 0 && strcmp(namespaces.data[i], "/Sensors") == 0) {
+                return enclaves.data[i];
+            }
+        }
+        return "not listed";
+    };
+    EXPECT_EQ(enclave_of("Camera"), "/");
+    EXPECT_EQ(enclave_of("Lidar"), "/sensors");
 
     ASSERT_RMW_OK(rcutils_string_array_fini(&names));
     ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
     ASSERT_RMW_OK(rcutils_string_array_fini(&enclaves));
-
+    ASSERT_RMW_OK(rmw_destroy_node(lidar_node));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
     ASSERT_RMW_OK(rmw_destroy_node(camera_node));
 }
 

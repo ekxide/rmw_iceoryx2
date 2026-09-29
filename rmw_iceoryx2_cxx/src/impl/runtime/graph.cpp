@@ -32,10 +32,17 @@
 namespace
 {
 
-/// Parse a node's namespace and name out of an iceoryx2 instance name of the
+/// Parse a node's namespace, name and enclave out of an iceoryx2 instance name of the
 /// form `ros2://context/<id>/nodes/<namespace>/<name>`.
 auto parse_node_name(std::string_view full_name) -> ::iox2::bb::Optional<::rmw::iox2::NodeName> {
     using ::rmw::iox2::NodeName;
+
+    constexpr std::string_view ENCLAVE_MARKER = "?enclave=";
+    std::string enclave{"/"};
+    if (auto marker = full_name.find(ENCLAVE_MARKER); marker != std::string_view::npos) {
+        enclave = std::string(full_name.substr(marker + ENCLAVE_MARKER.length()));
+        full_name = full_name.substr(0, marker);
+    }
 
     constexpr std::string_view ROS2_PREFIX = "ros2://context/";
     if (full_name.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
@@ -58,10 +65,12 @@ auto parse_node_name(std::string_view full_name) -> ::iox2::bb::Optional<::rmw::
     // Split into namespace and name.
     auto last_slash = node_part.find_last_of('/');
     if (last_slash == std::string_view::npos) {
-        return NodeName{std::string(node_part), ""};
+        return NodeName{std::string(node_part), "", std::move(enclave)};
     }
 
-    return NodeName{std::string(node_part.substr(last_slash + 1)), std::string(node_part.substr(0, last_slash))};
+    return NodeName{std::string(node_part.substr(last_slash + 1)),
+                    std::string(node_part.substr(0, last_slash)),
+                    std::move(enclave)};
 }
 
 /// Parse a ROS topic name out of an iceoryx2 service name of the form
@@ -88,15 +97,17 @@ auto to_key(const ::iox2::UniqueNodeId& node_id) -> NodeIdKey {
     return {node_id.value_high(), node_id.value_low()};
 }
 
-/// Build a lookup, from node unique id to its parsed (name, namespace), by
+/// Build a lookup, from node unique id to its parsed name, namespace and enclave, by
 /// inspecting the alive nodes in iceoryx2.
-auto build_node_id_lookup(::rmw::iox2::Node& node) -> std::map<NodeIdKey, ::rmw::iox2::NodeName> {
+auto build_node_id_lookup(::rmw::iox2::Node& node)
+    -> ::iox2::bb::Expected<std::map<NodeIdKey, ::rmw::iox2::NodeName>, ::rmw::iox2::GraphError> {
     using ::iox2::CallbackProgression;
+    using ::iox2::bb::err;
     using ::rmw::iox2::Iceoryx2;
 
     std::map<NodeIdKey, ::rmw::iox2::NodeName> nodes{};
     auto config = node.iox2().ipc().config();
-    [[maybe_unused]] auto list_result = Iceoryx2::InterProcess::Handle::list(config, [&nodes](auto node_state) {
+    auto list_result = Iceoryx2::InterProcess::Handle::list(config, [&nodes](auto node_state) {
         node_state.alive([&nodes](const auto view) {
             const auto& details = view.details();
             if (details.has_value()) {
@@ -108,6 +119,9 @@ auto build_node_id_lookup(::rmw::iox2::Node& node) -> std::map<NodeIdKey, ::rmw:
         });
         return CallbackProgression::Continue;
     });
+    if (!list_result.has_value()) {
+        return err(::rmw::iox2::GraphError::LISTING_FAILURE);
+    }
     return nodes;
 }
 
@@ -179,32 +193,28 @@ Graph::Graph(Node& node)
 }
 
 auto Graph::node_names() -> ::iox2::bb::Expected<std::vector<NodeName>, ErrorType> {
-    using ::iox2::CallbackProgression;
     using ::iox2::bb::err;
 
-    std::multiset<NodeName> names{};
-    auto config = m_node.get().iox2().ipc().config();
-    auto list_result = Iceoryx2::InterProcess::Handle::list(config, [&names](auto node_state) {
-        node_state.alive([&names](const auto view) {
-            const auto& details = view.details();
-            if (details.has_value()) {
-                auto name_str = details.value().name().to_string();
-                if (auto node_name = parse_node_name(name_str.unchecked_access().c_str()); node_name.has_value()) {
-                    names.emplace(std::move(node_name.value()));
-                }
-            }
-        });
-        return CallbackProgression::Continue;
-    });
-    if (!list_result.has_value()) {
-        return err(ErrorType::LISTING_FAILURE);
+    auto nodes = build_node_id_lookup(m_node.get());
+    if (!nodes.has_value()) {
+        return err(nodes.error());
     }
-
+    std::multiset<NodeName> names{};
+    for (auto& entry : nodes.value()) {
+        names.emplace(std::move(entry.second));
+    }
     return std::vector<NodeName>{names.begin(), names.end()};
 }
 
-auto Graph::has_node(const std::string& node_name, const std::string& node_namespace) -> bool {
-    return contains_node(build_node_id_lookup(m_node.get()), node_name, node_namespace);
+auto Graph::has_node(const std::string& node_name, const std::string& node_namespace)
+    -> ::iox2::bb::Expected<bool, ErrorType> {
+    using ::iox2::bb::err;
+
+    auto nodes = build_node_id_lookup(m_node.get());
+    if (!nodes.has_value()) {
+        return err(nodes.error());
+    }
+    return contains_node(nodes.value(), node_name, node_namespace);
 }
 
 auto Graph::topic_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
@@ -290,7 +300,11 @@ auto Graph::endpoints_by_node(const std::string& node_name, const std::string& n
     if (!topics.has_value()) {
         return err(topics.error());
     }
-    auto nodes = build_node_id_lookup(node);
+    auto lookup = build_node_id_lookup(node);
+    if (!lookup.has_value()) {
+        return err(lookup.error());
+    }
+    const auto& nodes = lookup.value();
     if (!contains_node(nodes, node_name, node_namespace)) {
         return err(ErrorType::NODE_NOT_FOUND);
     }
@@ -375,7 +389,11 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
         }
     });
 
-    auto nodes = build_node_id_lookup(node);
+    auto lookup = build_node_id_lookup(node);
+    if (!lookup.has_value()) {
+        return err(lookup.error());
+    }
+    const auto& nodes = lookup.value();
 
     // Assemble one endpoint's info: resolve its node id to a name/namespace, use
     // its iceoryx2 unique port id as the gid, and attach the shared topic type,

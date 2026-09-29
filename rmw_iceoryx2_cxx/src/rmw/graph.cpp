@@ -95,9 +95,7 @@ auto fill_node_names(const std::vector<::rmw::iox2::NodeName>& nodes,
         }
 
         if (enclaves != nullptr) {
-            // The transport carries no SROS2 enclave information; report the
-            // default enclave so introspection tools have a valid value.
-            enclaves->data[index] = rcutils_strdup("/", *allocator);
+            enclaves->data[index] = rcutils_strdup(node.enclave.c_str(), *allocator);
             if (!enclaves->data[index]) {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to populate enclaves array");
                 return RMW_RET_BAD_ALLOC;
@@ -600,7 +598,12 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return RMW_RET_ERROR;
     }
-    if (!::rmw::iox2::Graph{*node_impl_result.value()}.has_node(node_name, node_namespace)) {
+    auto has_node = ::rmw::iox2::Graph{*node_impl_result.value()}.has_node(node_name, node_namespace);
+    if (!has_node.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+        return RMW_RET_ERROR;
+    }
+    if (!has_node.value()) {
         RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
             "node %s in namespace %s does not exist", node_name, node_namespace);
         return RMW_RET_NODE_NAME_NON_EXISTENT;
@@ -668,7 +671,12 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return RMW_RET_ERROR;
     }
-    if (!::rmw::iox2::Graph{*node_impl_result.value()}.has_node(node_name, node_namespace)) {
+    auto has_node = ::rmw::iox2::Graph{*node_impl_result.value()}.has_node(node_name, node_namespace);
+    if (!has_node.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+        return RMW_RET_ERROR;
+    }
+    if (!has_node.value()) {
         RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
             "node %s in namespace %s does not exist", node_name, node_namespace);
         return RMW_RET_NODE_NAME_NON_EXISTENT;
