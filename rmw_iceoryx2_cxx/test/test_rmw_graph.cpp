@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include "rmw/get_service_endpoint_info.h"
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/names_and_types.h"
 #include "rmw/rmw.h"
@@ -149,6 +150,22 @@ TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+TEST_F(RmwGraphTest, get_clients_info_by_service_is_unsupported) {
+    auto allocator = rcutils_get_default_allocator();
+    auto clients_info = rmw_get_zero_initialized_service_endpoint_info_array();
+
+    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
+                   rmw_get_clients_info_by_service(test_node(), &allocator, "/service", false, &clients_info));
+}
+
+TEST_F(RmwGraphTest, get_servers_info_by_service_is_unsupported) {
+    auto allocator = rcutils_get_default_allocator();
+    auto servers_info = rmw_get_zero_initialized_service_endpoint_info_array();
+
+    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
+                   rmw_get_servers_info_by_service(test_node(), &allocator, "/service", false, &servers_info));
 }
 
 } // namespace
