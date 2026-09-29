@@ -185,6 +185,16 @@ auto fill_names_and_types(rmw_names_and_types_t* names_and_types,
     return RMW_RET_OK;
 }
 
+/// @brief The graph as seen by a node.
+auto graph_of(const rmw_node_t* rmw_node) -> ::iox2::bb::Optional<::rmw::iox2::Graph> {
+    auto node_impl = ::rmw::iox2::unsafe_cast<::rmw::iox2::Node*>(rmw_node->data);
+    if (!node_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+        return ::iox2::bb::NULLOPT;
+    }
+    return ::rmw::iox2::Graph{*node_impl.value()};
+}
+
 } // namespace
 
 extern "C" {
@@ -194,10 +204,6 @@ extern "C" {
 rmw_ret_t rmw_get_node_names(const rmw_node_t* rmw_node,
                              rcutils_string_array_t* node_names,
                              rcutils_string_array_t* node_namespaces) {
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
@@ -207,14 +213,12 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_namespaces, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto names_result = Graph{*node_impl}.node_names();
+    auto names_result = graph.value().node_names();
     if (!names_result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
         return RMW_RET_ERROR;
@@ -228,10 +232,6 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* rmw_node,
                                            rcutils_string_array_t* node_names,
                                            rcutils_string_array_t* node_namespaces,
                                            rcutils_string_array_t* enclaves) {
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
@@ -243,14 +243,12 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*enclaves, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto names_result = Graph{*node_impl}.node_names();
+    auto names_result = graph.value().node_names();
     if (!names_result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
         return RMW_RET_ERROR;
@@ -263,10 +261,6 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* rmw_node,
 // Publishers ======================================================================================================
 
 rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_name, size_t* count) {
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
@@ -275,14 +269,12 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_nam
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto result = Graph{*node_impl}.count_publishers(topic_name);
+    auto result = graph.value().count_publishers(topic_name);
     if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to count publishers");
         return RMW_RET_ERROR;
@@ -298,10 +290,6 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* rmw_node,
                                                     const char* node_namespace,
                                                     bool no_demangle,
                                                     rmw_names_and_types_t* topic_names_and_types) {
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
     (void)no_demangle; // not used
 
     // Invariants ----------------------------------------------------------------------------------
@@ -321,16 +309,14 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto result = Graph{*node_impl}.publishers_by_node(node_name, node_namespace);
+    auto result = graph.value().publishers_by_node(node_name, node_namespace);
     if (!result.has_value()) {
-        if (result.error() == Graph::ErrorType::NODE_NOT_FOUND) {
+        if (result.error() == ::rmw::iox2::GraphError::NODE_NOT_FOUND) {
             RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
                 "node %s in namespace %s does not exist", node_name, node_namespace);
             return RMW_RET_NODE_NAME_NON_EXISTENT;
@@ -352,26 +338,19 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(publishers_info, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (!rcutils_allocator_is_valid(allocator)) {
-        return RMW_RET_INVALID_ARGUMENT;
-    }
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     if (rmw_topic_endpoint_info_array_check_zero(publishers_info) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("publishers_info is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
     // Implementation -------------------------------------------------------------------------------
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto result = Graph{*node_impl}.publishers_info(topic_name);
+    auto result = graph.value().publishers_info(topic_name);
     if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get publishers info");
         return RMW_RET_ERROR;
@@ -383,10 +362,6 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* rmw_node,
 // Subscribers ======================================================================================================
 
 rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_name, size_t* count) {
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
@@ -395,14 +370,12 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_na
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto result = Graph{*node_impl}.count_subscribers(topic_name);
+    auto result = graph.value().count_subscribers(topic_name);
     if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to count subscribers");
         return RMW_RET_ERROR;
@@ -418,10 +391,6 @@ rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* rmw_node,
                                                      const char* node_namespace,
                                                      bool no_demangle,
                                                      rmw_names_and_types_t* topic_names_and_types) {
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
     (void)no_demangle; // not used
 
     // Invariants ----------------------------------------------------------------------------------
@@ -441,16 +410,14 @@ rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto result = Graph{*node_impl}.subscriptions_by_node(node_name, node_namespace);
+    auto result = graph.value().subscriptions_by_node(node_name, node_namespace);
     if (!result.has_value()) {
-        if (result.error() == Graph::ErrorType::NODE_NOT_FOUND) {
+        if (result.error() == ::rmw::iox2::GraphError::NODE_NOT_FOUND) {
             RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
                 "node %s in namespace %s does not exist", node_name, node_namespace);
             return RMW_RET_NODE_NAME_NON_EXISTENT;
@@ -472,26 +439,19 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(subscriptions_info, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (!rcutils_allocator_is_valid(allocator)) {
-        return RMW_RET_INVALID_ARGUMENT;
-    }
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     if (rmw_topic_endpoint_info_array_check_zero(subscriptions_info) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("subscriptions_info is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
     // Implementation -------------------------------------------------------------------------------
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto result = Graph{*node_impl}.subscriptions_info(topic_name);
+    auto result = graph.value().subscriptions_info(topic_name);
     if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get subscriptions info");
         return RMW_RET_ERROR;
@@ -510,9 +470,7 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (!rcutils_allocator_is_valid(allocator)) {
-        return RMW_RET_INVALID_ARGUMENT;
-    }
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     // A zero-initialized `rmw_names_and_types_t` has `types == NULL`, which is how
     // callers (e.g. `ros2 topic list`) pass it; validate that form rather than
     // dereferencing `types`.
@@ -522,18 +480,12 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    using ::rmw::iox2::Graph;
-    using NodeImpl = ::rmw::iox2::Node;
-    using ::rmw::iox2::unsafe_cast;
-
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto& node_impl = node_impl_result.value();
 
-    auto topics_result = Graph{*node_impl}.topic_names_and_types();
+    auto topics_result = graph.value().topic_names_and_types();
     if (!topics_result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to list topic names and types");
         return RMW_RET_ERROR;
@@ -593,12 +545,11 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = ::rmw::iox2::unsafe_cast<::rmw::iox2::Node*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto has_node = ::rmw::iox2::Graph{*node_impl_result.value()}.has_node(node_name, node_namespace);
+    auto has_node = graph.value().has_node(node_name, node_namespace);
     if (!has_node.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
         return RMW_RET_ERROR;
@@ -623,6 +574,7 @@ rmw_ret_t rmw_get_servers_info_by_service(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(servers_info, RMW_RET_INVALID_ARGUMENT);
     if (rmw_service_endpoint_info_array_check_zero(servers_info) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("servers_info is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
@@ -666,12 +618,11 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = ::rmw::iox2::unsafe_cast<::rmw::iox2::Node*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto has_node = ::rmw::iox2::Graph{*node_impl_result.value()}.has_node(node_name, node_namespace);
+    auto has_node = graph.value().has_node(node_name, node_namespace);
     if (!has_node.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
         return RMW_RET_ERROR;
@@ -696,6 +647,7 @@ rmw_ret_t rmw_get_clients_info_by_service(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(clients_info, RMW_RET_INVALID_ARGUMENT);
     if (rmw_service_endpoint_info_array_check_zero(clients_info) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("clients_info is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
