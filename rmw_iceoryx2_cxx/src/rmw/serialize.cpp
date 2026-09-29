@@ -7,8 +7,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+#include "fastcdr/exceptions/Exception.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
+#include "rmw/serialized_message.h"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/typesupport.hpp"
@@ -19,14 +21,10 @@ const char* const rmw_iox2_serialization_format = "iceoryx2";
 namespace
 {
 
-// Walk the typesupport chain to find the fastrtps_cpp handle and extract its
+// Find the fastrtps_c or fastrtps_cpp handle and extract its
 // serialization callbacks. Returns null on failure.
 const message_type_support_callbacks_t* get_typesupport_callbacks(const rosidl_message_type_support_t* type_support) {
-    const auto* handle = get_handle(type_support, rosidl_typesupport_fastrtps_cpp::typesupport_identifier);
-    if (!handle) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get fastrtps typesupport handle");
-        return nullptr;
-    }
+    RMW_IOX2_ENSURE_VALID_TYPESUPPORT(type_support, nullptr);
     const auto* callbacks = static_cast<const message_type_support_callbacks_t*>(handle->data);
     if (!callbacks) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get fastrtps typesupport callbacks");
@@ -66,6 +64,13 @@ rmw_ret_t rmw_serialize(const void* ros_message,
     }
 
     // Prepare the buffer
+    const auto serialized_size = callbacks->get_serialized_size(ros_message);
+    if (serialized_message->buffer_capacity < serialized_size) {
+        if (rmw_serialized_message_resize(serialized_message, serialized_size) != RMW_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to resize serialized message");
+            return RMW_RET_ERROR;
+        }
+    }
     auto fast_buffer = eprosima::fastcdr::FastBuffer(reinterpret_cast<char*>(serialized_message->buffer),
                                                      serialized_message->buffer_capacity);
     auto serializer = eprosima::fastcdr::Cdr(
@@ -73,7 +78,10 @@ rmw_ret_t rmw_serialize(const void* ros_message,
 
     // Serialize ros message into target buffer
     try {
-        callbacks->cdr_serialize(ros_message, serializer);
+        if (!callbacks->cdr_serialize(ros_message, serializer)) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize");
+            return RMW_RET_ERROR;
+        }
     }
     catch (std::exception& e) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize");
@@ -107,7 +115,14 @@ rmw_ret_t rmw_deserialize(const rmw_serialized_message_t* serialized_message,
 
     // Deserialize ros message into target buffer
     try {
-        callbacks->cdr_deserialize(deserializer, ros_message);
+        if (!callbacks->cdr_deserialize(deserializer, ros_message)) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize");
+            return RMW_RET_ERROR;
+        }
+    }
+    catch (eprosima::fastcdr::exception::Exception& e) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize");
+        return RMW_RET_ERROR;
     }
     catch (std::exception& e) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize");
