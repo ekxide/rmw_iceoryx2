@@ -3,16 +3,23 @@ inputs:
   version:
     description: 'The clang version, e.g. 18'
     required: false
-    default: 18
+    default: 21
 runs:
   using: "composite"
   steps:
     - name: Install clang
       shell: bash
       run: |
-        CODENAME=$(. /etc/os-release && echo $VERSION_CODENAME)
-        sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo add-apt-repository "deb http://apt.llvm.org/$CODENAME/ llvm-toolchain-$CODENAME-${{ inputs.version }} main"
+        export UBUNTU_CODENAME=$(. /etc/os-release && echo $VERSION_CODENAME)
+        sudo mkdir -p /etc/apt/keyrings
+        sudo wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/llvm-snapshot.gpg
+        sudo touch /etc/apt/sources.list.d/llvm-snapshot.sources
+        echo "Types: deb" | sudo tee -a /etc/apt/sources.list.d/llvm-snapshot.sources
+        echo "Architectures: amd64 arm64" | sudo tee -a /etc/apt/sources.list.d/llvm-snapshot.sources
+        echo "Signed-By: /etc/apt/keyrings/llvm-snapshot.gpg" | sudo tee -a /etc/apt/sources.list.d/llvm-snapshot.sources
+        echo "URIs: http://apt.llvm.org/$UBUNTU_CODENAME/" | sudo tee -a /etc/apt/sources.list.d/llvm-snapshot.sources
+        echo "Suites: llvm-toolchain-$UBUNTU_CODENAME-${{ inputs.version }}" | sudo tee -a /etc/apt/sources.list.d/llvm-snapshot.sources
+        echo "Components: main" | sudo tee -a /etc/apt/sources.list.d/llvm-snapshot.sources
         sudo apt-get update
         sudo apt-get install -y clang-format-${{ inputs.version }} clang-tidy-${{ inputs.version }} clang-tools-${{ inputs.version }} clang-${{ inputs.version }} lld
         sudo rm -f /usr/bin/clang

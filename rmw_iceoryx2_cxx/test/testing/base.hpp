@@ -100,8 +100,13 @@ protected:
 
     template <typename MessageType>
     rmw_publisher_t* create_publisher(const std::string& topic_name, const rmw_qos_profile_t& qos) {
-        auto pub = rmw_create_publisher(
-            test_node(), test_type_support<MessageType>(), topic_name.c_str(), &qos, &m_publisher_options);
+        return create_publisher(test_type_support<MessageType>(), topic_name, qos);
+    }
+
+    rmw_publisher_t* create_publisher(const rosidl_message_type_support_t* type_support,
+                                      const std::string& topic_name,
+                                      const rmw_qos_profile_t& qos = rmw_qos_profile_default) {
+        auto pub = rmw_create_publisher(test_node(), type_support, topic_name.c_str(), &qos, &m_publisher_options);
         if (pub != nullptr) {
             m_publishers.push_back(pub);
         }
@@ -110,8 +115,13 @@ protected:
 
     template <typename MessageType>
     rmw_subscription_t* create_subscriber(const std::string& topic_name, const rmw_qos_profile_t& qos) {
-        auto sub = rmw_create_subscription(
-            test_node(), test_type_support<MessageType>(), topic_name.c_str(), &qos, &m_subscriber_options);
+        return create_subscriber(test_type_support<MessageType>(), topic_name, qos);
+    }
+
+    rmw_subscription_t* create_subscriber(const rosidl_message_type_support_t* type_support,
+                                          const std::string& topic_name,
+                                          const rmw_qos_profile_t& qos = rmw_qos_profile_default) {
+        auto sub = rmw_create_subscription(test_node(), type_support, topic_name.c_str(), &qos, &m_subscriber_options);
         if (sub != nullptr) {
             m_subscribers.push_back(sub);
         }

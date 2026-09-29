@@ -13,7 +13,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
-#include "iox2/custom_payload_marker.hpp"
+#include "iox2/marker.hpp"
 #include "iox2/unique_port_id.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
@@ -59,6 +59,7 @@ private:
     using IdType = ::iox2::UniqueSubscriberId;
     using IceoryxSubscriber = Iceoryx2::InterProcess::Subscriber<Payload, UserHeader>;
     using IceoryxSample = Iceoryx2::InterProcess::Sample<Payload, UserHeader>;
+    using IceoryxListener = Iceoryx2::InterProcess::Listener;
     using IceoryxSampleRegistry = SampleRegistry<IceoryxSample>;
 
 public:
@@ -92,6 +93,14 @@ public:
     /// @return The service name as string
     auto service_name() const -> const std::string&;
 
+    /// @brief Check if samples are available to take
+    /// @return True if at least one sample can be taken
+    auto has_samples() const -> bool;
+
+    /// @brief Get the listener that is notified about sent samples, to wait on it
+    /// @return Reference to the listener
+    auto listener() -> IceoryxListener&;
+
     /// @brief Get the resolved QoS used to create this subscriber
     /// @return Reference to the resolved QoS
     auto qos() const -> const Qos&;
@@ -122,6 +131,7 @@ private:
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxSubscriber> m_iox2_subscriber;
+    ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
     IceoryxSampleRegistry m_registry;
 };
 

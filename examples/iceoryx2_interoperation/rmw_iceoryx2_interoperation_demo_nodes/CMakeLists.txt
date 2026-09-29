@@ -7,7 +7,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.22)
 project(rmw_iceoryx2_interoperation_demo_nodes)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")

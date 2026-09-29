@@ -257,9 +257,8 @@ template <typename Target>
 auto define_or_require(Target& target, const Attribute::Key& key, const char* value) -> bool;
 
 template <>
-auto define_or_require<AttributeSpecifier>(AttributeSpecifier& target,
-                                           const Attribute::Key& key,
-                                           const char* value) -> bool {
+auto define_or_require<AttributeSpecifier>(AttributeSpecifier& target, const Attribute::Key& key, const char* value)
+    -> bool {
     auto val_obj = Attribute::Value::from_utf8_null_terminated_unchecked(value);
     if (!val_obj.has_value()) {
         return false;
@@ -269,9 +268,8 @@ auto define_or_require<AttributeSpecifier>(AttributeSpecifier& target,
 }
 
 template <>
-auto define_or_require<AttributeVerifier>(AttributeVerifier& target,
-                                          const Attribute::Key& key,
-                                          const char* value) -> bool {
+auto define_or_require<AttributeVerifier>(AttributeVerifier& target, const Attribute::Key& key, const char* value)
+    -> bool {
     auto val_obj = Attribute::Value::from_utf8_null_terminated_unchecked(value);
     if (!val_obj.has_value()) {
         return false;

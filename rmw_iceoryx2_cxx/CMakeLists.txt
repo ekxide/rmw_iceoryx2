@@ -7,7 +7,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.22)
 project(rmw_iceoryx2_cxx)
 
 if(NOT CMAKE_C_STANDARD)
@@ -167,6 +167,7 @@ if(BUILD_TESTING)
     test/test_impl_subscriber.cpp
     test/test_impl_waitset.cpp
     test/test_rmw_allocator.cpp
+    test/test_rmw_event.cpp
     test/test_rmw_gid.cpp
     test/test_rmw_graph.cpp
     test/test_rmw_guard_condition.cpp
@@ -184,6 +185,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_rmw_iceoryx2_cxx
     ${PROJECT_NAME}
     rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs__rosidl_typesupport_cpp
+    rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs__rosidl_generator_c
+    rmw_iceoryx2_cxx_test_msgs::rmw_iceoryx2_cxx_test_msgs__rosidl_typesupport_c
   )
 
 endif()

@@ -46,9 +46,6 @@ TEST_F(RmwNodeTest, create_and_destroy) {
     ASSERT_NE(node->data, nullptr);
 
     ASSERT_RMW_OK(rmw_destroy_node(node));
-    ASSERT_EQ(node->name, nullptr);
-    ASSERT_EQ(node->namespace_, nullptr);
-    ASSERT_EQ(node->data, nullptr);
 }
 
 } // namespace

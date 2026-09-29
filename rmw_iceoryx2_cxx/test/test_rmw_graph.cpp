@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "rmw/get_node_info_and_types.h"
+#include "rmw/get_service_endpoint_info.h"
 #include "rmw/get_topic_endpoint_info.h"
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/names_and_types.h"
@@ -270,6 +271,22 @@ TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     EXPECT_STREQ(first_type_of_topic(topic_names_and_types, test_topic_c.c_str()), expected_type);
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+TEST_F(RmwGraphTest, get_clients_info_by_service_is_unsupported) {
+    auto allocator = rcutils_get_default_allocator();
+    auto clients_info = rmw_get_zero_initialized_service_endpoint_info_array();
+
+    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
+                   rmw_get_clients_info_by_service(test_node(), &allocator, "/service", false, &clients_info));
+}
+
+TEST_F(RmwGraphTest, get_servers_info_by_service_is_unsupported) {
+    auto allocator = rcutils_get_default_allocator();
+    auto servers_info = rmw_get_zero_initialized_service_endpoint_info_array();
+
+    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
+                   rmw_get_servers_info_by_service(test_node(), &allocator, "/service", false, &servers_info));
 }
 
 TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {

@@ -13,7 +13,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
-#include "iox2/custom_payload_marker.hpp"
+#include "iox2/marker.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"

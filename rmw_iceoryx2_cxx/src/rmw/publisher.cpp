@@ -205,6 +205,7 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
                                                            rcutils_get_default_allocator()};
 
         if (auto result = rmw_serialize(ros_message, type_support, &serialized_message); result != RMW_RET_OK) {
+            (void)publisher_impl.value()->return_loan(loan.value());
             RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
             return RMW_RET_ERROR;
         }

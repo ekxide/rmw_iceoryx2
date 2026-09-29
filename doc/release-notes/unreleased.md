@@ -28,6 +28,9 @@
 * Fix failing `gcc` and `clang` build on Ubuntu 22.04 [#29](https://github.com/ekxide/rmw_iceoryx2/issues/29)
 * Fix non-triggered attachments not being set to `nullptr` on timeout [#36](https://github.com/ekxide/rmw_iceoryx2/issues/36)
 * Delegate signal handling to `rcl` [#40](https://github.com/ekxide/rmw_iceoryx2/issues/40)
+* Fix `rmw_wait` missing subscriptions and guard conditions that were ready before or during the wait [#51](https://github.com/ekxide/rmw_iceoryx2/issues/51)
+* Export missing rmw functions [#55](https://github.com/ekxide/rmw_iceoryx2/issues/55)
+* Publish and serialize messages with C typesupport [#57](https://github.com/ekxide/rmw_iceoryx2/issues/57)
 
 ### Refactoring
 
@@ -37,9 +40,9 @@
 -->
 
 * Organize code base to separate rmw api and implementation details [#16](https://github.com/ekxide/rmw_iceoryx2/issues/16)
+* Bump `iceoryx2` dependency to v0.10.0 [#23](https://github.com/ekxide/rmw_iceoryx2/issues/23)
 * Use https based url for git repos [#27](https://github.com/ekxide/rmw_iceoryx2/issues/27)
 * Remove dependency on `iceoryx_hoofs` [#33](https://github.com/ekxide/rmw_iceoryx2/issues/27)
-* Bump `iceoryx2` dependency to v0.9.0 [#33](https://github.com/ekxide/rmw_iceoryx2/issues/27)
 
 ### Workflow
 
@@ -55,6 +58,8 @@
 * Rename `main` branch to `rolling` [#38](https://github.com/ekxide/rmw_iceoryx2/issues/38)
 * Add `just` scripts for building / running packages, demos and benchmark
   [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
+* Update Python dependencies for benchmark to apply security fixes [#47](https://github.com/ekxide/rmw_iceoryx2/issues/47)
+* Make CI compatible with Ubuntu 26.04 [#49](https://github.com/ekxide/rmw_iceoryx2/issues/49)
 
 ### New API features
 
