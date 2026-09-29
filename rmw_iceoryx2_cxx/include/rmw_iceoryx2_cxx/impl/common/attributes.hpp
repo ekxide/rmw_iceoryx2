@@ -107,7 +107,7 @@ struct Liveliness
 };
 
 /// Descriptor for the `ros.type_hash` attribute carrying the REP-2011 type
-/// hash as a RIHS string (`RIHS01_...`). U
+/// hash as a RIHS string (`RIHS01_...`).
 struct TypeHash
 {
     static constexpr char KEY[] = "ros.type_hash";

@@ -9,11 +9,9 @@
 
 
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
+#include "rcutils/allocator.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
-
-#include "rcutils/allocator.h"
-#include "rosidl_runtime_c/type_hash.h"
 
 #include <charconv>
 #include <cstdio>

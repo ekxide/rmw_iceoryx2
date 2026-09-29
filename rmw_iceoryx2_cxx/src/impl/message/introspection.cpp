@@ -21,8 +21,6 @@
 #include "rosidl_typesupport_introspection_cpp/identifier.hpp"
 #include "rosidl_typesupport_introspection_cpp/message_introspection.hpp"
 
-#include "rosidl_runtime_c/type_hash.h"
-
 namespace rmw::iox2
 {
 
