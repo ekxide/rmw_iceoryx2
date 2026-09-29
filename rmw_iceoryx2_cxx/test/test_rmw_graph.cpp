@@ -135,6 +135,20 @@ TEST_F(RmwGraphTest, lists_every_node_that_shares_a_name) {
     ASSERT_RMW_OK(rmw_destroy_node(second));
 }
 
+TEST_F(RmwGraphTest, accepts_string_arrays_that_were_finalized_before) {
+    auto allocator = rcutils_get_default_allocator();
+    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
+    ASSERT_RMW_OK(rcutils_string_array_init(&names, 1, &allocator));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+
+    EXPECT_RMW_OK(rmw_get_node_names(test_node(), &names, &namespaces));
+    EXPECT_GE(names.size, 1U);
+
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+}
+
 TEST_F(RmwGraphTest, can_get_node_names_with_enclaves) {
     auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
 
