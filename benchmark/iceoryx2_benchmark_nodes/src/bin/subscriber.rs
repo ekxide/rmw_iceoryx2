@@ -3,7 +3,8 @@ use std::time::Instant;
 
 use iceoryx2::prelude::*;
 use iceoryx2_benchmark_nodes::{
-    options, stats::LatencyRecorder, system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME,
+    options, stats::LatencyRecorder, system_time_nanos, type_hash, MessageInfoHeader, Payload,
+    SERVICE_NAME,
 };
 
 // Must match the values rmw_iceoryx2 uses (DEFAULT_MAX_* and rclcpp's default QoS depth).
@@ -49,6 +50,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .require(
             &"ros.qos.liveliness".try_into()?,
             &"automatic:0:0".try_into()?,
+        )?
+        .require(
+            &"ros.type_hash".try_into()?,
+            &type_hash().as_str().try_into()?,
         )?;
 
     let service = node

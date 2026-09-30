@@ -2,7 +2,7 @@ use core::time::Duration;
 
 use iceoryx2::prelude::*;
 use iceoryx2_benchmark_nodes::{
-    options, system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME,
+    options, system_time_nanos, type_hash, MessageInfoHeader, Payload, SERVICE_NAME,
 };
 use rmw_iceoryx2_benchmark_msgs::msg::rmw::Sample;
 
@@ -46,6 +46,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .require(
             &"ros.qos.liveliness".try_into()?,
             &"automatic:0:0".try_into()?,
+        )?
+        .require(
+            &"ros.type_hash".try_into()?,
+            &type_hash().as_str().try_into()?,
         )?;
 
     let service = node
