@@ -176,6 +176,9 @@ auto open_topic_service(::rmw::iox2::Node& node, const std::string& topic)
 
     auto service = service_builder.resume_build().open();
     if (!service.has_value()) {
+        if (service.error() == ::iox2::PublishSubscribeOpenError::DoesNotExist) {
+            return ::iox2::bb::Optional<TopicService>{::iox2::bb::NULLOPT};
+        }
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(service.error()));
         return err(GraphError::SERVICE_OPEN_FAILURE);
     }
