@@ -15,6 +15,7 @@
 #include "rmw/subscription_options.h"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/waitset.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
@@ -494,6 +495,28 @@ TEST_F(RmwWaitSetTest, reports_guard_condition_triggered_before_wait_once) {
 
     ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
     ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
+}
+
+TEST_F(RmwWaitSetTest, ignores_entities_left_mapped_by_an_earlier_call) {
+    auto* stale = rmw_create_guard_condition(test_context());
+    ASSERT_NE(stale, nullptr);
+    auto* guard_condition = rmw_create_guard_condition(test_context());
+    ASSERT_NE(guard_condition, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(waitset, nullptr);
+
+    auto* waitset_impl = static_cast<rmw::iox2::WaitSet*>(waitset->data);
+    ASSERT_TRUE(waitset_impl->map(0, *static_cast<rmw::iox2::GuardCondition*>(stale->data)).has_value());
+    ASSERT_RMW_OK(rmw_trigger_guard_condition(stale));
+
+    void* conditions[] = {guard_condition->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    auto timeout = TIMEOUT_AFTER_20MS;
+    EXPECT_EQ(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout), RMW_RET_TIMEOUT);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+    ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
+    ASSERT_RMW_OK(rmw_destroy_guard_condition(stale));
 }
 
 } // namespace
