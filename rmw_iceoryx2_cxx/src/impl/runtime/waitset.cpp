@@ -204,7 +204,7 @@ auto WaitSet::process_trigger(const RmwMapping& mapping) -> ::iox2::bb::Expected
 auto WaitSet::is_ready(const RmwMapping& mapping) -> bool {
     switch (mapping.waitable_type) {
     case WaitableEntity::GUARD_CONDITION:
-        return (*mapping.entity.get<GuardCondition*>())->take_trigger();
+        return (*mapping.entity.get<GuardCondition*>())->drain();
     case WaitableEntity::SUBSCRIBER:
         return (*mapping.entity.get<Subscriber*>())->has_samples();
     default:

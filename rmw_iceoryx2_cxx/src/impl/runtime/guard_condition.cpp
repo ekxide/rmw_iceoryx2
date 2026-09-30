@@ -81,7 +81,7 @@ auto GuardCondition::trigger() -> ::iox2::bb::Expected<void, ErrorType> {
     return {};
 }
 
-auto GuardCondition::take_trigger() -> bool {
+auto GuardCondition::drain() -> bool {
     bool triggered = false;
     (void)m_iox2_listener->try_wait([&triggered](auto) { triggered = true; });
     return triggered;

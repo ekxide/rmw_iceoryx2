@@ -71,7 +71,7 @@ public:
 
     /// @brief Consume the triggers received since the last call
     /// @return True if the guard condition was triggered since the last call
-    auto take_trigger() -> bool;
+    auto drain() -> bool;
 
     /// @brief Get the listener that receives the triggers, to wait on it
     /// @return Reference to the listener
