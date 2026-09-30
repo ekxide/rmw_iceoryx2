@@ -118,8 +118,10 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
                     RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
                         "QoS mismatch on '%s' (failed to look up service details)", topic_name);
                 } else {
-                    ::rmw::iox2::log_attribute_mismatch(
-                        resolved_qos.value(), service_details.value().static_details.attributes(), topic_name);
+                    ::rmw::iox2::log_attribute_mismatch(resolved_qos.value(),
+                                                        ::rmw::iox2::message_type_hash(type_support),
+                                                        service_details.value().static_details.attributes(),
+                                                        topic_name);
                 }
             } else {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Publisher");

@@ -15,6 +15,7 @@
 #include "rmw/qos_profiles.h"
 #include "rmw/types.h"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 #include <cstring>
@@ -422,6 +423,26 @@ auto collect_mismatches(const Qos& qos, ::iox2::AttributeSetView attribute_set) 
     return mismatches;
 }
 } // namespace
+
+TEST_F(QosTest, mismatch_reports_type_hash_difference) {
+    auto resolved = TryConvert<Qos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
+    ASSERT_TRUE(resolved.has_value());
+
+    auto existing = rosidl_get_zero_initialized_type_hash();
+    existing.version = 1;
+    existing.value[0] = 1;
+    auto requested = existing;
+    requested.value[0] = 2;
+    auto spec = TryConvert<::iox2::AttributeSpecifier>::from(resolved.value(),
+                                                             ::iox2::bb::Optional<rosidl_type_hash_t>{existing});
+    ASSERT_TRUE(spec.has_value());
+
+    rcutils_reset_error();
+    ::rmw::iox2::log_attribute_mismatch(
+        resolved.value(), ::iox2::bb::Optional<rosidl_type_hash_t>{requested}, spec.value().attributes(), "/Topic");
+    EXPECT_NE(std::string(rcutils_get_error_string().str).find("type hash mismatch on '/Topic'"), std::string::npos);
+    rcutils_reset_error();
+}
 
 TEST_F(QosTest, mismatch_reports_none_when_attributes_match) {
     auto resolved = TryConvert<Qos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
