@@ -10,6 +10,7 @@
 
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rcutils/allocator.h"
+#include "rcutils/error_handling.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
 
@@ -201,23 +202,22 @@ auto Liveliness::decode(const char* str) -> ::iox2::bb::Optional<Liveliness::Val
     return Liveliness::Value{kind, lease};
 }
 
-auto TypeHash::encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) -> void {
+auto TypeHash::encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) -> bool {
     auto allocator = rcutils_get_default_allocator();
     char* hash_string = nullptr;
     if (rosidl_stringify_type_hash(&type_hash, allocator, &hash_string) != RCUTILS_RET_OK || hash_string == nullptr) {
-        if (len > 0) {
-            buf[0] = '\0';
-        }
-        return;
+        return false;
     }
     // NOLINTNEXTLINE(cert-err33-c) source is a bounded RIHS string, destination is 256 bytes
     std::snprintf(buf, len, "%s", hash_string);
     allocator.deallocate(hash_string, allocator.state);
+    return true;
 }
 
 auto TypeHash::decode(const char* str) -> ::iox2::bb::Optional<rosidl_type_hash_t> {
     rosidl_type_hash_t hash = rosidl_get_zero_initialized_type_hash();
     if (rosidl_parse_type_hash_string(str, &hash) != RCUTILS_RET_OK) {
+        rcutils_reset_error();
         return NULLOPT;
     }
     return hash;
@@ -288,7 +288,9 @@ auto write_attribute(Target& target, const char* key, const char* value) -> bool
 template <typename Target>
 auto set_type_hash_attribute(Target& target, const rosidl_type_hash_t& type_hash) -> bool {
     char buf[256];
-    attributes::TypeHash::encode(type_hash, buf, sizeof(buf));
+    if (!attributes::TypeHash::encode(type_hash, buf, sizeof(buf))) {
+        return false;
+    }
     return write_attribute(target, attributes::TypeHash::KEY, buf);
 }
 

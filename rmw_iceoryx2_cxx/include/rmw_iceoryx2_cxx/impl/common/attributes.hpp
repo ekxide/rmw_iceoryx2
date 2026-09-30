@@ -112,7 +112,7 @@ struct TypeHash
 {
     static constexpr char KEY[] = "ros.type_hash";
 
-    RMW_PUBLIC static auto encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) -> void;
+    RMW_PUBLIC static auto encode(const rosidl_type_hash_t& type_hash, char* buf, size_t len) -> bool;
     RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<rosidl_type_hash_t>;
 };
 

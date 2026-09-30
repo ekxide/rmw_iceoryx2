@@ -11,6 +11,7 @@
 
 #include "iox2/attribute_specifier.hpp"
 #include "iox2/backpressure_strategy.hpp"
+#include "rcutils/error_handling.h"
 #include "rmw/qos_profiles.h"
 #include "rmw/types.h"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
@@ -368,6 +369,12 @@ TEST_F(QosTest, roundtrip_manual_liveliness_with_lease) {
 // ----------------------------------------------------------------------------
 // Missing attributes
 // ----------------------------------------------------------------------------
+
+TEST_F(QosTest, rejects_malformed_type_hash_without_leaving_an_error) {
+    rcutils_reset_error();
+    EXPECT_FALSE(attributes::TypeHash::decode("not_a_type_hash").has_value());
+    EXPECT_FALSE(rcutils_error_is_set());
+}
 
 TEST_F(QosTest, rejects_empty_attribute_set) {
     ::iox2::AttributeSpecifier empty_spec;
