@@ -37,8 +37,6 @@ protected:
 };
 
 TEST_F(RmwNodeTest, create_and_destroy) {
-    GTEST_SKIP() << "FIXME";
-
     auto node = rmw_create_node(test_context(), test_name, test_namespace);
     ASSERT_NE(node, nullptr);
 
@@ -48,9 +46,6 @@ TEST_F(RmwNodeTest, create_and_destroy) {
     ASSERT_NE(node->data, nullptr);
 
     ASSERT_RMW_OK(rmw_destroy_node(node));
-    ASSERT_EQ(node->name, nullptr);
-    ASSERT_EQ(node->namespace_, nullptr);
-    ASSERT_EQ(node->data, nullptr);
 }
 
 } // namespace

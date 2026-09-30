@@ -132,6 +132,9 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
     }
     auto waitset_impl = ptr.value();
 
+    // Reset all mappings, each wait call provides a different set of mappings
+    waitset_impl->unmap_all();
+
     // Attach all guard_conditions to waitset
     if (rmw_guard_conditions) {
         for (size_t index = 0; index < rmw_guard_conditions->guard_condition_count; index++) {
@@ -175,9 +178,6 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
         RMW_IOX2_CHAIN_ERROR_MSG("waiting on waitset failed");
         return RMW_RET_ERROR;
     }
-
-    // Reset all mappings - each wait call provides a different set of mappings
-    waitset_impl->unmap_all();
 
     // Collect triggered indices
     auto return_code = RMW_RET_TIMEOUT;
