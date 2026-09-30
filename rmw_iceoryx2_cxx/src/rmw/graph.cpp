@@ -65,18 +65,27 @@ auto fill_node_names(const std::vector<::rmw::iox2::NodeName>& nodes,
                      rcutils_string_array_t* node_namespaces,
                      rcutils_string_array_t* enclaves,
                      rcutils_allocator_t* allocator) -> rmw_ret_t {
+    auto fail = [&](rmw_ret_t result) {
+        (void)rcutils_string_array_fini(node_names);
+        (void)rcutils_string_array_fini(node_namespaces);
+        if (enclaves != nullptr) {
+            (void)rcutils_string_array_fini(enclaves);
+        }
+        return result;
+    };
+
     if (auto result = init_string_array(node_names, nodes.size(), allocator); result != RMW_RET_OK) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node names");
         return result;
     }
     if (auto result = init_string_array(node_namespaces, nodes.size(), allocator); result != RMW_RET_OK) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node namespaces");
-        return result;
+        return fail(result);
     }
     if (enclaves != nullptr) {
         if (auto result = init_string_array(enclaves, nodes.size(), allocator); result != RMW_RET_OK) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for enclaves");
-            return result;
+            return fail(result);
         }
     }
 
@@ -85,20 +94,20 @@ auto fill_node_names(const std::vector<::rmw::iox2::NodeName>& nodes,
         node_names->data[index] = rcutils_strdup(node.node_name.c_str(), *allocator);
         if (!node_names->data[index]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node name array");
-            return RMW_RET_BAD_ALLOC;
+            return fail(RMW_RET_BAD_ALLOC);
         }
 
         node_namespaces->data[index] = rcutils_strdup(node.node_namespace.c_str(), *allocator);
         if (!node_namespaces->data[index]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node namespace array");
-            return RMW_RET_BAD_ALLOC;
+            return fail(RMW_RET_BAD_ALLOC);
         }
 
         if (enclaves != nullptr) {
             enclaves->data[index] = rcutils_strdup(node.enclave.c_str(), *allocator);
             if (!enclaves->data[index]) {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to populate enclaves array");
-                return RMW_RET_BAD_ALLOC;
+                return fail(RMW_RET_BAD_ALLOC);
             }
         }
 
@@ -139,7 +148,8 @@ auto fill_endpoint_info(rmw_topic_endpoint_info_array_t* array,
             || rmw_topic_endpoint_info_set_gid(info, endpoint.gid.data(), endpoint.gid.size()) != RMW_RET_OK
             || rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile) != RMW_RET_OK) {
             RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
-            return RMW_RET_ERROR;
+            (void)rmw_topic_endpoint_info_array_fini(array, allocator);
+            return RMW_RET_BAD_ALLOC;
         }
     }
 
@@ -160,23 +170,28 @@ auto fill_names_and_types(rmw_names_and_types_t* names_and_types,
         return init_result;
     }
 
+    auto fail = [&](rmw_ret_t result) {
+        (void)rmw_names_and_types_fini(names_and_types);
+        return result;
+    };
+
     size_t index = 0;
     for (const auto& topic : topics) {
         names_and_types->names.data[index] = rcutils_strdup(topic.name.c_str(), *allocator);
         if (!names_and_types->names.data[index]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
-            return RMW_RET_BAD_ALLOC;
+            return fail(RMW_RET_BAD_ALLOC);
         }
 
         // Each topic carries exactly one type, stored in its own sub-array.
         if (auto result = init_string_array(&names_and_types->types[index], 1, allocator); result != RMW_RET_OK) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic types");
-            return result;
+            return fail(result);
         }
         names_and_types->types[index].data[0] = rcutils_strdup(topic.type.c_str(), *allocator);
         if (!names_and_types->types[index].data[0]) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic type");
-            return RMW_RET_BAD_ALLOC;
+            return fail(RMW_RET_BAD_ALLOC);
         }
 
         ++index;

@@ -22,12 +22,63 @@
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
+#include <cstdlib>
 #include <string>
 
 namespace
 {
 
 using namespace rmw::iox2::testing;
+
+struct FailingAllocatorState
+{
+    size_t remaining;
+    size_t live;
+};
+
+auto failing_allocate(size_t size, void* state) -> void* {
+    auto* counts = static_cast<FailingAllocatorState*>(state);
+    if (counts->remaining == 0) {
+        return nullptr;
+    }
+    --counts->remaining;
+    ++counts->live;
+    return std::malloc(size);
+}
+
+auto failing_zero_allocate(size_t count, size_t size, void* state) -> void* {
+    auto* counts = static_cast<FailingAllocatorState*>(state);
+    if (counts->remaining == 0) {
+        return nullptr;
+    }
+    --counts->remaining;
+    ++counts->live;
+    return std::calloc(count, size);
+}
+
+auto failing_reallocate(void* pointer, size_t size, void* state) -> void* {
+    if (pointer == nullptr) {
+        return failing_allocate(size, state);
+    }
+    return std::realloc(pointer, size);
+}
+
+auto failing_deallocate(void* pointer, void* state) -> void {
+    if (pointer != nullptr) {
+        --static_cast<FailingAllocatorState*>(state)->live;
+        std::free(pointer);
+    }
+}
+
+auto failing_allocator(FailingAllocatorState* state) -> rcutils_allocator_t {
+    auto allocator = rcutils_get_zero_initialized_allocator();
+    allocator.allocate = failing_allocate;
+    allocator.deallocate = failing_deallocate;
+    allocator.reallocate = failing_reallocate;
+    allocator.zero_allocate = failing_zero_allocate;
+    allocator.state = state;
+    return allocator;
+}
 
 class RmwGraphTest : public TestBase
 {
@@ -457,6 +508,52 @@ TEST_F(RmwGraphTest, names_and_types_by_node_of_an_unknown_node_do_not_exist) {
                    rmw_get_client_names_and_types_by_node(
                        test_node(), &allocator, "UnknownNode", node_namespace, &names_and_types));
     EXPECT_RMW_OK(rmw_names_and_types_check_zero(&names_and_types));
+}
+
+TEST_F(RmwGraphTest, frees_topic_names_and_types_when_an_allocation_fails) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    create_default_publisher<Defaults>(create_test_topic("/First"));
+    create_default_publisher<Defaults>(create_test_topic("/Second"));
+
+    auto ret = RMW_RET_BAD_ALLOC;
+    for (size_t allowed = 0; ret == RMW_RET_BAD_ALLOC && allowed < 1000; ++allowed) {
+        FailingAllocatorState state{allowed, 0};
+        auto allocator = failing_allocator(&state);
+        auto names_and_types = rmw_get_zero_initialized_names_and_types();
+        ret = rmw_get_topic_names_and_types(test_node(), &allocator, false, &names_and_types);
+        if (ret == RMW_RET_OK) {
+            EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+        } else {
+            EXPECT_EQ(names_and_types.names.data, nullptr);
+            EXPECT_EQ(names_and_types.types, nullptr);
+        }
+        EXPECT_EQ(state.live, 0U);
+        rcutils_reset_error();
+    }
+    EXPECT_RMW_OK(ret);
+}
+
+TEST_F(RmwGraphTest, frees_endpoint_info_when_an_allocation_fails) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    auto topic = create_test_topic("/Endpoints");
+    create_default_publisher<Defaults>(topic);
+    create_default_publisher<Defaults>(topic);
+
+    auto ret = RMW_RET_BAD_ALLOC;
+    for (size_t allowed = 0; ret == RMW_RET_BAD_ALLOC && allowed < 1000; ++allowed) {
+        FailingAllocatorState state{allowed, 0};
+        auto allocator = failing_allocator(&state);
+        auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
+        ret = rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &info);
+        if (ret == RMW_RET_OK) {
+            EXPECT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
+        } else {
+            EXPECT_RMW_OK(rmw_topic_endpoint_info_array_check_zero(&info));
+        }
+        EXPECT_EQ(state.live, 0U);
+        rcutils_reset_error();
+    }
+    EXPECT_RMW_OK(ret);
 }
 
 } // namespace
