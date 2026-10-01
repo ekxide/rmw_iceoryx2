@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
+#include "rcpputils/scope_exit.hpp"
 #include "rcutils/strdup.h"
 #include "rcutils/types/string_array.h"
 #include "rmw/convert_rcutils_ret_to_rmw_ret.h"
@@ -129,30 +130,49 @@ auto fill_endpoint_info(rmw_topic_endpoint_info_array_t* array,
                         rcutils_allocator_t* allocator) -> rmw_ret_t {
     using ::rmw::iox2::Convert;
 
-    if (rmw_topic_endpoint_info_array_init_with_size(array, endpoints.size(), allocator) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
-        return RMW_RET_BAD_ALLOC;
+    if (auto ret = rmw_topic_endpoint_info_array_init_with_size(array, endpoints.size(), allocator);
+        ret != RMW_RET_OK) {
+        return ret;
     }
+    auto fini_on_error = rcpputils::make_scope_exit(
+        [array, allocator]() { (void)rmw_topic_endpoint_info_array_fini(array, allocator); });
 
     for (size_t index = 0; index < endpoints.size(); ++index) {
         const auto& endpoint = endpoints[index];
         auto* info = &array->info_array[index];
 
         auto qos_profile = Convert<rmw_qos_profile_t>::from(endpoint.qos);
-        if (rmw_topic_endpoint_info_set_node_name(info, endpoint.node_name.c_str(), allocator) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_node_namespace(info, endpoint.node_namespace.c_str(), allocator)
-                   != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_topic_type(info, endpoint.topic_type.c_str(), allocator) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_topic_type_hash(info, &endpoint.type_hash) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_endpoint_type(info, endpoint_type) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_gid(info, endpoint.gid.data(), endpoint.gid.size()) != RMW_RET_OK
-            || rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile) != RMW_RET_OK) {
-            RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
-            (void)rmw_topic_endpoint_info_array_fini(array, allocator);
-            return RMW_RET_BAD_ALLOC;
+        auto ret = rmw_topic_endpoint_info_set_node_name(info, endpoint.node_name.c_str(), allocator);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_topic_endpoint_info_set_node_namespace(info, endpoint.node_namespace.c_str(), allocator);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_topic_endpoint_info_set_topic_type(info, endpoint.topic_type.c_str(), allocator);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_topic_endpoint_info_set_topic_type_hash(info, &endpoint.type_hash);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_topic_endpoint_info_set_endpoint_type(info, endpoint_type);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_topic_endpoint_info_set_gid(info, endpoint.gid.data(), endpoint.gid.size());
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile);
+        if (ret != RMW_RET_OK) {
+            return ret;
         }
     }
 
+    fini_on_error.cancel();
     return RMW_RET_OK;
 }
 
