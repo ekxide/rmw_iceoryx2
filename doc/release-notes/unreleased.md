@@ -61,6 +61,7 @@
   [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 * Update Python dependencies for benchmark to apply security fixes [#47](https://github.com/ekxide/rmw_iceoryx2/issues/47)
 * Make CI compatible with Ubuntu 26.04 [#49](https://github.com/ekxide/rmw_iceoryx2/issues/49)
+* Properly specify direct package dependencies [#73](https://github.com/ekxide/rmw_iceoryx2/issues/73)
 
 ### New API features
 
