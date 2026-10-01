@@ -15,6 +15,7 @@
 
 #include <filesystem>
 #include <iterator>
+#include <thread>
 
 namespace
 {
@@ -24,6 +25,14 @@ using namespace rmw::iox2::testing;
 class RmwGuardConditionTest : public TestBase
 {
 protected:
+    static auto wait_for(rmw_guard_condition_t* guard_condition, rmw_wait_set_t* wait_set) -> bool {
+        void* conditions[] = {guard_condition->data};
+        rmw_guard_conditions_t guard_conditions{1, conditions};
+        rmw_time_t timeout{1, 0};
+        auto result = rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, wait_set, &timeout);
+        return result == RMW_RET_OK && conditions[0] != nullptr;
+    }
+
     void SetUp() override {
         initialize_test_context();
     }
@@ -90,6 +99,41 @@ TEST_F(RmwGuardConditionTest, destroying_a_guard_condition_closes_its_file_descr
         ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
     }
     EXPECT_EQ(open_file_descriptors(), before);
+}
+
+TEST_F(RmwGuardConditionTest, wake_up_once_per_trigger_between_threads) {
+    constexpr size_t ROUND_TRIPS = 1000;
+
+    auto ping = rmw_create_guard_condition(test_context());
+    ASSERT_NE(ping, nullptr);
+    auto pong = rmw_create_guard_condition(test_context());
+    ASSERT_NE(pong, nullptr);
+    auto ping_wait_set = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(ping_wait_set, nullptr);
+    auto pong_wait_set = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(pong_wait_set, nullptr);
+
+    size_t responded = 0;
+    std::thread responder([&] {
+        while (responded < ROUND_TRIPS && wait_for(ping, pong_wait_set)) {
+            ++responded;
+            EXPECT_RMW_OK(rmw_trigger_guard_condition(pong));
+        }
+    });
+    size_t completed = 0;
+    while (completed < ROUND_TRIPS && rmw_trigger_guard_condition(ping) == RMW_RET_OK
+           && wait_for(pong, ping_wait_set)) {
+        ++completed;
+    }
+    responder.join();
+
+    EXPECT_EQ(completed, ROUND_TRIPS);
+    EXPECT_EQ(responded, ROUND_TRIPS);
+
+    EXPECT_RMW_OK(rmw_destroy_wait_set(pong_wait_set));
+    EXPECT_RMW_OK(rmw_destroy_wait_set(ping_wait_set));
+    EXPECT_RMW_OK(rmw_destroy_guard_condition(pong));
+    EXPECT_RMW_OK(rmw_destroy_guard_condition(ping));
 }
 
 } // namespace
