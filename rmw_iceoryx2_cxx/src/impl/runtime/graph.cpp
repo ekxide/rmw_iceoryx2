@@ -17,8 +17,10 @@
 #include "iox2/service_builder_publish_subscribe.hpp"
 #include "iox2/static_config.hpp"
 #include "iox2/unique_node_id.hpp"
+#include "rcutils/error_handling.h"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rosidl_runtime_c/type_hash.h"
@@ -325,7 +327,10 @@ auto Graph::endpoints_by_node(const std::string& node_name, const std::string& n
     for (const auto& topic : topics.value()) {
         auto service = open_topic_service(node, topic.name);
         if (!service.has_value()) {
-            return err(service.error());
+            rcutils_reset_error();
+            RMW_IOX2_LOG_WARN("skipping topic '%s' in a per-node graph query, its service cannot be opened",
+                              topic.name.c_str());
+            continue;
         }
         if (!service.value().has_value()) {
             continue; // service vanished between listing and opening

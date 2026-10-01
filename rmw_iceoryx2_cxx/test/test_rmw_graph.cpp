@@ -9,6 +9,9 @@
 
 #include <gtest/gtest.h>
 
+#include "iox2/node.hpp"
+#include "iox2/service_name.hpp"
+#include "rcutils/error_handling.h"
 #include "rcutils/strdup.h"
 #include "rmw/get_node_info_and_types.h"
 #include "rmw/get_service_endpoint_info.h"
@@ -460,6 +463,30 @@ TEST_F(RmwGraphTest, can_get_publisher_names_and_types_by_node) {
                  "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
     // A topic the node only subscribes to is not a publisher of the node.
     EXPECT_FALSE(rcutils_string_array_contains(&names_and_types.names, subscribed_topic.c_str()));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+}
+
+TEST_F(RmwGraphTest, names_and_types_by_node_skip_topics_that_cannot_be_opened) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto published_topic = create_test_topic("/PublishedByNode");
+    create_default_publisher<Defaults>(published_topic);
+
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service_name = "ros2://topics" + create_test_topic("/Native");
+    auto native_service = native_node.service_builder(iox2::ServiceName::create(native_service_name.c_str()).value())
+                              .publish_subscribe<uint64_t>()
+                              .create();
+    ASSERT_TRUE(native_service.has_value());
+
+    auto allocator = rcutils_get_default_allocator();
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_get_publisher_names_and_types_by_node(
+        test_node(), &allocator, test_node()->name, test_node()->namespace_, false, &names_and_types));
+    EXPECT_STREQ(first_type_of_topic(names_and_types, published_topic.c_str()),
+                 "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    EXPECT_FALSE(rcutils_error_is_set());
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
 }
