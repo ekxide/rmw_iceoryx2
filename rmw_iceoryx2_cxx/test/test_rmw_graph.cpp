@@ -9,18 +9,76 @@
 
 #include <gtest/gtest.h>
 
+#include "rcutils/strdup.h"
+#include "rmw/get_node_info_and_types.h"
 #include "rmw/get_service_endpoint_info.h"
+#include "rmw/get_service_names_and_types.h"
+#include "rmw/get_topic_endpoint_info.h"
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/names_and_types.h"
 #include "rmw/rmw.h"
+#include "rmw/topic_endpoint_info_array.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
+
+#include <cstdlib>
+#include <string>
 
 namespace
 {
 
 using namespace rmw::iox2::testing;
+
+struct FailingAllocatorState
+{
+    size_t remaining;
+    size_t live;
+};
+
+auto failing_allocate(size_t size, void* state) -> void* {
+    auto* counts = static_cast<FailingAllocatorState*>(state);
+    if (counts->remaining == 0) {
+        return nullptr;
+    }
+    --counts->remaining;
+    ++counts->live;
+    return std::malloc(size);
+}
+
+auto failing_zero_allocate(size_t count, size_t size, void* state) -> void* {
+    auto* counts = static_cast<FailingAllocatorState*>(state);
+    if (counts->remaining == 0) {
+        return nullptr;
+    }
+    --counts->remaining;
+    ++counts->live;
+    return std::calloc(count, size);
+}
+
+auto failing_reallocate(void* pointer, size_t size, void* state) -> void* {
+    if (pointer == nullptr) {
+        return failing_allocate(size, state);
+    }
+    return std::realloc(pointer, size);
+}
+
+auto failing_deallocate(void* pointer, void* state) -> void {
+    if (pointer != nullptr) {
+        --static_cast<FailingAllocatorState*>(state)->live;
+        std::free(pointer);
+    }
+}
+
+auto failing_allocator(FailingAllocatorState* state) -> rcutils_allocator_t {
+    auto allocator = rcutils_get_zero_initialized_allocator();
+    allocator.allocate = failing_allocate;
+    allocator.deallocate = failing_deallocate;
+    allocator.reallocate = failing_reallocate;
+    allocator.zero_allocate = failing_zero_allocate;
+    allocator.state = state;
+    return allocator;
+}
 
 class RmwGraphTest : public TestBase
 {
@@ -36,8 +94,9 @@ protected:
 
 protected:
     bool rcutils_string_array_contains(const rcutils_string_array_t* array, const char* str) {
-        if (!array || !str)
+        if (!array || !str) {
             return false;
+        }
         for (size_t i = 0; i < array->size; ++i) {
             if (strcmp(array->data[i], str) == 0) {
                 return true;
@@ -57,7 +116,30 @@ protected:
         }
         return false;
     }
+
+    // Returns the first type registered for `topic`, or nullptr if the topic is absent.
+    const char* first_type_of_topic(const rmw_names_and_types_t& names_and_types, const char* topic) {
+        for (size_t i = 0; i < names_and_types.names.size; ++i) {
+            if (strcmp(names_and_types.names.data[i], topic) == 0) {
+                return names_and_types.types[i].size > 0 ? names_and_types.types[i].data[0] : nullptr;
+            }
+        }
+        return nullptr;
+    }
+
+    bool gid_is_nonzero(const uint8_t (&gid)[RMW_GID_STORAGE_SIZE]) {
+        for (size_t i = 0; i < RMW_GID_STORAGE_SIZE; ++i) {
+            if (gid[i] != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
+
+// ---------------------------------------------------------------------------
+// Node names
+// ---------------------------------------------------------------------------
 
 TEST_F(RmwGraphTest, can_get_node_names) {
     auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
@@ -83,37 +165,191 @@ TEST_F(RmwGraphTest, can_get_node_names) {
     ASSERT_RMW_OK(rmw_destroy_node(perception_node));
 }
 
+TEST_F(RmwGraphTest, lists_every_node_that_shares_a_name) {
+    auto first = rmw_create_node(test_context(), "Twin", "/Sensors");
+    auto second = rmw_create_node(test_context(), "Twin", "/Sensors");
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+
+    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
+    EXPECT_RMW_OK(rmw_get_node_names(test_node(), &names, &namespaces));
+
+    size_t twins = 0;
+    for (size_t i = 0; i < names.size; ++i) {
+        if (strcmp(names.data[i], "Twin") == 0 && strcmp(namespaces.data[i], "/Sensors") == 0) {
+            ++twins;
+        }
+    }
+    EXPECT_EQ(twins, 2U);
+
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+    ASSERT_RMW_OK(rmw_destroy_node(first));
+    ASSERT_RMW_OK(rmw_destroy_node(second));
+}
+
+TEST_F(RmwGraphTest, accepts_string_arrays_that_were_finalized_before) {
+    auto allocator = rcutils_get_default_allocator();
+    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
+    ASSERT_RMW_OK(rcutils_string_array_init(&names, 1, &allocator));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+
+    EXPECT_RMW_OK(rmw_get_node_names(test_node(), &names, &namespaces));
+    EXPECT_GE(names.size, 1U);
+
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+}
+
+TEST_F(RmwGraphTest, can_get_node_names_with_enclaves) {
+    auto camera_node = rmw_create_node(test_context(), "Camera", "/Sensors");
+    ASSERT_NE(camera_node, nullptr);
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    test_allocator().deallocate(options.enclave, test_allocator().state);
+    options.enclave = rcutils_strdup("/sensors", test_allocator());
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    auto lidar_node = rmw_create_node(&context, "Lidar", "/Sensors");
+    ASSERT_NE(lidar_node, nullptr);
+
+    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t enclaves = rcutils_get_zero_initialized_string_array();
+    EXPECT_RMW_OK(rmw_get_node_names_with_enclaves(test_node(), &names, &namespaces, &enclaves));
+
+    ASSERT_EQ(enclaves.size, names.size);
+    auto enclave_of = [&](const char* name) -> std::string {
+        for (size_t i = 0; i < names.size; ++i) {
+            if (strcmp(names.data[i], name) == 0 && strcmp(namespaces.data[i], "/Sensors") == 0) {
+                return enclaves.data[i];
+            }
+        }
+        return "not listed";
+    };
+    EXPECT_EQ(enclave_of("Camera"), "/");
+    EXPECT_EQ(enclave_of("Lidar"), "/sensors");
+
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&enclaves));
+    ASSERT_RMW_OK(rmw_destroy_node(lidar_node));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
+    ASSERT_RMW_OK(rmw_destroy_node(camera_node));
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint counts
+// ---------------------------------------------------------------------------
+
 TEST_F(RmwGraphTest, can_count_publishers) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto test_topic_a = create_test_topic("/TopicA");
-    auto test_topic_b = create_test_topic("/TopicB");
-    auto test_topic_c = create_test_topic("/TopicC");
-    create_default_publisher<Defaults>(test_topic_a.c_str());
-    create_default_publisher<Defaults>(test_topic_b.c_str());
-    create_default_publisher<Defaults>(test_topic_c.c_str());
+    auto topic = create_test_topic("/CountPublishers");
+    create_default_publisher<Defaults>(topic);
+    create_default_publisher<Defaults>(topic);
 
-    // TODO: Add support to iceoryx2_cxx to get number of publishers
-    // size_t count{0};
-    // ASSERT_RMW_OK(rmw_count_publishers(test_node(), "Defaults", &count));
-    // ASSERT_EQ(count, 3);
+    size_t count{0};
+    ASSERT_RMW_OK(rmw_count_publishers(test_node(), topic.c_str(), &count));
+    ASSERT_EQ(count, 2u);
 }
 
 TEST_F(RmwGraphTest, can_count_subscribers) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
-    auto test_topic_a = create_test_topic("/TopicA");
-    auto test_topic_b = create_test_topic("/TopicB");
-    auto test_topic_c = create_test_topic("/TopicC");
-    create_default_publisher<Defaults>(test_topic_a.c_str());
-    create_default_publisher<Defaults>(test_topic_b.c_str());
-    create_default_publisher<Defaults>(test_topic_c.c_str());
+    auto topic = create_test_topic("/CountSubscribers");
+    create_default_subscriber<Defaults>(topic);
+    create_default_subscriber<Defaults>(topic);
+    create_default_subscriber<Defaults>(topic);
 
-    // TODO: Add support to iceoryx2_cxx to get number of subscribers
-    // size_t count{0};
-    // ASSERT_RMW_OK(rmw_count_subscribers(test_node(), "Defaults", &count));
-    // ASSERT_EQ(count, 3);
+    size_t count{0};
+    ASSERT_RMW_OK(rmw_count_subscribers(test_node(), topic.c_str(), &count));
+    ASSERT_EQ(count, 3u);
 }
+
+TEST_F(RmwGraphTest, counts_zero_endpoints_for_unknown_topic) {
+    auto topic = create_test_topic("/NoEndpoints");
+
+    size_t publishers{99};
+    size_t subscribers{99};
+    ASSERT_RMW_OK(rmw_count_publishers(test_node(), topic.c_str(), &publishers));
+    ASSERT_RMW_OK(rmw_count_subscribers(test_node(), topic.c_str(), &subscribers));
+    ASSERT_EQ(publishers, 0u);
+    ASSERT_EQ(subscribers, 0u);
+}
+
+// ---------------------------------------------------------------------------
+// Endpoint info
+// ---------------------------------------------------------------------------
+
+TEST_F(RmwGraphTest, can_get_publishers_info_by_topic) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic("/PublishersInfo");
+    create_default_publisher<Defaults>(topic);
+
+    auto allocator = rcutils_get_default_allocator();
+    auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &info));
+
+    ASSERT_EQ(info.size, 1u);
+    const auto& endpoint = info.info_array[0];
+    EXPECT_EQ(endpoint.endpoint_type, RMW_ENDPOINT_PUBLISHER);
+    EXPECT_STREQ(endpoint.topic_type, "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    EXPECT_NE(endpoint.topic_type_hash.version, ROSIDL_TYPE_HASH_VERSION_UNSET);
+    EXPECT_STREQ(endpoint.node_namespace, "/RmwTest");
+    EXPECT_GT(strlen(endpoint.node_name), 0u);
+    EXPECT_TRUE(gid_is_nonzero(endpoint.endpoint_gid));
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
+}
+
+TEST_F(RmwGraphTest, can_get_subscriptions_info_by_topic) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic("/SubscriptionsInfo");
+    create_default_subscriber<Defaults>(topic);
+
+    auto allocator = rcutils_get_default_allocator();
+    auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_subscriptions_info_by_topic(test_node(), &allocator, topic.c_str(), false, &info));
+
+    ASSERT_EQ(info.size, 1u);
+    const auto& endpoint = info.info_array[0];
+    EXPECT_EQ(endpoint.endpoint_type, RMW_ENDPOINT_SUBSCRIPTION);
+    EXPECT_STREQ(endpoint.topic_type, "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    EXPECT_NE(endpoint.topic_type_hash.version, ROSIDL_TYPE_HASH_VERSION_UNSET);
+    EXPECT_STREQ(endpoint.node_namespace, "/RmwTest");
+    EXPECT_GT(strlen(endpoint.node_name), 0u);
+    EXPECT_TRUE(gid_is_nonzero(endpoint.endpoint_gid));
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
+}
+
+TEST_F(RmwGraphTest, gets_empty_endpoint_info_for_unknown_topic) {
+    auto topic = create_test_topic("/NoEndpointInfo");
+
+    auto allocator = rcutils_get_default_allocator();
+    auto publishers = rmw_get_zero_initialized_topic_endpoint_info_array();
+    auto subscriptions = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &publishers));
+    ASSERT_RMW_OK(rmw_get_subscriptions_info_by_topic(test_node(), &allocator, topic.c_str(), false, &subscriptions));
+
+    EXPECT_EQ(publishers.size, 0u);
+    EXPECT_EQ(subscriptions.size, 0u);
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&publishers, &allocator));
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&subscriptions, &allocator));
+}
+
+// ---------------------------------------------------------------------------
+// Topics
+// ---------------------------------------------------------------------------
 
 TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
@@ -121,51 +357,203 @@ TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     auto test_topic_a = create_test_topic("/TopicA");
     auto test_topic_b = create_test_topic("/TopicB");
     auto test_topic_c = create_test_topic("/TopicC");
-    create_default_publisher<Defaults>(test_topic_a.c_str());
-    create_default_publisher<Defaults>(test_topic_b.c_str());
-    create_default_publisher<Defaults>(test_topic_c.c_str());
-    create_default_subscriber<Defaults>(test_topic_a.c_str());
-    create_default_subscriber<Defaults>(test_topic_b.c_str());
-    create_default_subscriber<Defaults>(test_topic_c.c_str());
+    create_default_publisher<Defaults>(test_topic_a);
+    create_default_publisher<Defaults>(test_topic_b);
+    create_default_publisher<Defaults>(test_topic_c);
+    create_default_subscriber<Defaults>(test_topic_a);
+    create_default_subscriber<Defaults>(test_topic_b);
+    create_default_subscriber<Defaults>(test_topic_c);
 
     auto allocator = rcutils_get_default_allocator();
     auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
-    ASSERT_RMW_OK(rmw_names_and_types_init(&topic_names_and_types, 0, &allocator));
     ASSERT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
 
-    for (size_t i = 0; i < topic_names_and_types.names.size; i++) {
-        printf("Topic name %zu: %s\n", i, topic_names_and_types.names.data[i]);
-    }
     // ASSERT_EQ(topic_names_and_types.names.size, 3); // Needs domain isolation
     ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_a.c_str()));
     ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_b.c_str()));
     ASSERT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, test_topic_c.c_str()));
 
-    // TODO: Make it possible to get typename from iceoryx2 service
-    //       Requires capability to store ROS typename in iceoryx2 service attributes
-    //       Currently available in Rust but not CXX
-    // ASSERT_EQ(topic_names_and_types.types->size, 3); // Needs domain isolation
-    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
-    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
-    ASSERT_TRUE(rcutils_string_array_contains(topic_names_and_types.types, "UNKNOWN"));
+    // Each topic carries its own ROS type name in its own sub-array.
+    const char* expected_type = "rmw_iceoryx2_cxx_test_msgs/msg/Defaults";
+    EXPECT_STREQ(first_type_of_topic(topic_names_and_types, test_topic_a.c_str()), expected_type);
+    EXPECT_STREQ(first_type_of_topic(topic_names_and_types, test_topic_b.c_str()), expected_type);
+    EXPECT_STREQ(first_type_of_topic(topic_names_and_types, test_topic_c.c_str()), expected_type);
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
 }
 
-TEST_F(RmwGraphTest, get_clients_info_by_service_is_unsupported) {
+TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {
+    // Callers such as `ros2 topic list` pass a zero-initialized
+    // `rmw_names_and_types_t`, whose `types` member is NULL. The query must
+    // accept that form.
     auto allocator = rcutils_get_default_allocator();
-    auto clients_info = rmw_get_zero_initialized_service_endpoint_info_array();
+    auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
 
-    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
-                   rmw_get_clients_info_by_service(test_node(), &allocator, "/service", false, &clients_info));
+    EXPECT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
 }
 
-TEST_F(RmwGraphTest, get_servers_info_by_service_is_unsupported) {
+TEST_F(RmwGraphTest, reports_no_services_or_clients) {
     auto allocator = rcutils_get_default_allocator();
-    auto servers_info = rmw_get_zero_initialized_service_endpoint_info_array();
+    const auto* node_name = test_node()->name;
+    const auto* node_namespace = test_node()->namespace_;
 
-    EXPECT_RMW_ERR(RMW_RET_UNSUPPORTED,
-                   rmw_get_servers_info_by_service(test_node(), &allocator, "/service", false, &servers_info));
+    size_t count{1};
+    EXPECT_RMW_OK(rmw_count_services(test_node(), "/service", &count));
+    EXPECT_EQ(count, 0U);
+    count = 1;
+    EXPECT_RMW_OK(rmw_count_clients(test_node(), "/service", &count));
+    EXPECT_EQ(count, 0U);
+
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    EXPECT_RMW_OK(rmw_get_service_names_and_types(test_node(), &allocator, &names_and_types));
+    EXPECT_EQ(names_and_types.names.size, 0U);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+    EXPECT_RMW_OK(
+        rmw_get_service_names_and_types_by_node(test_node(), &allocator, node_name, node_namespace, &names_and_types));
+    EXPECT_EQ(names_and_types.names.size, 0U);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+    EXPECT_RMW_OK(
+        rmw_get_client_names_and_types_by_node(test_node(), &allocator, node_name, node_namespace, &names_and_types));
+    EXPECT_EQ(names_and_types.names.size, 0U);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+
+    auto servers_info = rmw_get_zero_initialized_service_endpoint_info_array();
+    EXPECT_RMW_OK(rmw_get_servers_info_by_service(test_node(), &allocator, "/service", false, &servers_info));
+    EXPECT_EQ(servers_info.size, 0U);
+    auto clients_info = rmw_get_zero_initialized_service_endpoint_info_array();
+    EXPECT_RMW_OK(rmw_get_clients_info_by_service(test_node(), &allocator, "/service", false, &clients_info));
+    EXPECT_EQ(clients_info.size, 0U);
+}
+
+TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {
+    auto allocator = rcutils_get_default_allocator();
+    auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_names_and_types_init(&topic_names_and_types, 1, &allocator));
+
+    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT,
+                   rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+// ---------------------------------------------------------------------------
+// By node
+// ---------------------------------------------------------------------------
+
+TEST_F(RmwGraphTest, can_get_publisher_names_and_types_by_node) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto published_topic = create_test_topic("/PublishedByNode");
+    auto subscribed_topic = create_test_topic("/SubscribedByNode");
+    create_default_publisher<Defaults>(published_topic);
+    create_default_subscriber<Defaults>(subscribed_topic);
+
+    auto allocator = rcutils_get_default_allocator();
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_get_publisher_names_and_types_by_node(
+        test_node(), &allocator, test_node()->name, test_node()->namespace_, false, &names_and_types));
+
+    // The node's published topic is listed with its type.
+    EXPECT_STREQ(first_type_of_topic(names_and_types, published_topic.c_str()),
+                 "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    // A topic the node only subscribes to is not a publisher of the node.
+    EXPECT_FALSE(rcutils_string_array_contains(&names_and_types.names, subscribed_topic.c_str()));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+}
+
+TEST_F(RmwGraphTest, can_get_subscriber_names_and_types_by_node) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto subscribed_topic = create_test_topic("/SubscribedByNode");
+    auto published_topic = create_test_topic("/PublishedByNode");
+    create_default_subscriber<Defaults>(subscribed_topic);
+    create_default_publisher<Defaults>(published_topic);
+
+    auto allocator = rcutils_get_default_allocator();
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_get_subscriber_names_and_types_by_node(
+        test_node(), &allocator, test_node()->name, test_node()->namespace_, false, &names_and_types));
+
+    // The node's subscribed topic is listed with its type.
+    EXPECT_STREQ(first_type_of_topic(names_and_types, subscribed_topic.c_str()),
+                 "rmw_iceoryx2_cxx_test_msgs/msg/Defaults");
+    // A topic the node only publishes to is not a subscriber of the node.
+    EXPECT_FALSE(rcutils_string_array_contains(&names_and_types.names, published_topic.c_str()));
+
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+}
+
+TEST_F(RmwGraphTest, names_and_types_by_node_of_an_unknown_node_do_not_exist) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic("/OwnedByTestNode");
+    create_default_publisher<Defaults>(topic);
+
+    auto allocator = rcutils_get_default_allocator();
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    const auto* node_namespace = test_node()->namespace_;
+    EXPECT_RMW_ERR(RMW_RET_NODE_NAME_NON_EXISTENT,
+                   rmw_get_publisher_names_and_types_by_node(
+                       test_node(), &allocator, "UnknownNode", node_namespace, false, &names_and_types));
+    EXPECT_RMW_ERR(RMW_RET_NODE_NAME_NON_EXISTENT,
+                   rmw_get_subscriber_names_and_types_by_node(
+                       test_node(), &allocator, "UnknownNode", node_namespace, false, &names_and_types));
+    EXPECT_RMW_ERR(RMW_RET_NODE_NAME_NON_EXISTENT,
+                   rmw_get_service_names_and_types_by_node(
+                       test_node(), &allocator, "UnknownNode", node_namespace, &names_and_types));
+    EXPECT_RMW_ERR(RMW_RET_NODE_NAME_NON_EXISTENT,
+                   rmw_get_client_names_and_types_by_node(
+                       test_node(), &allocator, "UnknownNode", node_namespace, &names_and_types));
+    EXPECT_RMW_OK(rmw_names_and_types_check_zero(&names_and_types));
+}
+
+TEST_F(RmwGraphTest, frees_topic_names_and_types_when_an_allocation_fails) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    create_default_publisher<Defaults>(create_test_topic("/First"));
+    create_default_publisher<Defaults>(create_test_topic("/Second"));
+
+    auto ret = RMW_RET_BAD_ALLOC;
+    for (size_t allowed = 0; ret == RMW_RET_BAD_ALLOC && allowed < 1000; ++allowed) {
+        FailingAllocatorState state{allowed, 0};
+        auto allocator = failing_allocator(&state);
+        auto names_and_types = rmw_get_zero_initialized_names_and_types();
+        ret = rmw_get_topic_names_and_types(test_node(), &allocator, false, &names_and_types);
+        if (ret == RMW_RET_OK) {
+            EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+        } else {
+            EXPECT_EQ(names_and_types.names.data, nullptr);
+            EXPECT_EQ(names_and_types.types, nullptr);
+        }
+        EXPECT_EQ(state.live, 0U);
+        rcutils_reset_error();
+    }
+    EXPECT_RMW_OK(ret);
+}
+
+TEST_F(RmwGraphTest, frees_endpoint_info_when_an_allocation_fails) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    auto topic = create_test_topic("/Endpoints");
+    create_default_publisher<Defaults>(topic);
+    create_default_publisher<Defaults>(topic);
+
+    auto ret = RMW_RET_BAD_ALLOC;
+    for (size_t allowed = 0; ret == RMW_RET_BAD_ALLOC && allowed < 1000; ++allowed) {
+        FailingAllocatorState state{allowed, 0};
+        auto allocator = failing_allocator(&state);
+        auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
+        ret = rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &info);
+        if (ret == RMW_RET_OK) {
+            EXPECT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
+        } else {
+            EXPECT_RMW_OK(rmw_topic_endpoint_info_array_check_zero(&info));
+        }
+        EXPECT_EQ(state.live, 0U);
+        rcutils_reset_error();
+    }
+    EXPECT_RMW_OK(ret);
 }
 
 } // namespace

@@ -10,6 +10,7 @@
 #ifndef RMW_IOX2_COMMON_ENSURE_HPP_
 #define RMW_IOX2_COMMON_ENSURE_HPP_
 
+#include "rmw/sanity_checks.h"
 #include "rmw_iceoryx2_cxx/impl/common/defaults.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/typesupport.hpp"
@@ -167,9 +168,7 @@
     }
 
 #define RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(arr, ret)                                                                    \
-    if ((arr).size != 0 || (arr).data != NULL || (arr).allocator.allocate != NULL                                      \
-        || (arr).allocator.deallocate != NULL || (arr).allocator.reallocate != NULL                                    \
-        || (arr).allocator.zero_allocate != NULL || (arr).allocator.state != NULL) {                                   \
+    if (rmw_check_zero_rmw_string_array(&(arr)) != RMW_RET_OK) {                                                       \
         return ret;                                                                                                    \
     }
 

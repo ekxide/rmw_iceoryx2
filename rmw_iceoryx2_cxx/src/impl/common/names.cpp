@@ -9,6 +9,8 @@
 
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 
+#include <cstring>
+
 #include <unistd.h>
 
 namespace rmw::iox2::names
@@ -18,12 +20,15 @@ std::string context(const uint32_t context_id) {
     return "ros2://context/" + std::to_string(context_id);
 }
 
-std::string node(const uint32_t context_id, const char* name, const char* ns) {
+std::string node(const uint32_t context_id, const char* name, const char* node_namespace, const char* enclave) {
     auto s = "ros2://context/" + std::to_string(context_id) + "/nodes/";
-    if (ns && ns[0] != '\0') {
-        s += std::string(ns) + "/";
+    if (node_namespace && node_namespace[0] != '\0') {
+        s += std::string(node_namespace) + "/";
     }
     s += std::string(name);
+    if (enclave && enclave[0] != '\0' && std::strcmp(enclave, "/") != 0) {
+        s += std::string("?enclave=") + enclave;
+    }
     return s;
 }
 

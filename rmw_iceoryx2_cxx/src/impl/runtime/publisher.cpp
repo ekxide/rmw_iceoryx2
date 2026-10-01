@@ -14,12 +14,11 @@
 #include "iox2/message_type_details.hpp"
 #include "iox2/type_variant.hpp"
 #include "rcutils/time.h"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
-#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
 #include <cstring>
@@ -65,9 +64,10 @@ Publisher::Publisher(CreationLock,
         }
     }
 
-    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos);
+    // The type hash is stored alongside QoS so graph introspection can report it.
+    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos, ::rmw::iox2::message_type_hash(m_typesupport));
     if (!verifier.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to build QoS attribute verifier");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to build service attribute verifier");
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
@@ -256,7 +256,7 @@ auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::io
     return {};
 }
 
-void Publisher::populate_message_info(UserHeader& header) {
+auto Publisher::populate_message_info(UserHeader& header) -> void {
     rcutils_time_point_value_t now = 0;
     if (rcutils_system_time_now(&now) != RCUTILS_RET_OK) {
         now = 0;

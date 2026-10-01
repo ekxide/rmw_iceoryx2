@@ -15,6 +15,7 @@
 #include "rmw/rmw.h"
 #include "rmw/validate_full_topic_name.h"
 #include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
@@ -22,7 +23,6 @@
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
@@ -244,8 +244,10 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
                     RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
                         "QoS mismatch on '%s' (failed to look up service details)", topic_name);
                 } else {
-                    ::rmw::iox2::log_attribute_mismatch(
-                        resolved_qos.value(), service_details.value().static_details.attributes(), topic_name);
+                    ::rmw::iox2::log_attribute_mismatch(resolved_qos.value(),
+                                                        ::rmw::iox2::message_type_hash(type_support),
+                                                        service_details.value().static_details.attributes(),
+                                                        topic_name);
                 }
             } else {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Subscriber");

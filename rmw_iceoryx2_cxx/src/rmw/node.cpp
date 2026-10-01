@@ -95,8 +95,8 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
         return nullptr;
     }
 
-    if (auto construction =
-            create_in_place<NodeImpl>(node_impl.value(), *rmw_context->impl, rmw_node->name, rmw_node->namespace_);
+    if (auto construction = create_in_place<NodeImpl>(
+            node_impl.value(), *rmw_context->impl, rmw_node->name, rmw_node->namespace_, rmw_context->options.enclave);
         !construction.has_value()) {
         destruct<NodeImpl>(node_impl.value());
         deallocate<NodeImpl>(node_impl.value());

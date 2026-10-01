@@ -9,9 +9,9 @@
 
 #include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -28,7 +28,7 @@ auto is_default_duration(Qos::Duration duration) -> bool {
 
 } // namespace
 
-void log_unsupported_policies(const Qos& qos, const char* topic) noexcept {
+auto log_unsupported_policies(const Qos& qos, const char* topic) noexcept -> void {
     if (!is_default_duration(qos.deadline())) {
         RMW_IOX2_LOG_WARN("QoS policy 'deadline' (=%llu:%llu) on topic '%s' is not honored by the iceoryx2 transport",
                           static_cast<unsigned long long>(qos.deadline().sec),
@@ -55,7 +55,26 @@ void log_unsupported_policies(const Qos& qos, const char* topic) noexcept {
     }
 }
 
-void log_attribute_mismatch(const Qos& qos, ::iox2::AttributeSetView attribute_set, const char* topic) noexcept {
+auto log_attribute_mismatch(const Qos& qos,
+                            const ::iox2::bb::Optional<rosidl_type_hash_t>& type_hash,
+                            ::iox2::AttributeSetView attribute_set,
+                            const char* topic) noexcept -> void {
+    namespace attributes = ::rmw::iox2::attributes;
+
+    char requested_hash[256];
+    if (type_hash.has_value()
+        && attributes::TypeHash::encode(type_hash.value(), requested_hash, sizeof(requested_hash))) {
+        bool hash_matches = false;
+        attributes::visit_attribute_value(attribute_set, attributes::TypeHash::KEY, [&](const char* value) {
+            hash_matches = std::strcmp(requested_hash, value) == 0;
+        });
+        if (!hash_matches) {
+            RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+                "type hash mismatch on '%s', the existing service does not have type hash %s", topic, requested_hash);
+            return;
+        }
+    }
+
     char message[rmw::iox2::MAX_ERROR_MSG_LENGTH];
 
     int written = std::snprintf(message, sizeof(message), "QoS mismatch on '%s':", topic);
@@ -63,8 +82,6 @@ void log_attribute_mismatch(const Qos& qos, ::iox2::AttributeSetView attribute_s
     if (offset >= sizeof(message)) {
         offset = sizeof(message) - 1;
     }
-
-    namespace attributes = ::rmw::iox2::qos::attributes;
 
     size_t count = 0;
 

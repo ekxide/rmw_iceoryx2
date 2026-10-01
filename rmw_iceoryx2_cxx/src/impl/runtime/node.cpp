@@ -16,13 +16,19 @@
 namespace rmw::iox2
 {
 
-Node::Node(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context, const char* name, const char* ns)
+Node::Node(CreationLock,
+           ::iox2::bb::Optional<ErrorType>& error,
+           Context& context,
+           const char* name,
+           const char* node_namespace,
+           const char* enclave)
     : m_context{context}
     , m_name{name} {
     using ::rmw::iox2::create_in_place;
     namespace names = rmw::iox2::names;
 
-    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::node(context.id(), name, ns)); !result.has_value()) {
+    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::node(context.id(), name, node_namespace, enclave));
+        !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create Handle");
         error.emplace(ErrorType::HANDLE_CREATION_FAILURE);
         return;

@@ -49,8 +49,14 @@ public:
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] context The context which this node will belong to
     /// @param[in] name The name of the node
-    /// @param[in] ns The namespace of the node
-    Node(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context, const char* name, const char* ns);
+    /// @param[in] node_namespace The namespace of the node
+    /// @param[in] enclave The enclave of the node
+    Node(CreationLock,
+         ::iox2::bb::Optional<ErrorType>& error,
+         Context& context,
+         const char* name,
+         const char* node_namespace,
+         const char* enclave = "/");
 
     /// @brief Get the name of the node
     /// @return The name of the node

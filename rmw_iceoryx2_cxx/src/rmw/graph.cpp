@@ -7,9 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "iox2/bb/optional.hpp"
-#include "iox2/service.hpp"
-#include "iox2/static_config.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
 #include "rcutils/strdup.h"
 #include "rcutils/types/string_array.h"
 #include "rmw/convert_rcutils_ret_to_rmw_ret.h"
@@ -24,131 +22,28 @@
 #include "rmw/validate_namespace.h"
 #include "rmw/validate_node_name.h"
 #include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/defaults.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
-#include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
-#include <functional>
-#include <set>
-#include <string>
-#include <string_view>
+#include <vector>
 
 namespace
 {
 
-class NodeName
-{
-public:
-    NodeName(std::string ns = "", std::string n = "")
-        : m_namespace(std::move(ns))
-        , m_name(std::move(n)) {
-    }
-
-    auto ns() const -> const std::string& {
-        return m_namespace;
-    }
-
-    auto name() const -> const std::string& {
-        return m_name;
-    }
-
-    auto operator<(const NodeName& other) const -> bool {
-        if (m_namespace != other.m_namespace) {
-            return m_namespace < other.m_namespace;
-        }
-        return m_name < other.m_name;
-    }
-
-    static auto parse_name(std::string_view full_name) -> ::iox2::bb::Optional<NodeName> {
-        // Check for prefix
-        constexpr std::string_view ROS2_PREFIX = "ros2://context/";
-        if (full_name.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        // Find the "/nodes/" part after the context ID
-        constexpr std::string_view NODES_MARKER = "/nodes/";
-        auto nodes_pos = full_name.find(NODES_MARKER);
-        if (nodes_pos == std::string_view::npos) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        // Extract the part after "/nodes/"
-        auto node_part = full_name.substr(nodes_pos + NODES_MARKER.length());
-        if (node_part.empty()) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        // Split into namespace and name
-        auto last_slash = node_part.find_last_of('/');
-        if (last_slash == std::string_view::npos) {
-            return NodeName("", std::string(node_part));
-        }
-
-        return NodeName(std::string(node_part.substr(0, last_slash)), std::string(node_part.substr(last_slash + 1)));
-    }
-
-private:
-    std::string m_namespace;
-    std::string m_name;
-};
-
-class TopicDetails
-{
-public:
-    TopicDetails(const std::string& topic, const std::string& type)
-        : m_topic{topic}
-        , m_type{type} {
-    }
-
-    auto name() const -> const std::string& {
-        return m_topic;
-    }
-
-    auto type() const -> const std::string& {
-        return m_type;
-    }
-
-    auto operator<(const TopicDetails& other) const -> bool {
-        if (m_topic != other.m_topic) {
-            return m_topic < other.m_topic;
-        }
-        return m_type < other.m_type;
-    }
-
-    static auto parse_topic_name(const char* full_name) -> ::iox2::bb::Optional<std::string> {
-        // Check for prefix
-        constexpr std::string_view ROS2_PREFIX = "ros2://topics";
-        std::string_view full_view(full_name);
-        if (full_view.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        // Extract the topic part after "ros2://topics"
-        auto topic_part = full_view.substr(ROS2_PREFIX.length());
-        if (topic_part.empty()) {
-            return ::iox2::bb::NULLOPT;
-        }
-
-        return std::string(topic_part);
-    }
-
-private:
-    std::string m_topic;
-    std::string m_type;
-};
+// The rmw gid is filled from an iceoryx2 unique port id (see `EndpointInfo::gid`).
+// Guard the cross-library contract here.
+static_assert(::iox2::UNIQUE_PORT_ID_LENGTH == RMW_GID_STORAGE_SIZE,
+              "iceoryx2 unique port id length must match RMW_GID_STORAGE_SIZE");
 
 /// @brief Initialize a string array with the given size using the provided allocator
 /// @param[in,out] array The string array to initialize
 /// @param[in] size The size to initialize the array with
 /// @param[in] allocator The allocator to use for memory allocation
 /// @return RMW_RET_OK if successful, otherwise an appropriate error code
-static rmw_ret_t init_string_array(rcutils_string_array_t* array, size_t size, rcutils_allocator_t* allocator) {
+auto init_string_array(rcutils_string_array_t* array, size_t size, rcutils_allocator_t* allocator) -> rmw_ret_t {
     auto ret = rcutils_string_array_init(array, size, allocator);
     if (ret != RCUTILS_RET_OK) {
         RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
@@ -157,45 +52,162 @@ static rmw_ret_t init_string_array(rcutils_string_array_t* array, size_t size, r
     return RMW_RET_OK;
 }
 
-rmw_ret_t collect_node_names(std::set<NodeName>& names) {
-    using ::iox2::CallbackProgression;
-    using ::rmw::iox2::Iceoryx2;
+/// @brief Marshal discovered nodes into the rmw name/namespace (and optional
+///        enclave) string arrays.
+/// @param[in] nodes The discovered nodes.
+/// @param[out] node_names Zero-initialized array for node names.
+/// @param[out] node_namespaces Zero-initialized array for node namespaces.
+/// @param[out] enclaves Zero-initialized array for enclaves, or nullptr to skip.
+/// @param[in] allocator Allocator used for the arrays and their strings.
+/// @return RMW_RET_OK on success, otherwise an appropriate error code.
+auto fill_node_names(const std::vector<::rmw::iox2::NodeName>& nodes,
+                     rcutils_string_array_t* node_names,
+                     rcutils_string_array_t* node_namespaces,
+                     rcutils_string_array_t* enclaves,
+                     rcutils_allocator_t* allocator) -> rmw_ret_t {
+    auto fail = [&](rmw_ret_t result) {
+        (void)rcutils_string_array_fini(node_names);
+        (void)rcutils_string_array_fini(node_namespaces);
+        if (enclaves != nullptr) {
+            (void)rcutils_string_array_fini(enclaves);
+        }
+        return result;
+    };
 
-    auto list_result = Iceoryx2::InterProcess::Handle::list(Iceoryx2::Config::global_config(), [&names](auto node) {
-        node.alive([&names](const auto view) {
-            auto details = view.details();
-            if (details.has_value()) {
-                auto name_str = details.value().name().to_string();
-                if (auto node_name = NodeName::parse_name(name_str.unchecked_access().c_str()); node_name.has_value()) {
-                    names.emplace(node_name.value());
-                }
+    if (auto result = init_string_array(node_names, nodes.size(), allocator); result != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node names");
+        return result;
+    }
+    if (auto result = init_string_array(node_namespaces, nodes.size(), allocator); result != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node namespaces");
+        return fail(result);
+    }
+    if (enclaves != nullptr) {
+        if (auto result = init_string_array(enclaves, nodes.size(), allocator); result != RMW_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for enclaves");
+            return fail(result);
+        }
+    }
+
+    size_t index = 0;
+    for (const auto& node : nodes) {
+        node_names->data[index] = rcutils_strdup(node.node_name.c_str(), *allocator);
+        if (!node_names->data[index]) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node name array");
+            return fail(RMW_RET_BAD_ALLOC);
+        }
+
+        node_namespaces->data[index] = rcutils_strdup(node.node_namespace.c_str(), *allocator);
+        if (!node_namespaces->data[index]) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node namespace array");
+            return fail(RMW_RET_BAD_ALLOC);
+        }
+
+        if (enclaves != nullptr) {
+            enclaves->data[index] = rcutils_strdup(node.enclave.c_str(), *allocator);
+            if (!enclaves->data[index]) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to populate enclaves array");
+                return fail(RMW_RET_BAD_ALLOC);
             }
-        });
-        return CallbackProgression::Continue;
-    });
+        }
 
-    return list_result.has_value() ? RMW_RET_OK : RMW_RET_ERROR;
+        ++index;
+    }
+
+    return RMW_RET_OK;
 }
 
+/// @brief Marshal discovered endpoints into an rmw endpoint-info array.
+/// @param[out] array Zero-initialized array to populate.
+/// @param[in] endpoints The endpoints to copy in.
+/// @param[in] endpoint_type Whether these are publishers or subscriptions.
+/// @param[in] allocator Allocator used for the array and its strings.
+/// @return RMW_RET_OK on success, otherwise an appropriate error code.
+auto fill_endpoint_info(rmw_topic_endpoint_info_array_t* array,
+                        const std::vector<::rmw::iox2::EndpointInfo>& endpoints,
+                        rmw_endpoint_type_t endpoint_type,
+                        rcutils_allocator_t* allocator) -> rmw_ret_t {
+    using ::rmw::iox2::Convert;
 
-rmw_ret_t collect_topic_names_and_types(std::set<TopicDetails>& topics,
-                                        std::function<bool(::iox2::StaticConfig&)> predicate) {
-    using ::iox2::CallbackProgression;
-    using ::iox2::MessagingPattern;
-    using ::rmw::iox2::Iceoryx2;
+    if (rmw_topic_endpoint_info_array_init_with_size(array, endpoints.size(), allocator) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+        return RMW_RET_BAD_ALLOC;
+    }
 
-    auto list_result =
-        Iceoryx2::InterProcess::Service::list(Iceoryx2::Config::global_config(), [&topics, &predicate](auto service) {
-            if (predicate(service.static_details)) {
-                auto topic = TopicDetails::parse_topic_name(service.static_details.name());
-                if (topic.has_value()) {
-                    topics.emplace(topic.value(), "");
-                }
-            }
-            return CallbackProgression::Continue;
-        });
+    for (size_t index = 0; index < endpoints.size(); ++index) {
+        const auto& endpoint = endpoints[index];
+        auto* info = &array->info_array[index];
 
-    return list_result.has_value() ? RMW_RET_OK : RMW_RET_ERROR;
+        auto qos_profile = Convert<rmw_qos_profile_t>::from(endpoint.qos);
+        if (rmw_topic_endpoint_info_set_node_name(info, endpoint.node_name.c_str(), allocator) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_node_namespace(info, endpoint.node_namespace.c_str(), allocator)
+                   != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_topic_type(info, endpoint.topic_type.c_str(), allocator) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_topic_type_hash(info, &endpoint.type_hash) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_endpoint_type(info, endpoint_type) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_gid(info, endpoint.gid.data(), endpoint.gid.size()) != RMW_RET_OK
+            || rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile) != RMW_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+            (void)rmw_topic_endpoint_info_array_fini(array, allocator);
+            return RMW_RET_BAD_ALLOC;
+        }
+    }
+
+    return RMW_RET_OK;
+}
+
+/// @brief Marshal discovered topics into an rmw names-and-types collection.
+/// @param[out] names_and_types Zero-initialized collection to populate.
+/// @param[in] topics The topics (name + single type) to copy in.
+/// @param[in] allocator Allocator used for the collection and its strings.
+/// @return RMW_RET_OK on success, otherwise an appropriate error code.
+auto fill_names_and_types(rmw_names_and_types_t* names_and_types,
+                          const std::vector<::rmw::iox2::TopicInfo>& topics,
+                          rcutils_allocator_t* allocator) -> rmw_ret_t {
+    auto init_result = rmw_names_and_types_init(names_and_types, topics.size(), allocator);
+    if (init_result != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG(rcutils_get_error_string().str);
+        return init_result;
+    }
+
+    auto fail = [&](rmw_ret_t result) {
+        (void)rmw_names_and_types_fini(names_and_types);
+        return result;
+    };
+
+    size_t index = 0;
+    for (const auto& topic : topics) {
+        names_and_types->names.data[index] = rcutils_strdup(topic.name.c_str(), *allocator);
+        if (!names_and_types->names.data[index]) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
+            return fail(RMW_RET_BAD_ALLOC);
+        }
+
+        // Each topic carries exactly one type, stored in its own sub-array.
+        if (auto result = init_string_array(&names_and_types->types[index], 1, allocator); result != RMW_RET_OK) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic types");
+            return fail(result);
+        }
+        names_and_types->types[index].data[0] = rcutils_strdup(topic.type.c_str(), *allocator);
+        if (!names_and_types->types[index].data[0]) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic type");
+            return fail(RMW_RET_BAD_ALLOC);
+        }
+
+        ++index;
+    }
+
+    return RMW_RET_OK;
+}
+
+/// @brief The graph as seen by a node.
+auto graph_of(const rmw_node_t* rmw_node) -> ::iox2::bb::Optional<::rmw::iox2::Graph> {
+    auto node_impl = ::rmw::iox2::unsafe_cast<::rmw::iox2::Node*>(rmw_node->data);
+    if (!node_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
+        return ::iox2::bb::NULLOPT;
+    }
+    return ::rmw::iox2::Graph{*node_impl.value()};
 }
 
 } // namespace
@@ -216,40 +228,19 @@ rmw_ret_t rmw_get_node_names(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*node_namespaces, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    std::set<NodeName> names{};
-    auto result = collect_node_names(names);
-    RMW_IOX2_ENSURE_OK(result);
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto names_result = graph.value().node_names();
+    if (!names_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+        return RMW_RET_ERROR;
+    }
 
     rcutils_allocator_t allocator = rcutils_get_default_allocator();
-    result = init_string_array(node_names, names.size(), &allocator);
-    if (result != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node names");
-        return result;
-    }
-    result = init_string_array(node_namespaces, names.size(), &allocator);
-    if (result != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for node namespaces");
-        return result;
-    }
-
-    int i = 0;
-    for (const auto& name : names) {
-        node_names->data[i] = rcutils_strdup(name.name().c_str(), allocator);
-        if (!node_names->data[i]) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node name array");
-            return RMW_RET_BAD_ALLOC;
-        }
-
-        node_namespaces->data[i] = rcutils_strdup(name.ns().c_str(), allocator);
-        if (!node_namespaces->data[i]) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to populate node namespace array");
-            return RMW_RET_BAD_ALLOC;
-        }
-
-        ++i;
-    }
-
-    return RMW_RET_OK;
+    return fill_node_names(names_result.value(), node_names, node_namespaces, nullptr, &allocator);
 }
 
 rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* rmw_node,
@@ -267,18 +258,24 @@ rmw_ret_t rmw_get_node_names_with_enclaves(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*enclaves, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto names_result = graph.value().node_names();
+    if (!names_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+        return RMW_RET_ERROR;
+    }
+
+    rcutils_allocator_t allocator = rcutils_get_default_allocator();
+    return fill_node_names(names_result.value(), node_names, node_namespaces, enclaves, &allocator);
 }
 
 // Publishers ======================================================================================================
 
 rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_name, size_t* count) {
-    using ::rmw::iox2::Iceoryx2;
-    using NodeImpl = ::rmw::iox2::Node;
-    using PublisherImpl = ::rmw::iox2::Publisher;
-    using ::rmw::iox2::unsafe_cast;
-    namespace names = rmw::iox2::names;
-
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
@@ -287,35 +284,19 @@ rmw_ret_t rmw_count_publishers(const rmw_node_t* rmw_node, const char* topic_nam
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
-        return RMW_RET_ERROR;
-    }
-    auto& node_impl = node_impl_result.value();
-
-    auto service_name_string = names::topic(topic_name);
-    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name_string.c_str());
-    if (!iox2_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to create service name");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
 
-    auto service_result = node_impl->iox2()
-                              .ipc()
-                              .service_builder(iox2_service_name.value())
-                              .publish_subscribe<PublisherImpl::Payload>()
-                              .open_or_create();
-    if (!service_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
+    auto result = graph.value().count_publishers(topic_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to count publishers");
         return RMW_RET_ERROR;
     }
-    auto& service = service_result.value();
-    (void)service;
+    *count = result.value();
 
-    // *count = service.dynamic_config().number_of_publishers(); // NOT IMPLEMENTED ...
-
-    return RMW_RET_UNSUPPORTED;
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* rmw_node,
@@ -324,8 +305,6 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* rmw_node,
                                                     const char* node_namespace,
                                                     bool no_demangle,
                                                     rmw_names_and_types_t* topic_names_and_types) {
-    using ::iox2::MessagingPattern;
-
     (void)no_demangle; // not used
 
     // Invariants ----------------------------------------------------------------------------------
@@ -337,11 +316,31 @@ rmw_ret_t rmw_get_publisher_names_and_types_by_node(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(topic_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*topic_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+    // A zero-initialized `rmw_names_and_types_t` has `types == NULL`, which is how
+    // callers pass it; validate that form rather than dereferencing `types`.
+    if (rmw_names_and_types_check_zero(topic_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("topic_names_and_types is not zero initialized");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().publishers_by_node(node_name, node_namespace);
+    if (!result.has_value()) {
+        if (result.error() == ::rmw::iox2::GraphError::NODE_NOT_FOUND) {
+            RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+                "node %s in namespace %s does not exist", node_name, node_namespace);
+            return RMW_RET_NODE_NAME_NON_EXISTENT;
+        }
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get publisher names and types by node");
+        return RMW_RET_ERROR;
+    }
+
+    return fill_names_and_types(topic_names_and_types, result.value(), allocator);
 }
 
 rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* rmw_node,
@@ -354,26 +353,30 @@ rmw_ret_t rmw_get_publishers_info_by_topic(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(publishers_info, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (!rcutils_allocator_is_valid(allocator)) {
-        return RMW_RET_INVALID_ARGUMENT;
-    }
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     if (rmw_topic_endpoint_info_array_check_zero(publishers_info) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("publishers_info is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().publishers_info(topic_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get publishers info");
+        return RMW_RET_ERROR;
+    }
+
+    return fill_endpoint_info(publishers_info, result.value(), RMW_ENDPOINT_PUBLISHER, allocator);
 }
 
 // Subscribers ======================================================================================================
 
 rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_name, size_t* count) {
-    using ::rmw::iox2::Iceoryx2;
-    using NodeImpl = ::rmw::iox2::Node;
-    using SubscriberImpl = ::rmw::iox2::Subscriber;
-    using ::rmw::iox2::unsafe_cast;
-    namespace names = rmw::iox2::names;
-
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
@@ -382,35 +385,19 @@ rmw_ret_t rmw_count_subscribers(const rmw_node_t* rmw_node, const char* topic_na
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    auto node_impl_result = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
-        return RMW_RET_ERROR;
-    }
-    auto& node_impl = node_impl_result.value();
-
-    auto service_name_string = names::topic(topic_name);
-    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name_string.c_str());
-    if (!iox2_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to create service name");
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
 
-    auto service_result = node_impl->iox2()
-                              .ipc()
-                              .service_builder(iox2_service_name.value())
-                              .publish_subscribe<SubscriberImpl::Payload>()
-                              .open_or_create();
-    if (!service_result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to open service");
+    auto result = graph.value().count_subscribers(topic_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to count subscribers");
         return RMW_RET_ERROR;
     }
-    auto& service = service_result.value();
-    (void)service;
+    *count = result.value();
 
-    // *count = service.dynamic_config().number_of_subscribers(); // NOT_IMPLEMENTED...
-
-    return RMW_RET_UNSUPPORTED;
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* rmw_node,
@@ -419,6 +406,8 @@ rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* rmw_node,
                                                      const char* node_namespace,
                                                      bool no_demangle,
                                                      rmw_names_and_types_t* topic_names_and_types) {
+    (void)no_demangle; // not used
+
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
@@ -426,13 +415,33 @@ rmw_ret_t rmw_get_subscriber_names_and_types_by_node(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(node_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NODE_NAME(node_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_VALID_NODE_NAME(node_namespace, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(topic_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*topic_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+    // A zero-initialized `rmw_names_and_types_t` has `types == NULL`, which is how
+    // callers pass it; validate that form rather than dereferencing `types`.
+    if (rmw_names_and_types_check_zero(topic_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("topic_names_and_types is not zero initialized");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().subscriptions_by_node(node_name, node_namespace);
+    if (!result.has_value()) {
+        if (result.error() == ::rmw::iox2::GraphError::NODE_NOT_FOUND) {
+            RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+                "node %s in namespace %s does not exist", node_name, node_namespace);
+            return RMW_RET_NODE_NAME_NON_EXISTENT;
+        }
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get subscriber names and types by node");
+        return RMW_RET_ERROR;
+    }
+
+    return fill_names_and_types(topic_names_and_types, result.value(), allocator);
 }
 
 rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* rmw_node,
@@ -445,15 +454,25 @@ rmw_ret_t rmw_get_subscriptions_info_by_topic(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(topic_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(subscriptions_info, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (!rcutils_allocator_is_valid(allocator)) {
-        return RMW_RET_INVALID_ARGUMENT;
-    }
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     if (rmw_topic_endpoint_info_array_check_zero(subscriptions_info) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("subscriptions_info is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().subscriptions_info(topic_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get subscriptions info");
+        return RMW_RET_ERROR;
+    }
+
+    return fill_endpoint_info(subscriptions_info, result.value(), RMW_ENDPOINT_SUBSCRIPTION, allocator);
 }
 
 // Topics ===========================================================================================================
@@ -466,59 +485,27 @@ rmw_ret_t rmw_get_topic_names_and_types(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(rmw_node, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(topic_names_and_types, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    if (!rcutils_allocator_is_valid(allocator)) {
+    RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
+    // A zero-initialized `rmw_names_and_types_t` has `types == NULL`, which is how
+    // callers (e.g. `ros2 topic list`) pass it; validate that form rather than
+    // dereferencing `types`.
+    if (rmw_names_and_types_check_zero(topic_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("topic_names_and_types is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
-    auto zero_array = rcutils_get_zero_initialized_string_array();
-    auto comparison_result{0};
-    if (rcutils_string_array_cmp(&topic_names_and_types->names, &zero_array, &comparison_result) != RMW_RET_OK
-        || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify topic names is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
-    if (rcutils_string_array_cmp(topic_names_and_types->types, &zero_array, &comparison_result) != RMW_RET_OK
-        || comparison_result != 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to verify topic types is zero initialized");
-        return RMW_RET_INVALID_ARGUMENT;
-    };
 
     // Implementation -------------------------------------------------------------------------------
-    using ::iox2::MessagingPattern;
-
-    std::set<TopicDetails> topics{};
-    auto collect_result = collect_topic_names_and_types(topics, [](auto& service_details) {
-        return service_details.messaging_pattern() == MessagingPattern::PublishSubscribe;
-    });
-    RMW_IOX2_ENSURE_OK(collect_result);
-
-    auto init_result = rmw_names_and_types_init(topic_names_and_types, topics.size(), allocator);
-    RMW_IOX2_ENSURE_OK(init_result);
-
-    if (rcutils_string_array_init(topic_names_and_types->types, topics.size(), allocator) != RMW_RET_OK) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic types");
-        return RMW_RET_BAD_ALLOC;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
     }
 
-    size_t index = 0;
-    for (const auto& topic : topics) {
-        // Allocate and copy topic name
-        topic_names_and_types->names.data[index] = rcutils_strdup(topic.name().c_str(), *allocator);
-        if (!topic_names_and_types->names.data[index]) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for topic name");
-            return RMW_RET_BAD_ALLOC;
-        }
-
-        // Allocate and copy type name
-        topic_names_and_types->types->data[index] = rcutils_strdup("UNKNOWN", *allocator);
-        if (!topic_names_and_types->types->data[index]) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for type type");
-            return RMW_RET_BAD_ALLOC;
-        }
-
-        ++index;
+    auto topics_result = graph.value().topic_names_and_types();
+    if (!topics_result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list topic names and types");
+        return RMW_RET_ERROR;
     }
-
-    return RMW_RET_OK;
+    return fill_names_and_types(topic_names_and_types, topics_result.value(), allocator);
 }
 
 // Services ==========================================================================================================
@@ -532,7 +519,8 @@ rmw_ret_t rmw_count_services(const rmw_node_t* rmw_node, const char* service_nam
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    *count = 0;
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* rmw_node,
@@ -543,11 +531,13 @@ rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
     RMW_IOX2_ENSURE_VALID_ALLOCATOR(allocator, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+    if (rmw_names_and_types_check_zero(service_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("service_names_and_types is not zero initialized");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    return fill_names_and_types(service_names_and_types, {}, allocator);
 }
 
 rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
@@ -564,11 +554,27 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+    if (rmw_names_and_types_check_zero(service_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("service_names_and_types is not zero initialized");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+    auto has_node = graph.value().has_node(node_name, node_namespace);
+    if (!has_node.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+        return RMW_RET_ERROR;
+    }
+    if (!has_node.value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+            "node %s in namespace %s does not exist", node_name, node_namespace);
+        return RMW_RET_NODE_NAME_NON_EXISTENT;
+    }
+    return fill_names_and_types(service_names_and_types, {}, allocator);
 }
 
 rmw_ret_t rmw_get_servers_info_by_service(const rmw_node_t* rmw_node,
@@ -583,11 +589,12 @@ rmw_ret_t rmw_get_servers_info_by_service(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(servers_info, RMW_RET_INVALID_ARGUMENT);
     if (rmw_service_endpoint_info_array_check_zero(servers_info) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("servers_info is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    return RMW_RET_OK;
 }
 
 // Clients ==========================================================================================================
@@ -601,7 +608,8 @@ rmw_ret_t rmw_count_clients(const rmw_node_t* rmw_node, const char* service_name
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    *count = 0;
+    return RMW_RET_OK;
 }
 
 
@@ -619,11 +627,27 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_VALID_NAMESPACE(node_namespace, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(service_names_and_types, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(service_names_and_types->names, RMW_RET_INVALID_ARGUMENT);
-    RMW_IOX2_ENSURE_ZERO_STRING_ARRAY(*service_names_and_types->types, RMW_RET_INVALID_ARGUMENT);
+    if (rmw_names_and_types_check_zero(service_names_and_types) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("service_names_and_types is not zero initialized");
+        return RMW_RET_INVALID_ARGUMENT;
+    }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+    auto has_node = graph.value().has_node(node_name, node_namespace);
+    if (!has_node.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+        return RMW_RET_ERROR;
+    }
+    if (!has_node.value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+            "node %s in namespace %s does not exist", node_name, node_namespace);
+        return RMW_RET_NODE_NAME_NON_EXISTENT;
+    }
+    return fill_names_and_types(service_names_and_types, {}, allocator);
 }
 
 rmw_ret_t rmw_get_clients_info_by_service(const rmw_node_t* rmw_node,
@@ -638,10 +662,11 @@ rmw_ret_t rmw_get_clients_info_by_service(const rmw_node_t* rmw_node,
     RMW_IOX2_ENSURE_NOT_NULL(service_name, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_NOT_NULL(clients_info, RMW_RET_INVALID_ARGUMENT);
     if (rmw_service_endpoint_info_array_check_zero(clients_info) != RMW_RET_OK) {
+        RMW_IOX2_CHAIN_ERROR_MSG("clients_info is not zero initialized");
         return RMW_RET_INVALID_ARGUMENT;
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    return RMW_RET_OK;
 }
 }

@@ -11,9 +11,11 @@
 
 #include "iox2/attribute_specifier.hpp"
 #include "iox2/backpressure_strategy.hpp"
+#include "rcutils/error_handling.h"
 #include "rmw/qos_profiles.h"
 #include "rmw/types.h"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 #include <cstring>
@@ -28,7 +30,7 @@ using ::rmw::iox2::ProfileKind;
 using ::rmw::iox2::Qos;
 using ::rmw::iox2::QosError;
 using ::rmw::iox2::TryConvert;
-namespace attributes = ::rmw::iox2::qos::attributes;
+namespace attributes = ::rmw::iox2::attributes;
 
 class QosTest : public ::testing::Test
 {
@@ -369,6 +371,12 @@ TEST_F(QosTest, roundtrip_manual_liveliness_with_lease) {
 // Missing attributes
 // ----------------------------------------------------------------------------
 
+TEST_F(QosTest, rejects_malformed_type_hash_without_leaving_an_error) {
+    rcutils_reset_error();
+    EXPECT_FALSE(attributes::TypeHash::decode("not_a_type_hash").has_value());
+    EXPECT_FALSE(rcutils_error_is_set());
+}
+
 TEST_F(QosTest, rejects_empty_attribute_set) {
     ::iox2::AttributeSpecifier empty_spec;
     auto result = TryConvert<Qos>::from(empty_spec.attributes(), ProfileKind::PUBLISH_SUBSCRIBE);
@@ -416,6 +424,26 @@ auto collect_mismatches(const Qos& qos, ::iox2::AttributeSetView attribute_set) 
 }
 } // namespace
 
+TEST_F(QosTest, mismatch_reports_type_hash_difference) {
+    auto resolved = TryConvert<Qos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
+    ASSERT_TRUE(resolved.has_value());
+
+    auto existing = rosidl_get_zero_initialized_type_hash();
+    existing.version = 1;
+    existing.value[0] = 1;
+    auto requested = existing;
+    requested.value[0] = 2;
+    auto spec = TryConvert<::iox2::AttributeSpecifier>::from(resolved.value(),
+                                                             ::iox2::bb::Optional<rosidl_type_hash_t>{existing});
+    ASSERT_TRUE(spec.has_value());
+
+    rcutils_reset_error();
+    ::rmw::iox2::log_attribute_mismatch(
+        resolved.value(), ::iox2::bb::Optional<rosidl_type_hash_t>{requested}, spec.value().attributes(), "/Topic");
+    EXPECT_NE(std::string(rcutils_get_error_string().str).find("type hash mismatch on '/Topic'"), std::string::npos);
+    rcutils_reset_error();
+}
+
 TEST_F(QosTest, mismatch_reports_none_when_attributes_match) {
     auto resolved = TryConvert<Qos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
     ASSERT_TRUE(resolved.has_value());
@@ -443,7 +471,7 @@ TEST_F(QosTest, mismatch_reports_reliability_difference) {
 
     auto diffs = collect_mismatches(resolved_a.value(), spec_b.value().attributes());
     ASSERT_EQ(diffs.size(), 1u);
-    EXPECT_EQ(diffs[0].key, "rmw.qos.local.reliability");
+    EXPECT_EQ(diffs[0].key, "ros.qos.reliability");
     EXPECT_EQ(diffs[0].requested, "reliable");
     EXPECT_EQ(diffs[0].existing, "best_effort");
 }
@@ -464,7 +492,7 @@ TEST_F(QosTest, mismatch_reports_history_depth_difference) {
 
     auto diffs = collect_mismatches(resolved_a.value(), spec_b.value().attributes());
     ASSERT_EQ(diffs.size(), 1u);
-    EXPECT_EQ(diffs[0].key, "rmw.qos.local.history");
+    EXPECT_EQ(diffs[0].key, "ros.qos.history");
     EXPECT_EQ(diffs[0].requested, "keep_last:5");
     EXPECT_EQ(diffs[0].existing, "keep_last:20");
 }
@@ -485,7 +513,7 @@ TEST_F(QosTest, mismatch_reports_durability_difference) {
 
     auto diffs = collect_mismatches(resolved_a.value(), spec_b.value().attributes());
     ASSERT_EQ(diffs.size(), 1u);
-    EXPECT_EQ(diffs[0].key, "rmw.qos.local.durability");
+    EXPECT_EQ(diffs[0].key, "ros.qos.durability");
     EXPECT_EQ(diffs[0].requested, "volatile");
     EXPECT_EQ(diffs[0].existing, "transient_local");
 }
@@ -512,9 +540,9 @@ TEST_F(QosTest, mismatch_reports_multiple_diffs_in_schema_order) {
 
     auto diffs = collect_mismatches(resolved_a.value(), spec_b.value().attributes());
     ASSERT_EQ(diffs.size(), 3u);
-    EXPECT_EQ(diffs[0].key, "rmw.qos.local.history");
-    EXPECT_EQ(diffs[1].key, "rmw.qos.local.reliability");
-    EXPECT_EQ(diffs[2].key, "rmw.qos.local.durability");
+    EXPECT_EQ(diffs[0].key, "ros.qos.history");
+    EXPECT_EQ(diffs[1].key, "ros.qos.reliability");
+    EXPECT_EQ(diffs[2].key, "ros.qos.durability");
 }
 
 } // namespace

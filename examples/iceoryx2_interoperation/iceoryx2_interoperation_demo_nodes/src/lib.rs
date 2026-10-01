@@ -1,3 +1,4 @@
+use std::ffi::c_void;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use iceoryx2::prelude::*;
@@ -28,5 +29,17 @@ pub struct Payload(pub TransmissionData);
 unsafe impl ZeroCopySend for Payload {
     unsafe fn type_name() -> &'static str {
         <TransmissionData as RmwMessage>::TYPE_NAME
+    }
+}
+
+/// The REP-2011 type hash of `TransmissionData` as a RIHS string
+/// (`RIHS01_<hex>`), read from the message's rosidl typesupport. This is the
+/// same value `rmw_iceoryx2` stamps on the service as the `ros.type_hash`
+/// attribute, so it must be mirrored for a compatible open.
+pub fn type_hash() -> String {
+    unsafe {
+        rmw_iceoryx2_interoperability::type_hash(
+            TransmissionData::get_type_support() as *const c_void
+        )
     }
 }

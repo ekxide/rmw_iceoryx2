@@ -1,3 +1,4 @@
+use std::ffi::c_void;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use iceoryx2::prelude::*;
@@ -30,4 +31,9 @@ unsafe impl ZeroCopySend for Payload {
     unsafe fn type_name() -> &'static str {
         <Sample as RmwMessage>::TYPE_NAME
     }
+}
+
+/// Type hash of `Sample`, as stored in the `ros.type_hash` service attribute.
+pub fn type_hash() -> String {
+    unsafe { rmw_iceoryx2_interoperability::type_hash(Sample::get_type_support() as *const c_void) }
 }

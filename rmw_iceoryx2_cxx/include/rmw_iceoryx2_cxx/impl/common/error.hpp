@@ -71,6 +71,13 @@ enum class QosError : uint8_t {
     ATTRIBUTE_DEFINITION_FAILURE,
     ATTRIBUTE_DECODING_FAILURE,
 };
+enum class GraphError : uint8_t {
+    LISTING_FAILURE,
+    SERVICE_NAME_CREATION_FAILURE,
+    SERVICE_OPEN_FAILURE,
+    QOS_DECODING_FAILURE,
+    NODE_NOT_FOUND,
+};
 
 /**
  * @brief Trait to determine the error type of a given type T

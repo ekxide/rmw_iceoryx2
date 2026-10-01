@@ -2,7 +2,7 @@ use core::time::Duration;
 
 use iceoryx2::prelude::*;
 use iceoryx2_interoperation_demo_nodes::{
-    pretty, system_time_nanos, MessageInfoHeader, Payload, SERVICE_NAME,
+    pretty, system_time_nanos, type_hash, MessageInfoHeader, Payload, SERVICE_NAME,
 };
 use rmw_iceoryx2_interoperation_demo_msgs::msg::rmw::TransmissionData;
 
@@ -25,28 +25,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // default profile (KeepLast 10, reliable) so either peer may create the service first.
     let qos = AttributeVerifier::new()
         .require(
-            &"rmw.qos.local.history".try_into()?,
+            &"ros.qos.history".try_into()?,
             &"keep_last:10".try_into()?,
         )?
         .require(
-            &"rmw.qos.local.reliability".try_into()?,
+            &"ros.qos.reliability".try_into()?,
             &"reliable".try_into()?,
         )?
         .require(
-            &"rmw.qos.local.durability".try_into()?,
+            &"ros.qos.durability".try_into()?,
             &"volatile".try_into()?,
         )?
         .require(
-            &"rmw.qos.local.deadline".try_into()?,
+            &"ros.qos.deadline".try_into()?,
             &"duration:0:0".try_into()?,
         )?
         .require(
-            &"rmw.qos.local.lifespan".try_into()?,
+            &"ros.qos.lifespan".try_into()?,
             &"duration:0:0".try_into()?,
         )?
         .require(
-            &"rmw.qos.local.liveliness".try_into()?,
+            &"ros.qos.liveliness".try_into()?,
             &"automatic:0:0".try_into()?,
+        )?
+        .require(
+            &"ros.type_hash".try_into()?,
+            &type_hash().as_str().try_into()?,
         )?;
 
     let service = node

@@ -17,11 +17,11 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
-#include "rmw_iceoryx2_interoperability/rmw_iceoryx2_interoperability.h"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
 namespace rmw::iox2
@@ -123,7 +123,7 @@ public:
 
 private:
     /// @brief Populate the user-header message info (source timestamp, sequence number) before sending.
-    void populate_message_info(UserHeader& header);
+    auto populate_message_info(UserHeader& header) -> void;
 
     // m_topic, m_unserialized_size, m_is_self_contained, m_service_name, and m_qos are logically
     // const after construction. The `const` qualifier is omitted only because

@@ -11,8 +11,10 @@
 #define RMW_IOX2_QOS_DIAGNOSTICS_HPP_
 
 #include "iox2/attribute_set.hpp"
+#include "iox2/bb/optional.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
+#include "rosidl_runtime_c/type_hash.h"
 
 namespace rmw::iox2
 {
@@ -20,13 +22,16 @@ namespace rmw::iox2
 /// Emit `RMW_IOX2_LOG_WARN` for every policy that cannot be mapped to
 /// iceoryx2.
 RMW_PUBLIC
-void log_unsupported_policies(const Qos& qos, const char* topic) noexcept;
+auto log_unsupported_policies(const Qos& qos, const char* topic) noexcept -> void;
 
 /// Chain a per-key QoS mismatch error message via `RMW_IOX2_CHAIN_ERROR_MSG`,
-/// comparing `requested` against the values in `existing` (attributes of the
+/// comparing `requested` and `type_hash` against the values in `existing` (attributes of the
 /// iceoryx2 service).
 RMW_PUBLIC
-void log_attribute_mismatch(const Qos& requested, ::iox2::AttributeSetView existing, const char* topic) noexcept;
+auto log_attribute_mismatch(const Qos& requested,
+                            const ::iox2::bb::Optional<rosidl_type_hash_t>& type_hash,
+                            ::iox2::AttributeSetView existing,
+                            const char* topic) noexcept -> void;
 
 } // namespace rmw::iox2
 

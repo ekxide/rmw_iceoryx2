@@ -12,12 +12,11 @@
 #include "iox2/bb/into.hpp"
 #include "iox2/message_type_details.hpp"
 #include "iox2/type_variant.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
-#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/qos/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
 namespace rmw::iox2
@@ -60,9 +59,10 @@ Subscriber::Subscriber(CreationLock,
         }
     }
 
-    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos);
+    // The type hash is stored alongside QoS so graph introspection can report it.
+    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos, ::rmw::iox2::message_type_hash(m_typesupport));
     if (!verifier.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to build QoS attribute verifier");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to build service attribute verifier");
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
