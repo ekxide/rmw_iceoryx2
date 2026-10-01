@@ -202,17 +202,29 @@ We would be happy to discuss your use-case and explore the options together.
 
 ### Is `rmw_iceoryx2` capable of host-to-host communication?
 
-In its current form, `rmw_iceoryx2` only supports communication within a single host. However, `iceoryx2` has so-called `Gateways`
-and `Tunnels` on the roadmap which will support this use-case and should be available in the coming months.
+`rmw_iceoryx2` communicates over shared memory, which is limited to a single host. Communication across hosts is
+possible with the [`iceoryx2-link`](https://github.com/eclipse-iceoryx/iceoryx2/tree/main/iceoryx2-link), which extends
+`iceoryx2` services across the boundary of a shared-memory domain.
 
-A `Gateway` bridges between hosts using a host-to-host-capable middleware with a defined on-wire protocol, such as
-[`zenoh`](https://github.com/eclipse-zenoh/zenoh), which runs in an isolated process and exchanges payloads via `iceoryx2`
-shared-memory communication. This keeps network communication isolated from safety-critical software.
+A [tunnel](https://ekxide.github.io/iceoryx2-book/main/fundamentals/links.html#tunnels) is one flavor of the
+`iceoryx2-link` that connects `iceoryx2` systems on different hosts to each other. With a tunnel running on each host,
+ROS 2 topics are made available across all of them.
 
-A `Tunnel` provides a more direct approach to host-to-host communication while maintaining the same process isolation model.
-However, instead of using an intermediary middleware like  `zenoh`, a `Tunnel` writes message payloads directly to the transport layer.
-For example, a `Tunnel` using [`smoltcp`](https://github.com/smoltcp-rs/smoltcp) would handle TCP/IP communication directly,
-offering lower latency but requiring more careful handling of network communication details.
+`iceoryx2` provides a tunnel implementation over [`zenoh`](https://zenoh.io). The usage of `zenoh` is isolated in the
+tunnel's own process, while ROS 2 applications keep communicating over shared memory. The applications therefore do not
+link any network code, and a fault in the network stack stays contained in the tunnel process. By default, tunnels on
+the same network find each other automatically.
+
+It is installed as an extension of the `iox2` CLI:
+
+```console
+cargo install iceoryx2-cli
+cargo install iceoryx2-integrations-zenoh-link-tunnel-cli
+iox2 link tunnel zenoh --help
+```
+
+> [!IMPORTANT]
+> The link is currently a prototype and only recommended for experimentation in development deployments.
 
 ### What is a self-contained message?
 
