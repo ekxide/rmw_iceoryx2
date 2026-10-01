@@ -72,8 +72,7 @@ auto GuardCondition::service_name() const -> const std::string& {
 auto GuardCondition::trigger() -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
-    if (auto result = m_iox2_notifier->notify_with_custom_event_id(Iceoryx2::EventId(trigger_id()));
-        !result.has_value()) {
+    if (auto result = m_iox2_notifier->notify(); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::NOTIFICATION_FAILURE);
     };

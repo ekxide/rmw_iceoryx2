@@ -34,6 +34,7 @@
 * Skip topics that cannot be opened in the per-node graph queries [#62](https://github.com/ekxide/rmw_iceoryx2/issues/62)
 * Report endpoints of unknown nodes with placeholder names [#63](https://github.com/ekxide/rmw_iceoryx2/issues/63)
 * Propagate the errors of the endpoint info setters [#64](https://github.com/ekxide/rmw_iceoryx2/issues/64)
+* Fix guard conditions failing after 255 per context [#82](https://github.com/ekxide/rmw_iceoryx2/issues/82)
 
 ### Refactoring
 

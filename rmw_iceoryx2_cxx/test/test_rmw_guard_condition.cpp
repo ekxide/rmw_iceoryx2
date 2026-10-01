@@ -91,20 +91,24 @@ TEST_F(RmwGuardConditionTest, trigger) {
     auto listener = iox2_listener(names::guard_condition(guard_condition->context->instance_id, impl->trigger_id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
-    size_t received_id = 0;
     bool received = false;
-    auto wait_result = listener.timed_wait(
-        [&](auto activation) {
-            received_id = activation.id().as_value();
-            received = true;
-        },
-        ::iox2::bb::Duration::from_micros(500u));
+    auto wait_result = listener.timed_wait([&](auto) { received = true; }, ::iox2::bb::Duration::from_micros(500u));
 
     ASSERT_TRUE(wait_result.has_value()) << "failed to wait for trigger";
     ASSERT_TRUE(received);
-    ASSERT_EQ(received_id, impl->trigger_id());
 
     EXPECT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
+}
+
+TEST_F(RmwGuardConditionTest, trigger_more_guard_conditions_than_event_ids) {
+    constexpr size_t GUARD_CONDITION_COUNT = 300;
+
+    for (size_t i = 0; i < GUARD_CONDITION_COUNT; ++i) {
+        auto guard_condition = rmw_create_guard_condition(test_context());
+        ASSERT_NE(guard_condition, nullptr);
+        ASSERT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
+        ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
+    }
 }
 
 } // namespace
