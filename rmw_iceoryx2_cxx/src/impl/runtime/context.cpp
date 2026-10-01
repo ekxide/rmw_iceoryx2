@@ -45,8 +45,7 @@ rmw_context_impl_s::rmw_context_impl_s(rmw_context_impl_s&& other) noexcept
     : m_id{other.m_id}
     , m_iox2{std::move(other.m_iox2)}
     , m_graph_guard_condition{std::move(other.m_graph_guard_condition)}
-    , m_options{std::move(other.m_options)}
-    , m_guard_condition_counter{other.m_guard_condition_counter.exchange(0)} {
+    , m_options{std::move(other.m_options)} {
 }
 
 auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_context_impl_s& {
@@ -55,7 +54,6 @@ auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_c
         m_iox2 = std::move(other.m_iox2);
         m_graph_guard_condition = std::move(other.m_graph_guard_condition);
         m_options = std::move(other.m_options);
-        m_guard_condition_counter.store(other.m_guard_condition_counter.exchange(0));
     }
     return *this;
 }
@@ -70,10 +68,6 @@ auto rmw_context_impl_s::iox2() -> Iceoryx2& {
 
 auto rmw_context_impl_s::options() const -> const rmw_init_options_impl_s& {
     return m_options;
-}
-
-auto rmw_context_impl_s::generate_guard_condition_id() -> uint32_t {
-    return m_guard_condition_counter++;
 }
 
 auto rmw_context_impl_s::notify_graph_change() -> void {
