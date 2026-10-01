@@ -18,6 +18,7 @@
   <depend>rcutils</depend>
   <depend>rcpputils</depend>
   <depend>rmw</depend>
+  <depend>rosidl_runtime_c</depend>
   <depend>rosidl_runtime_cpp</depend>
   <depend>rosidl_typesupport_cpp</depend>
   <depend>rosidl_typesupport_fastrtps_c</depend>

@@ -19,8 +19,18 @@ benchmark := justfile_directory() / "benchmark"
 # rmw_iceoryx2 + ROS 2 CLI packages
 minimal_packages := "ros2cli_common_extensions rmw_iceoryx2_cxx"
 
-# Disable colcon-cargo's Cargo-workspace discovery. It enumerates every member of
-# the vendored iceoryx2 cargo workspace as a colcon package and folds their
-# dev-dependencies into the build order, creating `*-tests-common` cycles that make
-# `colcon build` fail to order packages topologically.
+# Disable colcon-cargo's Cargo-workspace discovery: it counts dev-dependencies as
+# build-order dependencies, which makes the iceoryx2 crates cyclic and `colcon build`
+# fail.
+# Remove once colcon-cargo leaves dev-dependencies out of the build order and no
+# longer claims the iceoryx2 workspace root and its member crates.
 colcon_blocklist := "colcon_core.package_discovery.cargo_workspace:colcon_core.package_identification.cargo_workspace"
+
+# The other rmw implementations and the packages only they need.
+other_rmw_packages := "\
+    rmw_connextdds rmw_connextdds_common rmw_connextddsmicro rti_connext_dds_cmake_module \
+    rmw_cyclonedds_cpp cyclonedds iceoryx_binding_c iceoryx_hoofs iceoryx_posh \
+    rmw_fastrtps_cpp rmw_fastrtps_dynamic_cpp rmw_fastrtps_shared_cpp fastdds foonathan_memory_vendor \
+    rosidl_dynamic_typesupport_fastrtps \
+    rmw_zenoh_cpp zenoh_cpp_vendor \
+    rmw_dds_common rmw_security_common pluginlib rosidl_buffer_backend_registry"

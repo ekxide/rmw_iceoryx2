@@ -19,4 +19,4 @@ build *extra_packages:
 
     cd "{{ws}}"
     export COLCON_EXTENSION_BLOCKLIST="{{colcon_blocklist}}"
-    RMW_IMPLEMENTATION={{rmw}} colcon build --symlink-install --packages-up-to {{minimal_packages}} {{extra_packages}}
+    RMW_IMPLEMENTATION={{rmw}} colcon build --symlink-install --packages-ignore {{other_rmw_packages}} --packages-up-to {{minimal_packages}} {{extra_packages}}
