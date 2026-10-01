@@ -32,6 +32,7 @@
 * Export missing rmw functions [#55](https://github.com/ekxide/rmw_iceoryx2/issues/55)
 * Publish and serialize messages with C typesupport [#57](https://github.com/ekxide/rmw_iceoryx2/issues/57)
 * Skip topics that cannot be opened in the per-node graph queries [#62](https://github.com/ekxide/rmw_iceoryx2/issues/62)
+* Report endpoints of unknown nodes with placeholder names [#63](https://github.com/ekxide/rmw_iceoryx2/issues/63)
 * Propagate the errors of the endpoint info setters [#64](https://github.com/ekxide/rmw_iceoryx2/issues/64)
 
 ### Refactoring

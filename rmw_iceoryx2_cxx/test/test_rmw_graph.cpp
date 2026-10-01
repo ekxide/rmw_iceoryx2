@@ -10,6 +10,8 @@
 #include <gtest/gtest.h>
 
 #include "iox2/node.hpp"
+#include "iox2/service.hpp"
+#include "iox2/service_builder_publish_subscribe.hpp"
 #include "iox2/service_name.hpp"
 #include "rcutils/error_handling.h"
 #include "rcutils/strdup.h"
@@ -21,6 +23,8 @@
 #include "rmw/names_and_types.h"
 #include "rmw/rmw.h"
 #include "rmw/topic_endpoint_info_array.h"
+#include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
@@ -308,6 +312,44 @@ TEST_F(RmwGraphTest, can_get_publishers_info_by_topic) {
     EXPECT_STREQ(endpoint.node_namespace, "/RmwTest");
     EXPECT_GT(strlen(endpoint.node_name), 0u);
     EXPECT_TRUE(gid_is_nonzero(endpoint.endpoint_gid));
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
+}
+
+TEST_F(RmwGraphTest, names_publishers_of_unknown_nodes_as_unknown) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    using Payload = rmw::iox2::Publisher::Payload;
+    using UserHeader = rmw::iox2::Publisher::UserHeader;
+
+    auto topic = create_test_topic("/SharedWithNative");
+    ASSERT_NE(create_default_publisher<Defaults>(topic), nullptr);
+
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto service_name = iox2::ServiceName::create(("ros2://topics" + topic).c_str()).value();
+    auto details = iox2::Service<iox2::ServiceType::Ipc>::details(
+        service_name, native_node.config(), iox2::MessagingPattern::PublishSubscribe);
+    ASSERT_TRUE(details.has_value());
+    ASSERT_TRUE(details.value().has_value());
+    auto builder = native_node.service_builder(service_name).publish_subscribe<Payload>().user_header<UserHeader>();
+    iox2::set_payload_type_details(
+        builder, details.value().value().static_details.publish_subscribe().message_type_details().payload());
+    auto native_service = builder.resume_build().open();
+    ASSERT_TRUE(native_service.has_value());
+    auto native_publisher = native_service.value().publisher_builder().create();
+    ASSERT_TRUE(native_publisher.has_value());
+
+    auto allocator = rcutils_get_default_allocator();
+    auto info = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &info));
+    ASSERT_EQ(info.size, 2U);
+    size_t unknown = 0;
+    for (size_t i = 0; i < info.size; ++i) {
+        if (std::string(info.info_array[i].node_name) == rmw::iox2::UNKNOWN_NODE_NAME) {
+            EXPECT_STREQ(info.info_array[i].node_namespace, rmw::iox2::UNKNOWN_NODE_NAMESPACE);
+            ++unknown;
+        }
+    }
+    EXPECT_EQ(unknown, 1U);
 
     ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
 }

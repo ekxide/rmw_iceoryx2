@@ -28,6 +28,10 @@
 namespace rmw::iox2
 {
 
+/// Name and namespace reported for an endpoint whose node is not a ROS node in the graph
+constexpr const char* UNKNOWN_NODE_NAME = "_NODE_NAME_UNKNOWN_";
+constexpr const char* UNKNOWN_NODE_NAMESPACE = "_NODE_NAMESPACE_UNKNOWN_";
+
 class Graph;
 
 template <>
