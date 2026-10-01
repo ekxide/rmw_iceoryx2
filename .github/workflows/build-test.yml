@@ -43,8 +43,11 @@ jobs:
       - name: Check format of all commit messages
         run: ./scripts/ci/check-commit-msg.sh
 
+      - name: Install just
+        run: curl -sSfL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
       - name: Check license header
-        run: ./scripts/ci/check-spdx-license-header.sh
+        run: just check-license-headers
 
   static-code-analysis:
     needs: preflight-check
