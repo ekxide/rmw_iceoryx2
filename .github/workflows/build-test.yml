@@ -162,36 +162,25 @@ jobs:
           echo "C++ compiler version:"
           ${{ matrix.cxx }} --version
 
+      - name: Install just
+        uses: ./src/rmw_iceoryx2/.github/actions/install-just
+
       - name: Build workspace
         run: |
           cd $WORKSPACE_DIR
           . /opt/ros/rolling/setup.sh
-          colcon build \
+          just -f src/rmw_iceoryx2/justfile build-rmw \
             --cmake-args \
               -DCMAKE_C_COMPILER=${{ matrix.cc }} \
               -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DBUILD_TESTING=On \
-            --symlink-install \
-            --packages-up-to \
-              rmw_iceoryx2_cxx_test_msgs \
-              rmw_iceoryx2_cxx
+              -DBUILD_TESTING=On
 
       - name: Run tests
         run: |
           cd $WORKSPACE_DIR
           . /opt/ros/rolling/setup.sh
-          . install/setup.sh
-          colcon test \
-            --packages-select rmw_iceoryx2_cxx \
-            --event-handlers console_direct+ \
-            --return-code-on-test-failure
-
-      - name: Generate test reports
-        if: always()
-        run: |
-          cd $WORKSPACE_DIR
-          colcon test-result --verbose
+          just -f src/rmw_iceoryx2/justfile test-rmw
 
       - name: Upload test results
         if: always()

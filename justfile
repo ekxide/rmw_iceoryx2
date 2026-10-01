@@ -3,6 +3,7 @@
 
 import '.just/common.just'
 import '.just/build.just'
+import '.just/test.just'
 import '.just/examples.just'
 import '.just/benchmarks.just'
 import '.just/ci.just'

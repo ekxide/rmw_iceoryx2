@@ -19,4 +19,14 @@ build *extra_packages:
 
     cd "{{ws}}"
     export COLCON_EXTENSION_BLOCKLIST="{{colcon_blocklist}}"
-    RMW_IMPLEMENTATION={{rmw}} colcon build --symlink-install --packages-ignore {{other_rmw_packages}} --packages-up-to {{minimal_packages}} {{extra_packages}}
+    RMW_IMPLEMENTATION={{rmw}} colcon build --symlink-install --packages-ignore {{other_rmw_packages}} --packages-up-to {{rmw}} ros2cli_common_extensions {{extra_packages}}
+
+# Build only rmw_iceoryx2 and its tests; extra arguments are passed to colcon.
+[group('build')]
+build-rmw *colcon_args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    cd "{{ws}}"
+    export COLCON_EXTENSION_BLOCKLIST="{{colcon_blocklist}}"
+    colcon build --symlink-install --packages-up-to {{rmw}} {{colcon_args}}

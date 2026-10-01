@@ -16,9 +16,6 @@ rmw := "rmw_iceoryx2_cxx"
 examples := justfile_directory() / "examples"
 benchmark := justfile_directory() / "benchmark"
 
-# rmw_iceoryx2 + ROS 2 CLI packages
-minimal_packages := "ros2cli_common_extensions rmw_iceoryx2_cxx"
-
 # Disable colcon-cargo's Cargo-workspace discovery: it counts dev-dependencies as
 # build-order dependencies, which makes the iceoryx2 crates cyclic and `colcon build`
 # fail.
