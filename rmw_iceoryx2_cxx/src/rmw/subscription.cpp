@@ -259,6 +259,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
         }
         rmw_subscription->data = subscriber_impl.value();
     }
+    rmw_node->context->impl->notify_graph_change();
 
     return rmw_subscription;
 }
@@ -282,6 +283,9 @@ rmw_ret_t rmw_destroy_subscription(rmw_node_t* rmw_node, rmw_subscription_t* rmw
         deallocate(rmw_subscription->data);
     }
     rmw_subscription_free(rmw_subscription);
+    if (rmw_node->context->impl != nullptr) {
+        rmw_node->context->impl->notify_graph_change();
+    }
 
     return RMW_RET_OK;
 }

@@ -30,6 +30,9 @@ std::string guard_condition(const uint32_t context_id, const uint32_t guard_cond
 RMW_PUBLIC
 std::string topic(const char* topic);
 
+RMW_PUBLIC
+std::string graph();
+
 } // namespace rmw::iox2::names
 
 #endif // RMW_IOX2_SERVICE_NAMES_HPP_

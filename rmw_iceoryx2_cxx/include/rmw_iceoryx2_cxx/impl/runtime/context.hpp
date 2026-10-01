@@ -11,6 +11,7 @@
 #define RMW_IOX2_RUNTIME_CONTEXT_HPP_
 
 #include "iox2/bb/optional.hpp"
+#include "iox2/port_factory_event.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -40,6 +41,10 @@ enum class QosMatchingMode : uint8_t {
 constexpr size_t DEFAULT_MAX_PUBLISHERS_PER_TOPIC = 32U;
 constexpr size_t DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC = 32U;
 constexpr size_t DEFAULT_MAX_NODES_PER_SERVICE = 32U;
+
+/// Limits of the graph event service, used only when a context creates it.
+constexpr size_t GRAPH_MAX_CONTEXTS = 256U;
+constexpr size_t GRAPH_MAX_LISTENERS = 1024U;
 
 } // namespace rmw::iox2
 
@@ -74,6 +79,7 @@ class RMW_PUBLIC rmw_context_impl_s
 {
     using CreationLock = ::rmw::iox2::CreationLock;
     using Iceoryx2 = ::rmw::iox2::Iceoryx2;
+    using GraphService = ::iox2::PortFactoryEvent<Iceoryx2::ServiceType::Ipc>;
 
 public:
     using ErrorType = ::rmw::iox2::Error<rmw_context_impl_s>::Type;
@@ -114,12 +120,21 @@ public:
     /// @return The generated guard condition ID
     auto generate_guard_condition_id() -> uint32_t;
 
+    /// @brief Get the event service notified on every change to the graph
+    /// @return The service, or empty if this context could not join it
+    auto graph_service() -> ::iox2::bb::Optional<GraphService>&;
+
+    /// @brief Wake the graph guard conditions of every context
+    auto notify_graph_change() -> void;
+
 private:
     // m_id is logically const after construction. The `const` qualifier is omitted
     // only because the explicit move-assignment operator needs to overwrite it.
     // Do not mutate.
     uint32_t m_id;
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
+    ::iox2::bb::Optional<GraphService> m_graph_service;
+    ::iox2::bb::Optional<Iceoryx2::InterProcess::Notifier> m_graph_notifier;
     rmw_init_options_impl_s m_options;
     std::atomic<uint32_t> m_guard_condition_counter{0};
 };

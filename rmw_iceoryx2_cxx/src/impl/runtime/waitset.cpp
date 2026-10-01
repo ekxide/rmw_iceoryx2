@@ -163,7 +163,7 @@ auto WaitSet::attach_mapped_listener(const RmwMapping& mapping) -> ::iox2::bb::E
 
     switch (mapping.waitable_type) {
     case WaitableEntity::GUARD_CONDITION:
-        return attach_mapped_listener_impl((*mapping.entity.get<GuardCondition*>())->listener(), mapping);
+        return attach_mapped_listener_impl(**mapping.entity.get<GuardCondition*>(), mapping);
     case WaitableEntity::SUBSCRIBER:
         return attach_mapped_listener_impl((*mapping.entity.get<Subscriber*>())->listener(), mapping);
     default:

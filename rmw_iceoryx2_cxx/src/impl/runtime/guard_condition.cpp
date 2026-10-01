@@ -13,13 +13,17 @@
 #include "iox2/bb/optional.hpp"
 #include "iox2/event_id.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 
 namespace rmw::iox2
 {
 
-GuardCondition::GuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context)
+GuardCondition::GuardCondition(CreationLock,
+                               ::iox2::bb::Optional<ErrorType>& error,
+                               Context& context,
+                               GuardConditionKind kind)
     : m_trigger_id{context.generate_guard_condition_id()}
     , m_service_name{names::guard_condition(context.id(), m_trigger_id)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
@@ -53,6 +57,22 @@ GuardCondition::GuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& er
     }
 
     m_iox2_listener.emplace(std::move(iox2_listener.value()));
+
+    if (kind == GuardConditionKind::USER) {
+        return;
+    }
+
+    if (!context.graph_service().has_value()) {
+        return;
+    }
+
+    auto graph_listener = context.graph_service()->listener_builder().create();
+    if (!graph_listener.has_value()) {
+        RMW_IOX2_LOG_WARN("failed to create the graph listener: %s",
+                          ::iox2::bb::into<const char*>(graph_listener.error()));
+        return;
+    }
+    m_iox2_graph_listener.emplace(std::move(graph_listener.value()));
 };
 
 auto GuardCondition::trigger_id() const -> uint32_t {
@@ -82,12 +102,19 @@ auto GuardCondition::trigger() -> ::iox2::bb::Expected<void, ErrorType> {
 
 auto GuardCondition::drain() -> bool {
     bool triggered = false;
-    (void)m_iox2_listener->try_wait([&triggered](auto) { triggered = true; });
+    auto on_event = [&triggered](auto) { triggered = true; };
+    (void)m_iox2_listener->try_wait(on_event);
+    if (m_iox2_graph_listener.has_value()) {
+        (void)m_iox2_graph_listener->try_wait(on_event);
+    }
     return triggered;
 }
 
-auto GuardCondition::listener() -> IceoryxListener& {
-    return m_iox2_listener.value();
+auto GuardCondition::file_descriptor() const -> ::iox2::FileDescriptorView {
+    if (m_iox2_graph_listener.has_value()) {
+        return m_iox2_graph_listener->file_descriptor();
+    }
+    return m_iox2_listener->file_descriptor();
 }
 
 } // namespace rmw::iox2

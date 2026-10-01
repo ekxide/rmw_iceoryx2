@@ -133,6 +133,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
         }
         rmw_publisher->data = publisher_impl.value();
     }
+    rmw_node->context->impl->notify_graph_change();
 
     return rmw_publisher;
 }
@@ -156,6 +157,9 @@ rmw_ret_t rmw_destroy_publisher(rmw_node_t* rmw_node, rmw_publisher_t* rmw_publi
         deallocate(rmw_publisher->data);
     }
     rmw_publisher_free(rmw_publisher);
+    if (rmw_node->context->impl != nullptr) {
+        rmw_node->context->impl->notify_graph_change();
+    }
 
     return RMW_RET_OK;
 }
