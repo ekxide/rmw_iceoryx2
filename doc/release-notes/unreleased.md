@@ -31,6 +31,7 @@
 * Fix `rmw_wait` missing subscriptions and guard conditions that were ready before or during the wait [#51](https://github.com/ekxide/rmw_iceoryx2/issues/51)
 * Export missing rmw functions [#55](https://github.com/ekxide/rmw_iceoryx2/issues/55)
 * Publish and serialize messages with C typesupport [#57](https://github.com/ekxide/rmw_iceoryx2/issues/57)
+* Propagate the errors of the endpoint info setters [#64](https://github.com/ekxide/rmw_iceoryx2/issues/64)
 
 ### Refactoring
 
