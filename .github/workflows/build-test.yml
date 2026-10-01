@@ -39,12 +39,15 @@ jobs:
     steps:
       - name: Check out sources
         uses: actions/checkout@v4
-
-      - name: Check format of all commit messages
-        run: ./scripts/ci/check-commit-msg.sh
+        with:
+          # the commit message check needs the history of the branch
+          fetch-depth: 0
 
       - name: Install just
-        run: curl -sSfL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+        uses: ./.github/actions/install-just
+
+      - name: Check format of all commit messages
+        run: just check-commit-messages
 
       - name: Check license header
         run: just check-license-headers
@@ -61,13 +64,16 @@ jobs:
       - name: Install clang toolchain
         uses: ./.github/actions/install-clang
 
+      - name: Install just
+        uses: ./.github/actions/install-just
+
       - name: Display clang-format and clang-tidy versions
         run: |
           clang-format --version
           clang-tidy --version
 
       - name: Run clang-format
-        run: git ls-files | grep -E "\.(c|cc|cpp|cxx|inl|h|hh|hpp|hxx)$" | xargs clang-format -i -style=file --Werror --dry-run
+        run: just check-clang-format
 
 #     - name: Run clang-tidy
 #       run: |
