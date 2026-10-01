@@ -26,11 +26,5 @@ minimal_packages := "ros2cli_common_extensions rmw_iceoryx2_cxx"
 # longer claims the iceoryx2 workspace root and its member crates.
 colcon_blocklist := "colcon_core.package_discovery.cargo_workspace:colcon_core.package_identification.cargo_workspace"
 
-# The other rmw implementations and the packages only they need.
-other_rmw_packages := "\
-    rmw_connextdds rmw_connextdds_common rmw_connextddsmicro rti_connext_dds_cmake_module \
-    rmw_cyclonedds_cpp cyclonedds iceoryx_binding_c iceoryx_hoofs iceoryx_posh \
-    rmw_fastrtps_cpp rmw_fastrtps_dynamic_cpp rmw_fastrtps_shared_cpp fastdds foonathan_memory_vendor \
-    rosidl_dynamic_typesupport_fastrtps \
-    rmw_zenoh_cpp zenoh_cpp_vendor \
-    rmw_dds_common rmw_security_common pluginlib rosidl_buffer_backend_registry"
+# The other rmw implementations.
+other_rmw_packages := "rmw_connextdds rmw_connextddsmicro rmw_cyclonedds_cpp rmw_fastrtps_cpp rmw_fastrtps_dynamic_cpp rmw_zenoh_cpp"

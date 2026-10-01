@@ -82,15 +82,20 @@ bindings to the Rust core.
     git clone -b rolling https://github.com/ekxide/rmw_iceoryx2.git ~/workspace/src/rmw_iceoryx2/
     ```
 
-1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes:
+1. Build ROS 2 with `rmw_iceoryx2` and the demo nodes, using the `build` recipe
+   of the root `justfile` (requires [`just`](https://github.com/casey/just#installation)):
 
     ```console
     cd ~/workspace/
-    # Disable colcon-cargo's Cargo-workspace discovery: it enumerates every member of the
-    # vendored iceoryx2 cargo workspace as a colcon package, creating dependency cycles
-    # that make the build fail to order packages topologically.
-    export COLCON_EXTENSION_BLOCKLIST="colcon_core.package_discovery.cargo_workspace:colcon_core.package_identification.cargo_workspace"
-    RMW_IMPLEMENTATION=rmw_iceoryx2_cxx colcon build --symlink-install --packages-up-to ros2cli_common_extensions rmw_iceoryx2_cxx rmw_iceoryx2_talker_demo_nodes
+    just -f src/rmw_iceoryx2/justfile build rmw_iceoryx2_talker_demo_nodes
+    ```
+
+    The recipe runs `colcon build` for `rmw_iceoryx2`, the ROS 2 CLI and the
+    given packages.  
+    To see the plain `colcon` commands, add `--dry-run`:
+
+    ```console
+    just -f src/rmw_iceoryx2/justfile --dry-run build rmw_iceoryx2_talker_demo_nodes
     ```
 
 1. Verify the build:
