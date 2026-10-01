@@ -408,8 +408,8 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
     // type hash, and service-level QoS.
     auto endpoint_info = [&](const ::iox2::UniqueNodeId& node_id,
                              const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes) -> EndpointInfo {
-        std::string node_name{};
-        std::string node_namespace{};
+        std::string node_name{UNKNOWN_NODE_NAME};
+        std::string node_namespace{UNKNOWN_NODE_NAMESPACE};
         if (auto entry = nodes.find(to_key(node_id)); entry != nodes.end()) {
             node_name = entry->second.node_name;
             node_namespace = entry->second.node_namespace;
