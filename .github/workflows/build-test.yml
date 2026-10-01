@@ -39,12 +39,18 @@ jobs:
     steps:
       - name: Check out sources
         uses: actions/checkout@v4
+        with:
+          # the commit message check needs the history of the branch
+          fetch-depth: 0
+
+      - name: Install just
+        uses: ./.github/actions/install-just
 
       - name: Check format of all commit messages
-        run: ./scripts/ci/check-commit-msg.sh
+        run: just check-commit-messages
 
       - name: Check license header
-        run: ./scripts/ci/check-spdx-license-header.sh
+        run: just check-license-headers
 
   static-code-analysis:
     needs: preflight-check
@@ -58,13 +64,16 @@ jobs:
       - name: Install clang toolchain
         uses: ./.github/actions/install-clang
 
+      - name: Install just
+        uses: ./.github/actions/install-just
+
       - name: Display clang-format and clang-tidy versions
         run: |
           clang-format --version
           clang-tidy --version
 
       - name: Run clang-format
-        run: git ls-files | grep -E "\.(c|cc|cpp|cxx|inl|h|hh|hpp|hxx)$" | xargs clang-format -i -style=file --Werror --dry-run
+        run: just check-clang-format
 
 #     - name: Run clang-tidy
 #       run: |
@@ -153,36 +162,42 @@ jobs:
           echo "C++ compiler version:"
           ${{ matrix.cxx }} --version
 
+      - name: Install just
+        uses: ./src/rmw_iceoryx2/.github/actions/install-just
+
       - name: Build workspace
         run: |
           cd $WORKSPACE_DIR
           . /opt/ros/rolling/setup.sh
-          colcon build \
+          just -f src/rmw_iceoryx2/justfile build-rmw \
             --cmake-args \
               -DCMAKE_C_COMPILER=${{ matrix.cc }} \
               -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DBUILD_TESTING=On \
-            --symlink-install \
-            --packages-up-to \
-              rmw_iceoryx2_cxx_test_msgs \
-              rmw_iceoryx2_cxx
+              -DBUILD_TESTING=On
 
       - name: Run tests
         run: |
           cd $WORKSPACE_DIR
           . /opt/ros/rolling/setup.sh
-          . install/setup.sh
-          colcon test \
-            --packages-select rmw_iceoryx2_cxx \
-            --event-handlers console_direct+ \
-            --return-code-on-test-failure
+          just -f src/rmw_iceoryx2/justfile test-rmw
 
-      - name: Generate test reports
-        if: always()
-        run: |
-          cd $WORKSPACE_DIR
-          colcon test-result --verbose
+      # Enable once the rmw conformance tests are expected to pass.
+#     - name: Check out rmw conformance tests
+#       uses: actions/checkout@v4
+#       with:
+#         repository: ros2/rmw_implementation
+#         path: src/rmw_implementation
+#         ref: rolling
+#
+#     - name: Run rmw conformance tests
+#       run: |
+#         cd $WORKSPACE_DIR
+#         . /opt/ros/rolling/setup.sh
+#         rosdep update
+#         rosdep install -y --ignore-src --from-paths src/rmw_implementation/test_rmw_implementation
+#         just -f src/rmw_iceoryx2/justfile build-conformance
+#         just -f src/rmw_iceoryx2/justfile test-conformance
 
       - name: Upload test results
         if: always()

@@ -1,0 +1,12 @@
+name: 'Install just'
+inputs:
+  version:
+    description: 'The just version, e.g. 1.46.0'
+    required: false
+    default: 1.46.0
+runs:
+  using: "composite"
+  steps:
+    - name: Install just
+      shell: bash
+      run: curl -sSfL https://just.systems/install.sh | bash -s -- --tag ${{ inputs.version }} --to /usr/local/bin

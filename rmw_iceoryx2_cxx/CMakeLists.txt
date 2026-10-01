@@ -42,7 +42,9 @@ set(AMENT_PACKAGES
     rcpputils
     rmw
     rmw_iceoryx2_interoperability
+    rosidl_runtime_c
     rosidl_runtime_cpp
+    rosidl_typesupport_cpp
     rosidl_typesupport_introspection_c
     rosidl_typesupport_introspection_cpp
     rosidl_typesupport_fastrtps_c
@@ -195,14 +197,17 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   rcutils::rcutils
   rcpputils::rcpputils
   rmw::rmw
+  rosidl_runtime_c::rosidl_runtime_c
   rosidl_runtime_cpp::rosidl_runtime_cpp
+  rosidl_typesupport_cpp::rosidl_typesupport_cpp
   rosidl_typesupport_introspection_c::rosidl_typesupport_introspection_c
   rosidl_typesupport_introspection_cpp::rosidl_typesupport_introspection_cpp
   rosidl_typesupport_fastrtps_c::rosidl_typesupport_fastrtps_c
   rosidl_typesupport_fastrtps_cpp::rosidl_typesupport_fastrtps_cpp
   fastcdr
 )
-ament_export_dependencies(${AMENT_PACKAGES})
+# iceoryx2-cxx is linked publicly, so consumers have to find it as well
+ament_export_dependencies(${AMENT_PACKAGES} iceoryx2-cxx)
 ament_export_targets(${PROJECT_NAME}Targets)
 
 ament_package()

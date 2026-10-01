@@ -12,6 +12,7 @@
 
   <depend>rosidl_default_generators</depend>
   <depend>test_interface_files</depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
