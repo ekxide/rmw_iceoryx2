@@ -51,6 +51,7 @@
 * Use https based url for git repos [#27](https://github.com/ekxide/rmw_iceoryx2/issues/27)
 * Remove dependency on `iceoryx_hoofs` [#33](https://github.com/ekxide/rmw_iceoryx2/issues/27)
 * Attach the listeners of the wait set in one function [#60](https://github.com/ekxide/rmw_iceoryx2/issues/60)
+* Implement guard conditions with a pipe instead of an iceoryx2 event service [#83](https://github.com/ekxide/rmw_iceoryx2/issues/83)
 
 ### Workflow
 

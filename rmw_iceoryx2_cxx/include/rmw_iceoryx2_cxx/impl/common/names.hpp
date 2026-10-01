@@ -25,9 +25,6 @@ RMW_PUBLIC
 std::string node(const uint32_t context_id, const char* name, const char* node_namespace, const char* enclave = "/");
 
 RMW_PUBLIC
-std::string guard_condition(const uint32_t context_id, const uint32_t guard_condition_id);
-
-RMW_PUBLIC
 std::string topic(const char* topic);
 
 RMW_PUBLIC

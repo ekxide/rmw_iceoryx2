@@ -12,7 +12,6 @@
 #include "iox2/bb/optional.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 #include "testing/base.hpp"
 
@@ -32,19 +31,11 @@ protected:
 };
 
 TEST_F(GuardConditionTest, construction) {
-    using ::rmw::iox2::Context;
     using ::rmw::iox2::create_in_place;
-    using ::rmw::iox2::GuardConditionError;
     using ::rmw::iox2::UserGuardCondition;
 
-    rmw_init_options_impl_s options;
-    ::iox2::bb::Optional<Context> context_storage;
-    ASSERT_TRUE(create_in_place(context_storage, test_id(), options).has_value())
-        << "failed to create context for guard condition creation";
-    auto& context = context_storage.value();
-
     ::iox2::bb::Optional<UserGuardCondition> guard_condition_storage;
-    ASSERT_TRUE(create_in_place(guard_condition_storage, context).has_value());
+    ASSERT_TRUE(create_in_place(guard_condition_storage).has_value());
 }
 
 } // namespace
