@@ -182,6 +182,23 @@ jobs:
           . /opt/ros/rolling/setup.sh
           just -f src/rmw_iceoryx2/justfile test-rmw
 
+      # Enable once the rmw conformance tests are expected to pass.
+#     - name: Check out rmw conformance tests
+#       uses: actions/checkout@v4
+#       with:
+#         repository: ros2/rmw_implementation
+#         path: src/rmw_implementation
+#         ref: rolling
+#
+#     - name: Run rmw conformance tests
+#       run: |
+#         cd $WORKSPACE_DIR
+#         . /opt/ros/rolling/setup.sh
+#         rosdep update
+#         rosdep install -y --ignore-src --from-paths src/rmw_implementation/test_rmw_implementation
+#         just -f src/rmw_iceoryx2/justfile build-conformance
+#         just -f src/rmw_iceoryx2/justfile test-conformance
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

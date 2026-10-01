@@ -11,7 +11,7 @@
 # Test Recipes
 # =============================================================================
 
-# Run the rmw_iceoryx2 tests and print the results; extra arguments are passed to colcon.
+# Run the rmw_iceoryx2 tests.
 [group('test')]
 test-rmw *colcon_args:
     #!/usr/bin/env bash
@@ -24,4 +24,21 @@ test-rmw *colcon_args:
     status=0
     colcon test --packages-select {{rmw}} --event-handlers console_direct+ --return-code-on-test-failure {{colcon_args}} || status=$?
     colcon test-result --verbose --test-result-base "build/{{rmw}}" || status=$?
+    exit "$status"
+
+# Run the rmw conformance tests against rmw_iceoryx2.
+[group('test')]
+test-conformance *colcon_args:
+    #!/usr/bin/env bash
+    set -eo pipefail
+
+    cd "{{ws}}"
+    export RMW_IMPLEMENTATION={{rmw}}
+    source install/setup.bash
+
+    # The suite is generated once per installed rmw implementation; only run the one for rmw_iceoryx2.
+    # Print the results even when a test fails, then report the failure.
+    status=0
+    colcon test --packages-ignore {{other_rmw_packages}} --packages-select test_rmw_implementation --event-handlers console_direct+ --return-code-on-test-failure --ctest-args -R {{rmw}} {{colcon_args}} || status=$?
+    colcon test-result --verbose --test-result-base build/test_rmw_implementation || status=$?
     exit "$status"
