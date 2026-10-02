@@ -80,7 +80,7 @@ private:
     std::reference_wrapper<Context> m_context;
     std::string m_name;
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
-    ::iox2::bb::Optional<GuardCondition> m_graph_guard_condition;
+    ::iox2::bb::Optional<GraphGuardCondition> m_graph_guard_condition;
 };
 
 } // namespace rmw::iox2

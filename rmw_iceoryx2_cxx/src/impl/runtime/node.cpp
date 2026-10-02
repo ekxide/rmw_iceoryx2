@@ -34,7 +34,8 @@ Node::Node(CreationLock,
         return;
     }
 
-    if (auto result = create_in_place<GuardCondition>(m_graph_guard_condition, context); !result.has_value()) {
+    if (auto result = create_in_place<GraphGuardCondition>(m_graph_guard_condition, m_iox2.value());
+        !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create GuardCondition");
         error.emplace(ErrorType::GRAPH_GUARD_CONDITION_CREATION_FAILURE);
         return;

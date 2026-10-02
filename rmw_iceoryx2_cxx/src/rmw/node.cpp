@@ -105,6 +105,7 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
         return nullptr;
     }
     rmw_node->data = node_impl.value();
+    rmw_context->impl->notify_graph_change();
 
     return rmw_node;
 }
@@ -117,7 +118,11 @@ rmw_ret_t rmw_destroy_node(rmw_node_t* rmw_node) {
     // Implementation -------------------------------------------------------------------------------
     RMW_IOX2_LOG_DEBUG("Destroying node '%s' in namespace '%s'", rmw_node->name, rmw_node->namespace_);
 
+    auto* context_impl = rmw_node->context->impl;
     cleanup_node(rmw_node);
+    if (context_impl != nullptr) {
+        context_impl->notify_graph_change();
+    }
 
     return RMW_RET_OK;
 }

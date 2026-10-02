@@ -14,6 +14,7 @@
 * Serialize/deserialized non-self-contained messages into `iceoryx2` payloads [#2](https://github.com/ekxide/rmw_iceoryx2/issues/2)
 * Add support for QoS [#5](https://github.com/ekxide/rmw_iceoryx2/issues/2)
 * Implement graph API for publish-subscribe topics [#6](https://github.com/ekxide/rmw_iceoryx2/issues/6)
+* Trigger graph guard conditions when the graph changes [#6](https://github.com/ekxide/rmw_iceoryx2/issues/6)
 * Add ROS 2 <-> iceoryx2 communication example [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 * Add middleware overhead benchmarking application [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 * Implement the missing publish-subscribe functions [#69](https://github.com/ekxide/rmw_iceoryx2/issues/69)

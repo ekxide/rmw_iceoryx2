@@ -23,6 +23,7 @@
 #include "rmw/names_and_types.h"
 #include "rmw/rmw.h"
 #include "rmw/topic_endpoint_info_array.h"
+#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
@@ -31,6 +32,7 @@
 
 #include <cstdlib>
 #include <string>
+#include <thread>
 
 namespace
 {
@@ -623,6 +625,169 @@ TEST_F(RmwGraphTest, frees_endpoint_info_when_an_allocation_fails) {
         rcutils_reset_error();
     }
     EXPECT_RMW_OK(ret);
+}
+
+TEST_F(RmwGraphTest, graph_guard_condition_is_triggered_when_another_context_changes_the_graph) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    const auto* graph_guard_condition = rmw_node_get_graph_guard_condition(test_node());
+    ASSERT_NE(graph_guard_condition, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(waitset, nullptr);
+    void* conditions[] = {graph_guard_condition->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    auto wait = [&](rmw_time_t timeout) {
+        guard_conditions.guard_conditions[0] = graph_guard_condition->data;
+        return rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout);
+    };
+
+    (void)wait(rmw_time_t{0, 0});
+    EXPECT_EQ(wait(rmw_time_t{0, 20000000}), RMW_RET_TIMEOUT);
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    auto* node = rmw_create_node(&context, "Other", "/Sensors");
+    ASSERT_NE(node, nullptr);
+    EXPECT_RMW_OK(wait(rmw_time_t{1, 0}));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+
+    auto topic = create_test_topic("/GraphChange");
+    auto qos = rmw_qos_profile_default;
+    auto publisher_options = rmw_get_default_publisher_options();
+    auto* publisher =
+        rmw_create_publisher(node, test_type_support<Defaults>(), topic.c_str(), &qos, &publisher_options);
+    ASSERT_NE(publisher, nullptr);
+    EXPECT_RMW_OK(wait(rmw_time_t{1, 0}));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+
+    ASSERT_RMW_OK(rmw_destroy_publisher(node, publisher));
+    EXPECT_RMW_OK(wait(rmw_time_t{1, 0}));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+
+    ASSERT_RMW_OK(rmw_destroy_node(node));
+    EXPECT_RMW_OK(wait(rmw_time_t{1, 0}));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+}
+
+TEST_F(RmwGraphTest, graph_guard_conditions_of_every_node_in_a_wait_set_are_triggered) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* other_node = create_default_node("OtherObserver");
+    ASSERT_NE(other_node, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 2);
+    ASSERT_NE(waitset, nullptr);
+    void* first = rmw_node_get_graph_guard_condition(test_node())->data;
+    void* second = rmw_node_get_graph_guard_condition(other_node)->data;
+    void* conditions[] = {first, second};
+    rmw_guard_conditions_t guard_conditions{2, conditions};
+    auto wait = [&](rmw_time_t timeout) {
+        guard_conditions.guard_conditions[0] = first;
+        guard_conditions.guard_conditions[1] = second;
+        return rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout);
+    };
+    (void)wait(rmw_time_t{0, 0});
+
+    create_default_publisher<Defaults>(create_test_topic("/GraphChange"));
+    EXPECT_RMW_OK(wait(rmw_time_t{1, 0}));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+    EXPECT_NE(guard_conditions.guard_conditions[1], nullptr);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+}
+
+TEST_F(RmwGraphTest, triggering_a_graph_guard_condition_wakes_a_waiting_wait_set) {
+    const auto* graph_guard_condition = rmw_node_get_graph_guard_condition(test_node());
+    ASSERT_NE(graph_guard_condition, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(waitset, nullptr);
+    void* conditions[] = {graph_guard_condition->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    rmw_time_t no_wait{0, 0};
+    EXPECT_NE(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &no_wait), RMW_RET_ERROR);
+
+    bool woken = false;
+    std::thread waiter([&] {
+        guard_conditions.guard_conditions[0] = graph_guard_condition->data;
+        rmw_time_t timeout{10, 0};
+        woken = rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout) == RMW_RET_OK
+                && guard_conditions.guard_conditions[0] != nullptr;
+    });
+    EXPECT_RMW_OK(rmw_trigger_guard_condition(graph_guard_condition));
+    waiter.join();
+    EXPECT_TRUE(woken);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+}
+
+class RmwGraphServiceTest : public TestBase
+{
+protected:
+    void TearDown() override {
+        print_rmw_errors();
+    }
+};
+
+TEST_F(RmwGraphServiceTest, contexts_join_a_graph_service_created_by_another_iceoryx2_application) {
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service =
+        native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::graph().c_str()).value())
+            .event()
+            .max_nodes(3)
+            .max_notifiers(2)
+            .max_listeners(2)
+            .create();
+    ASSERT_TRUE(native_service.has_value());
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    EXPECT_EQ(native_service->dynamic_config().number_of_notifiers(), 1U);
+
+    auto* observer = rmw_create_node(&context, "Observer", "/Sensors");
+    ASSERT_NE(observer, nullptr);
+    EXPECT_EQ(native_service->dynamic_config().number_of_notifiers(), 2U);
+    auto* waitset = rmw_create_wait_set(&context, 1);
+    ASSERT_NE(waitset, nullptr);
+    void* conditions[] = {rmw_node_get_graph_guard_condition(observer)->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    rmw_time_t timeout{0, 20000000};
+    auto result = rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout);
+    EXPECT_TRUE(result == RMW_RET_OK || result == RMW_RET_TIMEOUT) << "rmw_wait returned " << result;
+    EXPECT_FALSE(rcutils_error_is_set());
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+    ASSERT_RMW_OK(rmw_destroy_node(observer));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
+}
+
+TEST_F(RmwGraphServiceTest, init_fails_when_the_graph_service_has_no_room_for_another_context) {
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service =
+        native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::graph().c_str()).value())
+            .event()
+            .max_notifiers(1)
+            .create();
+    ASSERT_TRUE(native_service.has_value());
+    auto native_notifier = native_service->notifier_builder().create();
+    ASSERT_TRUE(native_notifier.has_value());
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    auto context = rmw_get_zero_initialized_context();
+    EXPECT_EQ(rmw_init(&options, &context), RMW_RET_ERROR);
+    rcutils_reset_error();
+
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
 }
 
 } // namespace

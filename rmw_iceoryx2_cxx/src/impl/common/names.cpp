@@ -41,4 +41,8 @@ std::string topic(const char* topic) {
     return s;
 }
 
+std::string graph() {
+    return "ros2://graph";
+}
+
 } // namespace rmw::iox2::names

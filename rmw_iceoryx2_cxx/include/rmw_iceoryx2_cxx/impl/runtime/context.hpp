@@ -15,6 +15,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 
 #include <atomic>
 
@@ -40,6 +41,9 @@ enum class QosMatchingMode : uint8_t {
 constexpr size_t DEFAULT_MAX_PUBLISHERS_PER_TOPIC = 32U;
 constexpr size_t DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC = 32U;
 constexpr size_t DEFAULT_MAX_NODES_PER_SERVICE = 32U;
+
+/// Limits of the graph event service, used only when a context creates it.
+constexpr size_t GRAPH_MAX_GUARD_CONDITIONS = 1024U;
 
 } // namespace rmw::iox2
 
@@ -114,12 +118,16 @@ public:
     /// @return The generated guard condition ID
     auto generate_guard_condition_id() -> uint32_t;
 
+    /// @brief Wake the graph guard conditions of every context
+    auto notify_graph_change() -> void;
+
 private:
     // m_id is logically const after construction. The `const` qualifier is omitted
     // only because the explicit move-assignment operator needs to overwrite it.
     // Do not mutate.
     uint32_t m_id;
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
+    ::iox2::bb::Optional<::rmw::iox2::GraphGuardCondition> m_graph_guard_condition;
     rmw_init_options_impl_s m_options;
     std::atomic<uint32_t> m_guard_condition_counter{0};
 };

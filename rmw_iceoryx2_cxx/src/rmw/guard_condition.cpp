@@ -29,7 +29,7 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* rmw_context) {
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
-    using GuardConditionImpl = ::rmw::iox2::GuardCondition;
+    using GuardConditionImpl = ::rmw::iox2::UserGuardCondition;
     using ::rmw::iox2::unsafe_cast;
 
     auto* rmw_guard_condition = rmw_guard_condition_allocate();
@@ -55,7 +55,7 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* rmw_context) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct GuardCondition");
         return nullptr;
     }
-    rmw_guard_condition->data = guard_condition_impl.value();
+    rmw_guard_condition->data = static_cast<::rmw::iox2::GuardCondition*>(guard_condition_impl.value());
 
     return rmw_guard_condition;
 }
