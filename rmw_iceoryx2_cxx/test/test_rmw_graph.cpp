@@ -741,7 +741,7 @@ TEST_F(RmwGraphServiceTest, contexts_join_a_graph_service_created_by_another_ice
     auto native_service =
         native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::graph().c_str()).value())
             .event()
-            .max_nodes(2)
+            .max_nodes(3)
             .max_notifiers(2)
             .max_listeners(2)
             .create();

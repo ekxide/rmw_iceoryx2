@@ -125,7 +125,6 @@ private:
 /// @brief Guard condition of a node, triggered by every change to the graph in any process
 class RMW_PUBLIC GraphGuardCondition : public GuardCondition
 {
-    using IceoryxService = ::iox2::PortFactoryEvent<Iceoryx2::ServiceType::Ipc>;
     using IceoryxNotifier = Iceoryx2::InterProcess::Notifier;
     using IceoryxListener = Iceoryx2::InterProcess::Listener;
 
@@ -136,8 +135,8 @@ public:
     /// @brief Creates a new graph guard condition
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
-    /// @param[in] graph_service The graph event service the guard condition notifies and listens to
-    GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, IceoryxService& graph_service);
+    /// @param[in] iox2 The iceoryx2 handle that joins the graph event service
+    GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Iceoryx2& iox2);
 
     auto trigger() -> ::iox2::bb::Expected<void, ErrorType> override;
     auto drain() -> bool override;

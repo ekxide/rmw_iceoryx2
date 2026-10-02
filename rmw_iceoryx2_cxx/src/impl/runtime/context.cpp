@@ -17,26 +17,6 @@
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 
-namespace
-{
-
-auto open_graph_service(::rmw::iox2::Iceoryx2& iox2, const ::rmw::iox2::Iceoryx2::ServiceName& name)
-    -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventOpenOrCreateError> {
-    auto opened = iox2.ipc().service_builder(name).event().open();
-    if (opened.has_value()) {
-        return std::move(opened.value());
-    }
-    return iox2.ipc()
-        .service_builder(name)
-        .event()
-        .max_nodes(::rmw::iox2::GRAPH_MAX_CONTEXTS)
-        .max_notifiers(::rmw::iox2::GRAPH_MAX_GUARD_CONDITIONS)
-        .max_listeners(::rmw::iox2::GRAPH_MAX_GUARD_CONDITIONS)
-        .open_or_create();
-}
-
-} // namespace
-
 rmw_context_impl_s::rmw_context_impl_s(CreationLock,
                                        ::iox2::bb::Optional<ErrorType>& error,
                                        const uint32_t id,
@@ -53,22 +33,7 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
         return;
     }
 
-    auto graph_service_name = Iceoryx2::ServiceName::create(names::graph().c_str());
-    if (!graph_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service_name.error()));
-        error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
-        return;
-    }
-
-    auto graph_service = open_graph_service(m_iox2.value(), graph_service_name.value());
-    if (!graph_service.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service.error()));
-        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
-        return;
-    }
-    m_graph_service.emplace(std::move(graph_service.value()));
-
-    if (auto result = create_in_place<GraphGuardCondition>(m_graph_guard_condition, m_graph_service.value());
+    if (auto result = create_in_place<GraphGuardCondition>(m_graph_guard_condition, m_iox2.value());
         !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create the graph guard condition of the context");
         error.emplace(ErrorType::GRAPH_GUARD_CONDITION_CREATION_FAILURE);
@@ -79,7 +44,6 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
 rmw_context_impl_s::rmw_context_impl_s(rmw_context_impl_s&& other) noexcept
     : m_id{other.m_id}
     , m_iox2{std::move(other.m_iox2)}
-    , m_graph_service{std::move(other.m_graph_service)}
     , m_graph_guard_condition{std::move(other.m_graph_guard_condition)}
     , m_options{std::move(other.m_options)}
     , m_guard_condition_counter{other.m_guard_condition_counter.exchange(0)} {
@@ -89,7 +53,6 @@ auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_c
     if (this != &other) {
         m_id = other.m_id;
         m_iox2 = std::move(other.m_iox2);
-        m_graph_service = std::move(other.m_graph_service);
         m_graph_guard_condition = std::move(other.m_graph_guard_condition);
         m_options = std::move(other.m_options);
         m_guard_condition_counter.store(other.m_guard_condition_counter.exchange(0));
@@ -111,10 +74,6 @@ auto rmw_context_impl_s::options() const -> const rmw_init_options_impl_s& {
 
 auto rmw_context_impl_s::generate_guard_condition_id() -> uint32_t {
     return m_guard_condition_counter++;
-}
-
-auto rmw_context_impl_s::graph_service() -> ::iox2::bb::Optional<GraphService>& {
-    return m_graph_service;
 }
 
 auto rmw_context_impl_s::notify_graph_change() -> void {

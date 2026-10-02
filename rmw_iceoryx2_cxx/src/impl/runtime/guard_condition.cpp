@@ -17,6 +17,26 @@
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 
+namespace
+{
+
+auto open_graph_service(::rmw::iox2::Iceoryx2& iox2, const ::rmw::iox2::Iceoryx2::ServiceName& name)
+    -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventOpenOrCreateError> {
+    auto opened = iox2.ipc().service_builder(name).event().open();
+    if (opened.has_value()) {
+        return std::move(opened.value());
+    }
+    return iox2.ipc()
+        .service_builder(name)
+        .event()
+        .max_nodes(::rmw::iox2::GRAPH_MAX_GUARD_CONDITIONS)
+        .max_notifiers(::rmw::iox2::GRAPH_MAX_GUARD_CONDITIONS)
+        .max_listeners(::rmw::iox2::GRAPH_MAX_GUARD_CONDITIONS)
+        .open_or_create();
+}
+
+} // namespace
+
 namespace rmw::iox2
 {
 
@@ -91,10 +111,22 @@ auto UserGuardCondition::file_descriptor() const -> ::iox2::FileDescriptorView {
     return m_iox2_listener->file_descriptor();
 }
 
-GraphGuardCondition::GraphGuardCondition(CreationLock,
-                                         ::iox2::bb::Optional<ErrorType>& error,
-                                         IceoryxService& graph_service) {
-    auto iox2_notifier = graph_service.notifier_builder().create();
+GraphGuardCondition::GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Iceoryx2& iox2) {
+    auto graph_service_name = Iceoryx2::ServiceName::create(names::graph().c_str());
+    if (!graph_service_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service_name.error()));
+        error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
+        return;
+    }
+
+    auto graph_service = open_graph_service(iox2, graph_service_name.value());
+    if (!graph_service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service.error()));
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
+    auto iox2_notifier = graph_service->notifier_builder().create();
     if (!iox2_notifier.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_notifier.error()));
         error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
@@ -102,7 +134,7 @@ GraphGuardCondition::GraphGuardCondition(CreationLock,
     }
     m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
 
-    auto iox2_listener = graph_service.listener_builder().create();
+    auto iox2_listener = graph_service->listener_builder().create();
     if (!iox2_listener.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
         error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
