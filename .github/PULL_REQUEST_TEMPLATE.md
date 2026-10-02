@@ -7,8 +7,8 @@
 * [ ] PR title is short, expressive and meaningful
 * [ ] Relevant issues are linked in the [References](#references) section
 * [ ] Every source code file has a copyright header with `SPDX-License-Identifier: Apache-2.0 OR MIT`
-* [ ] Branch follows the naming format (`rmw-iox2-123-implement-graph-api`)
-* [ ] Commit messages have the issue ID (`[#123] Add posix ipc example`)
+* [ ] Branch follows the naming format (`rmw-iox2-123-short-description`)
+* [ ] Commit messages have the issue ID (`[#123] Short description of the change`)
 * [ ] Tests exist for new behavior
 * [ ] Changelog updated [in the unreleased section][changelog] including API breaking changes
 * [ ] Assign PR to reviewer
