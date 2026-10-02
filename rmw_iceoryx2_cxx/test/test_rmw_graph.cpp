@@ -742,8 +742,8 @@ TEST_F(RmwGraphServiceTest, contexts_join_a_graph_service_created_by_another_ice
         native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::graph().c_str()).value())
             .event()
             .max_nodes(2)
-            .max_notifiers(1)
-            .max_listeners(1)
+            .max_notifiers(2)
+            .max_listeners(2)
             .create();
     ASSERT_TRUE(native_service.has_value());
 
@@ -755,6 +755,7 @@ TEST_F(RmwGraphServiceTest, contexts_join_a_graph_service_created_by_another_ice
 
     auto* observer = rmw_create_node(&context, "Observer", "/Sensors");
     ASSERT_NE(observer, nullptr);
+    EXPECT_EQ(native_service->dynamic_config().number_of_notifiers(), 2U);
     auto* waitset = rmw_create_wait_set(&context, 1);
     ASSERT_NE(waitset, nullptr);
     void* conditions[] = {rmw_node_get_graph_guard_condition(observer)->data};

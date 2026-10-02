@@ -18,10 +18,13 @@
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+
+class rmw_context_impl_s;
 
 namespace rmw::iox2
 {
+
+using Context = rmw_context_impl_s;
 
 class Node;
 class GuardCondition;
@@ -122,6 +125,8 @@ private:
 /// @brief Guard condition of a node, triggered by every change to the graph in any process
 class RMW_PUBLIC GraphGuardCondition : public GuardCondition
 {
+    using IceoryxService = ::iox2::PortFactoryEvent<Iceoryx2::ServiceType::Ipc>;
+    using IceoryxNotifier = Iceoryx2::InterProcess::Notifier;
     using IceoryxListener = Iceoryx2::InterProcess::Listener;
 
 public:
@@ -131,15 +136,15 @@ public:
     /// @brief Creates a new graph guard condition
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
-    /// @param[in] context The context whose graph event service the guard condition listens to
-    GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context);
+    /// @param[in] graph_service The graph event service the guard condition notifies and listens to
+    GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, IceoryxService& graph_service);
 
     auto trigger() -> ::iox2::bb::Expected<void, ErrorType> override;
     auto drain() -> bool override;
     auto file_descriptor() const -> ::iox2::FileDescriptorView override;
 
 private:
-    Context* m_context;
+    ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
 };
 

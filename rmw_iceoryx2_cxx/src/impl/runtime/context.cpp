@@ -11,6 +11,7 @@
 
 #include "iox2/bb/detail/assertions.hpp"
 #include "iox2/bb/into.hpp"
+#include "rcutils/error_handling.h"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
@@ -29,8 +30,8 @@ auto open_graph_service(::rmw::iox2::Iceoryx2& iox2, const ::rmw::iox2::Iceoryx2
         .service_builder(name)
         .event()
         .max_nodes(::rmw::iox2::GRAPH_MAX_CONTEXTS)
-        .max_notifiers(::rmw::iox2::GRAPH_MAX_CONTEXTS)
-        .max_listeners(::rmw::iox2::GRAPH_MAX_LISTENERS)
+        .max_notifiers(::rmw::iox2::GRAPH_MAX_GUARD_CONDITIONS)
+        .max_listeners(::rmw::iox2::GRAPH_MAX_GUARD_CONDITIONS)
         .open_or_create();
 }
 
@@ -43,6 +44,7 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
     : m_id{id}
     , m_options{options} {
     using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::GraphGuardCondition;
     namespace names = rmw::iox2::names;
 
     if (auto result = create_in_place<Iceoryx2>(m_iox2, names::context(id)); !result.has_value()) {
@@ -66,20 +68,19 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
     }
     m_graph_service.emplace(std::move(graph_service.value()));
 
-    auto graph_notifier = m_graph_service->notifier_builder().create();
-    if (!graph_notifier.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_notifier.error()));
-        error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
+    if (auto result = create_in_place<GraphGuardCondition>(m_graph_guard_condition, m_graph_service.value());
+        !result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to create the graph guard condition of the context");
+        error.emplace(ErrorType::GRAPH_GUARD_CONDITION_CREATION_FAILURE);
         return;
     }
-    m_graph_notifier.emplace(std::move(graph_notifier.value()));
 }
 
 rmw_context_impl_s::rmw_context_impl_s(rmw_context_impl_s&& other) noexcept
     : m_id{other.m_id}
     , m_iox2{std::move(other.m_iox2)}
     , m_graph_service{std::move(other.m_graph_service)}
-    , m_graph_notifier{std::move(other.m_graph_notifier)}
+    , m_graph_guard_condition{std::move(other.m_graph_guard_condition)}
     , m_options{std::move(other.m_options)}
     , m_guard_condition_counter{other.m_guard_condition_counter.exchange(0)} {
 }
@@ -89,7 +90,7 @@ auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_c
         m_id = other.m_id;
         m_iox2 = std::move(other.m_iox2);
         m_graph_service = std::move(other.m_graph_service);
-        m_graph_notifier = std::move(other.m_graph_notifier);
+        m_graph_guard_condition = std::move(other.m_graph_guard_condition);
         m_options = std::move(other.m_options);
         m_guard_condition_counter.store(other.m_guard_condition_counter.exchange(0));
     }
@@ -117,10 +118,11 @@ auto rmw_context_impl_s::graph_service() -> ::iox2::bb::Optional<GraphService>& 
 }
 
 auto rmw_context_impl_s::notify_graph_change() -> void {
-    if (!m_graph_notifier.has_value()) {
-        IOX2_PANIC("Graph notifier is missing: the context was moved-from or used after a failed construction");
+    if (!m_graph_guard_condition.has_value()) {
+        IOX2_PANIC("Graph guard condition is missing: the context was moved-from or used after a failed construction");
     }
-    if (auto result = m_graph_notifier->notify(); !result.has_value()) {
-        RMW_IOX2_LOG_WARN("failed to notify a graph change: %s", ::iox2::bb::into<const char*>(result.error()));
+    if (!m_graph_guard_condition->trigger().has_value()) {
+        RMW_IOX2_LOG_WARN("failed to notify a graph change: %s", rcutils_get_error_string().str);
+        rcutils_reset_error();
     }
 }

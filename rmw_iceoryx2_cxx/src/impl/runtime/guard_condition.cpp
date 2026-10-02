@@ -15,6 +15,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 
 namespace rmw::iox2
 {
@@ -90,9 +91,18 @@ auto UserGuardCondition::file_descriptor() const -> ::iox2::FileDescriptorView {
     return m_iox2_listener->file_descriptor();
 }
 
-GraphGuardCondition::GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context)
-    : m_context{&context} {
-    auto iox2_listener = context.graph_service()->listener_builder().create();
+GraphGuardCondition::GraphGuardCondition(CreationLock,
+                                         ::iox2::bb::Optional<ErrorType>& error,
+                                         IceoryxService& graph_service) {
+    auto iox2_notifier = graph_service.notifier_builder().create();
+    if (!iox2_notifier.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_notifier.error()));
+        error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
+        return;
+    }
+    m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
+
+    auto iox2_listener = graph_service.listener_builder().create();
     if (!iox2_listener.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
         error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
@@ -102,7 +112,13 @@ GraphGuardCondition::GraphGuardCondition(CreationLock, ::iox2::bb::Optional<Erro
 }
 
 auto GraphGuardCondition::trigger() -> ::iox2::bb::Expected<void, ErrorType> {
-    m_context->notify_graph_change();
+    using ::iox2::bb::err;
+
+    if (auto result = m_iox2_notifier->notify(); !result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
+        return err(ErrorType::NOTIFICATION_FAILURE);
+    }
+
     return {};
 }
 
