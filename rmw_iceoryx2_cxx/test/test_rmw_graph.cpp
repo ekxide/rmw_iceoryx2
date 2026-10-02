@@ -30,8 +30,10 @@
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
+#include <chrono>
 #include <cstdlib>
 #include <string>
+#include <thread>
 
 namespace
 {
@@ -697,6 +699,31 @@ TEST_F(RmwGraphTest, graph_guard_conditions_of_every_node_in_a_wait_set_are_trig
     EXPECT_RMW_OK(wait(rmw_time_t{1, 0}));
     EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
     EXPECT_NE(guard_conditions.guard_conditions[1], nullptr);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+}
+
+TEST_F(RmwGraphTest, triggering_a_graph_guard_condition_wakes_a_waiting_wait_set) {
+    const auto* graph_guard_condition = rmw_node_get_graph_guard_condition(test_node());
+    ASSERT_NE(graph_guard_condition, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(waitset, nullptr);
+    void* conditions[] = {graph_guard_condition->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    rmw_time_t no_wait{0, 0};
+    EXPECT_NE(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &no_wait), RMW_RET_ERROR);
+
+    std::thread trigger([graph_guard_condition] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        EXPECT_RMW_OK(rmw_trigger_guard_condition(graph_guard_condition));
+    });
+    guard_conditions.guard_conditions[0] = graph_guard_condition->data;
+    rmw_time_t timeout{5, 0};
+    auto start = std::chrono::steady_clock::now();
+    EXPECT_RMW_OK(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+    trigger.join();
 
     ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
 }

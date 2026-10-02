@@ -78,6 +78,7 @@ TEST_F(RmwGuardConditionTest, create_and_destroy) {
 TEST_F(RmwGuardConditionTest, trigger) {
     using ::rmw::iox2::GuardCondition;
     using ::rmw::iox2::unsafe_cast;
+    using ::rmw::iox2::UserGuardCondition;
     namespace names = ::rmw::iox2::names;
 
     auto guard_condition = rmw_create_guard_condition(test_context());
@@ -87,7 +88,7 @@ TEST_F(RmwGuardConditionTest, trigger) {
     // TODO: An easier way to access the guard condition ID?
     auto impl_result = unsafe_cast<GuardCondition*>(guard_condition->data);
     ASSERT_TRUE(impl_result.has_value()) << "failed to get guard condition impl";
-    auto impl = impl_result.value();
+    auto* impl = static_cast<UserGuardCondition*>(impl_result.value());
     auto listener = iox2_listener(names::guard_condition(guard_condition->context->instance_id, impl->trigger_id()));
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));

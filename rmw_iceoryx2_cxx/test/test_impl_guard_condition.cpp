@@ -34,8 +34,8 @@ protected:
 TEST_F(GuardConditionTest, construction) {
     using ::rmw::iox2::Context;
     using ::rmw::iox2::create_in_place;
-    using ::rmw::iox2::GuardCondition;
     using ::rmw::iox2::GuardConditionError;
+    using ::rmw::iox2::UserGuardCondition;
 
     rmw_init_options_impl_s options;
     ::iox2::bb::Optional<Context> context_storage;
@@ -43,7 +43,7 @@ TEST_F(GuardConditionTest, construction) {
         << "failed to create context for guard condition creation";
     auto& context = context_storage.value();
 
-    ::iox2::bb::Optional<GuardCondition> guard_condition_storage;
+    ::iox2::bb::Optional<UserGuardCondition> guard_condition_storage;
     ASSERT_TRUE(create_in_place(guard_condition_storage, context).has_value());
 }
 

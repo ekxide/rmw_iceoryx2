@@ -25,6 +25,8 @@ namespace rmw::iox2
 
 class Node;
 class GuardCondition;
+class UserGuardCondition;
+class GraphGuardCondition;
 
 template <>
 struct Error<GuardCondition>
@@ -32,35 +34,65 @@ struct Error<GuardCondition>
     using Type = GuardConditionError;
 };
 
-/// @brief Whether a guard condition is triggered by `trigger()` only, or also by every change to the graph
-enum class GuardConditionKind : uint8_t { USER, GRAPH };
+template <>
+struct Error<UserGuardCondition>
+{
+    using Type = GuardConditionError;
+};
+
+template <>
+struct Error<GraphGuardCondition>
+{
+    using Type = GuardConditionError;
+};
+
+/// @brief Interface of the guard conditions that the RMW triggers and waits on
+class RMW_PUBLIC GuardCondition
+{
+public:
+    using ErrorType = Error<GuardCondition>::Type;
+
+    GuardCondition() = default;
+    GuardCondition(const GuardCondition&) = default;
+    GuardCondition(GuardCondition&&) = default;
+    auto operator=(const GuardCondition&) -> GuardCondition& = default;
+    auto operator=(GuardCondition&&) -> GuardCondition& = default;
+    virtual ~GuardCondition() = default;
+
+    /// @brief Triggers the guard condition
+    /// @return Error if the trigger failed
+    virtual auto trigger() -> ::iox2::bb::Expected<void, ErrorType> = 0;
+
+    /// @brief Consume the triggers received since the last call
+    /// @return True if the guard condition was triggered since the last call
+    virtual auto drain() -> bool = 0;
+
+    /// @brief Get the file descriptor to wait on for triggers
+    /// @return The file descriptor of the listener that receives the triggers
+    virtual auto file_descriptor() const -> ::iox2::FileDescriptorView = 0;
+};
 
 /// @brief Implementation of the RMW guard condition for iceoryx2
 /// @details A guard condition is a synchronization primitive that can be used to
 ///          wake up a waiting thread. It is used in ROS 2 to signal events between
 ///          different parts of the system. This implementation uses an iceoryx2
 ///          notifier to implement the guard condition functionality.
-class RMW_PUBLIC GuardCondition
+class RMW_PUBLIC UserGuardCondition : public GuardCondition
 {
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniquePublisherId;
     using IceoryxNotifier = Iceoryx2::Local::Notifier;
     using IceoryxListener = Iceoryx2::Local::Listener;
-    using IceoryxGraphListener = Iceoryx2::InterProcess::Listener;
 
 public:
-    using ErrorType = Error<GuardCondition>::Type;
+    using ErrorType = Error<UserGuardCondition>::Type;
 
 public:
     /// @brief Creates a new guard condition
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] context The context to associate the guard condition with
-    /// @param[in] kind Whether graph changes trigger the guard condition too
-    GuardCondition(CreationLock,
-                   ::iox2::bb::Optional<ErrorType>& error,
-                   Context& context,
-                   GuardConditionKind kind = GuardConditionKind::USER);
+    UserGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context);
 
     /// @brief Get the unique id of the guard condition
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
@@ -74,17 +106,9 @@ public:
     /// @return The service name
     auto service_name() const -> const std::string&;
 
-    /// @brief Triggers the guard condition
-    /// @return Error if trigger via iceoryx2 failed
-    auto trigger() -> ::iox2::bb::Expected<void, ErrorType>;
-
-    /// @brief Consume the triggers received since the last call
-    /// @return True if the guard condition was triggered since the last call
-    auto drain() -> bool;
-
-    /// @brief Get the file descriptor to wait on for triggers
-    /// @return The file descriptor of the listener that receives the triggers
-    auto file_descriptor() const -> ::iox2::FileDescriptorView;
+    auto trigger() -> ::iox2::bb::Expected<void, ErrorType> override;
+    auto drain() -> bool override;
+    auto file_descriptor() const -> ::iox2::FileDescriptorView override;
 
 private:
     uint32_t m_trigger_id;
@@ -93,7 +117,30 @@ private:
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
-    ::iox2::bb::Optional<IceoryxGraphListener> m_iox2_graph_listener;
+};
+
+/// @brief Guard condition of a node, triggered by every change to the graph in any process
+class RMW_PUBLIC GraphGuardCondition : public GuardCondition
+{
+    using IceoryxListener = Iceoryx2::InterProcess::Listener;
+
+public:
+    using ErrorType = Error<GraphGuardCondition>::Type;
+
+public:
+    /// @brief Creates a new graph guard condition
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] context The context whose graph event service the guard condition listens to
+    GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context);
+
+    auto trigger() -> ::iox2::bb::Expected<void, ErrorType> override;
+    auto drain() -> bool override;
+    auto file_descriptor() const -> ::iox2::FileDescriptorView override;
+
+private:
+    Context* m_context;
+    ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
 };
 
 } // namespace rmw::iox2
