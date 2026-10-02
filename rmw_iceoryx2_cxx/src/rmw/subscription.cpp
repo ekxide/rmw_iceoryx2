@@ -40,12 +40,15 @@ void populate_message_info(rmw_message_info_t* message_info, const ::rmw::iox2::
     message_info->publication_sequence_number = sample_info.header.publication_sequence_number;
     message_info->reception_sequence_number = RMW_MESSAGE_INFO_SEQUENCE_NUMBER_UNSUPPORTED;
     message_info->from_intra_process = false;
-    if (sample_info.publisher_id.has_value()) {
-        message_info->publisher_gid.implementation_identifier = rmw_get_implementation_identifier();
-        std::copy(sample_info.publisher_id.value().unchecked_access().data(),
-                  sample_info.publisher_id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
-                  message_info->publisher_gid.data);
+    message_info->publisher_gid = rmw_gid_t{};
+    message_info->publisher_gid.implementation_identifier = rmw_get_implementation_identifier();
+    if (!sample_info.publisher_id.has_value()) {
+        RMW_IOX2_LOG_WARN("received a sample without a publisher id, its publisher gid is zero");
+        return;
     }
+    std::copy(sample_info.publisher_id.value().unchecked_access().data(),
+              sample_info.publisher_id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
+              message_info->publisher_gid.data);
 }
 
 // Shared implementation for rmw_take and rmw_take_with_info. Invoked only after the rmw entry
