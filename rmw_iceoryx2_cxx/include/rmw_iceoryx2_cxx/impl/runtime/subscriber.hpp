@@ -34,11 +34,18 @@ struct Error<Subscriber>
     using Type = SubscriberError;
 };
 
+/// @brief Message info of a received sample
+struct SampleInfo
+{
+    ::rmw_iceoryx2_interoperability::MessageInfoHeader header;
+    ::iox2::bb::Optional<::iox2::RawIdType> publisher_id;
+};
+
 struct SubscriberLoan
 {
     uint8_t* bytes;
     size_t number_of_bytes;
-    ::rmw_iceoryx2_interoperability::MessageInfoHeader message_info;
+    SampleInfo message_info;
 };
 
 /// @brief Implementation of the RMW subscriber for iceoryx2
@@ -57,6 +64,7 @@ public:
 private:
     using RawIdType = ::iox2::RawIdType;
     using IdType = ::iox2::UniqueSubscriberId;
+    using IceoryxService = Iceoryx2::InterProcess::PublishSubscribe<Payload, UserHeader>;
     using IceoryxSubscriber = Iceoryx2::InterProcess::Subscriber<Payload, UserHeader>;
     using IceoryxSample = Iceoryx2::InterProcess::Sample<Payload, UserHeader>;
     using IceoryxListener = Iceoryx2::InterProcess::Listener;
@@ -105,10 +113,14 @@ public:
     /// @return Reference to the resolved QoS
     auto qos() const -> const Qos&;
 
+    /// @brief Get the number of publishers connected to this subscriber's topic
+    /// @return The number of publishers
+    auto number_of_publishers() const -> uint64_t;
+
     /// @brief Take a message by copying its payload to the destination buffer
     /// @param[out] dest Pointer to the destination buffer
-    /// @return Expected containing the sample's user header if a message was taken, empty otherwise
-    auto take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<UserHeader>, ErrorType>;
+    /// @return Expected containing the sample's message info if a message was taken, empty otherwise
+    auto take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optional<SampleInfo>, ErrorType>;
 
     /// @brief Take a loaned message without copying
     /// @return Expected containing optional pointer to the loaned message memory
@@ -130,6 +142,7 @@ private:
     Qos m_qos;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
+    ::iox2::bb::Optional<IceoryxService> m_iox2_service;
     ::iox2::bb::Optional<IceoryxSubscriber> m_iox2_subscriber;
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
     IceoryxSampleRegistry m_registry;

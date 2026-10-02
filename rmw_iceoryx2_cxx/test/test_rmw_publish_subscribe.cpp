@@ -21,6 +21,7 @@
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
+#include <array>
 #include <cstdlib>
 #include <string>
 
@@ -381,6 +382,92 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info) {
     EXPECT_FALSE(message_info.from_intra_process);
 
     free(recv_payload);
+}
+
+TEST_F(RmwPublishSubscribeTest, take_with_info_populates_publisher_gid) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    auto send_payload = Defaults{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+
+    auto recv_payload = Defaults{};
+    bool taken{false};
+    rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+    ASSERT_RMW_OK(rmw_take_with_info(subscription, &recv_payload, &taken, &message_info, nullptr));
+    ASSERT_TRUE(taken);
+
+    rmw_gid_t publisher_gid{};
+    ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher, &publisher_gid));
+    bool equal{false};
+    ASSERT_RMW_OK(rmw_compare_gids_equal(&publisher_gid, &message_info.publisher_gid, &equal));
+    EXPECT_TRUE(equal);
+}
+
+TEST_F(RmwPublishSubscribeTest, take_with_info_populates_publisher_gid_non_self_contained) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    auto send_payload = Strings{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+
+    auto recv_payload = Strings{};
+    bool taken{false};
+    rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+    ASSERT_RMW_OK(rmw_take_with_info(subscription, &recv_payload, &taken, &message_info, nullptr));
+    ASSERT_TRUE(taken);
+
+    rmw_gid_t publisher_gid{};
+    ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher, &publisher_gid));
+    bool equal{false};
+    ASSERT_RMW_OK(rmw_compare_gids_equal(&publisher_gid, &message_info.publisher_gid, &equal));
+    EXPECT_TRUE(equal);
+}
+
+TEST_F(RmwPublishSubscribeTest, take_sequence_takes_all_available_messages) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr size_t COUNT = 3;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    for (size_t i = 0; i < COUNT; ++i) {
+        auto send_payload = Defaults{};
+        send_payload.int64_value = static_cast<int64_t>(i);
+        ASSERT_RMW_OK(rmw_publish(publisher, &send_payload, nullptr));
+    }
+
+    std::array<Defaults, COUNT> messages;
+    auto allocator = rcutils_get_default_allocator();
+    auto sequence = rmw_get_zero_initialized_message_sequence();
+    ASSERT_RMW_OK(rmw_message_sequence_init(&sequence, COUNT, &allocator));
+    for (size_t i = 0; i < COUNT; ++i) {
+        sequence.data[i] = &messages[i];
+    }
+    auto info_sequence = rmw_get_zero_initialized_message_info_sequence();
+    ASSERT_RMW_OK(rmw_message_info_sequence_init(&info_sequence, COUNT, &allocator));
+
+    size_t taken{0};
+    ASSERT_RMW_OK(rmw_take_sequence(subscription, COUNT, &sequence, &info_sequence, &taken, nullptr));
+    EXPECT_EQ(taken, COUNT);
+    EXPECT_EQ(sequence.size, COUNT);
+    EXPECT_EQ(info_sequence.size, COUNT);
+    for (size_t i = 0; i < COUNT; ++i) {
+        EXPECT_EQ(messages[i].int64_value, static_cast<int64_t>(i));
+    }
+
+    ASSERT_RMW_OK(rmw_message_sequence_fini(&sequence));
+    ASSERT_RMW_OK(rmw_message_info_sequence_fini(&info_sequence));
 }
 
 TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info_non_self_contained) {

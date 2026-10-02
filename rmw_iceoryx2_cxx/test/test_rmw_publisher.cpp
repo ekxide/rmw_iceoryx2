@@ -147,6 +147,22 @@ TEST_F(RmwPublisherTest, rejects_keep_all_history) {
     EXPECT_EQ(create_publisher<Defaults>(create_test_topic(), profile), nullptr);
 }
 
+TEST_F(RmwPublisherTest, counts_matched_subscriptions) {
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    create_default_subscriber<Defaults>(create_test_topic());
+    create_default_subscriber<Defaults>(create_test_topic());
+
+    size_t count{0};
+    ASSERT_RMW_OK(rmw_publisher_count_matched_subscriptions(publisher, &count));
+    ASSERT_EQ(count, 2u);
+}
+
+TEST_F(RmwPublisherTest, wait_for_all_acked_returns_ok) {
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+
+    EXPECT_RMW_OK(rmw_publisher_wait_for_all_acked(publisher, {0, 0}));
+}
+
 // ---------------------------------------------------------------------------
 // Environment configuration
 // ---------------------------------------------------------------------------

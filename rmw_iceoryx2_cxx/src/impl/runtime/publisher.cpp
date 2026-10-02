@@ -130,6 +130,7 @@ Publisher::Publisher(CreationLock,
 
     m_iox2_unique_id.emplace(iox2_publisher->id());
     m_iox2_publisher.emplace(std::move(iox2_publisher.value()));
+    m_iox2_service.emplace(std::move(iox2_pubsub_service.value()));
 
     auto iox2_event_service = node.iox2().ipc().service_builder(iox2_service_name.value()).event().open_or_create();
     if (!iox2_event_service.has_value()) {
@@ -172,6 +173,10 @@ auto Publisher::service_name() const -> const std::string& {
 
 auto Publisher::qos() const -> const Qos& {
     return m_qos;
+}
+
+auto Publisher::number_of_subscribers() const -> uint64_t {
+    return m_iox2_service->dynamic_config().number_of_subscribers();
 }
 
 auto Publisher::loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType> {

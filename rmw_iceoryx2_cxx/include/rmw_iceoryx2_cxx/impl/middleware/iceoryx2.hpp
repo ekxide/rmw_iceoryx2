@@ -99,6 +99,8 @@ public:
         template <typename Payload, typename UserHeader = void>
         using SampleMutUninit = ::iox2::SampleMutUninit<::iox2::ServiceType::Ipc, Payload, UserHeader>;
         template <typename Payload, typename UserHeader = void>
+        using PublishSubscribe = ::iox2::PortFactoryPublishSubscribe<::iox2::ServiceType::Ipc, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader = void>
         using Publisher = ::iox2::Publisher<::iox2::ServiceType::Ipc, Payload, UserHeader>;
         template <typename Payload, typename UserHeader = void>
         using Subscriber = ::iox2::Subscriber<::iox2::ServiceType::Ipc, Payload, UserHeader>;

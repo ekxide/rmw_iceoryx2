@@ -379,7 +379,18 @@ rmw_ret_t rmw_publisher_count_matched_subscriptions(const rmw_publisher_t* rmw_p
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ::rmw::iox2::unsafe_cast;
+    using PublisherImpl = ::rmw::iox2::Publisher;
+
+    auto publisher_impl = unsafe_cast<PublisherImpl*>(rmw_publisher->data);
+    if (!publisher_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Publisher");
+        return RMW_RET_ERROR;
+    }
+
+    *subscription_count = publisher_impl.value()->number_of_subscribers();
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_get_serialized_message_size(const rosidl_message_type_support_t* type_support,
@@ -403,7 +414,12 @@ rmw_ret_t rmw_publisher_assert_liveliness(const rmw_publisher_t* rmw_publisher) 
 }
 
 rmw_ret_t rmw_publisher_wait_for_all_acked(const rmw_publisher_t* rmw_publisher, rmw_time_t wait_timeout) {
-    return RMW_RET_UNSUPPORTED;
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_publisher, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_publisher->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_publisher_get_network_flow_endpoints(const rmw_publisher_t* rmw_publisher,
