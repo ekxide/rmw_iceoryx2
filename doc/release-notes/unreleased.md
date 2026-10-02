@@ -18,6 +18,7 @@
 * Add ROS 2 <-> iceoryx2 communication example [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 * Add middleware overhead benchmarking application [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 * Implement the missing publish-subscribe functions [#69](https://github.com/ekxide/rmw_iceoryx2/issues/69)
+* Add benchmarks for the cost of rmw operations [#86](https://github.com/ekxide/rmw_iceoryx2/issues/86)
 
 ### Bugfixes
 

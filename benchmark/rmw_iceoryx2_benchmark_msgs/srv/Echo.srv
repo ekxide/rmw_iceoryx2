@@ -1,0 +1,5 @@
+# Request and response of the service benchmark, echoed back unchanged.
+
+uint64 sequence
+---
+uint64 sequence
