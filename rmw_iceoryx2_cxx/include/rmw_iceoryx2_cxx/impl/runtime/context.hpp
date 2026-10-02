@@ -17,8 +17,6 @@
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 
-#include <atomic>
-
 class rmw_context_impl_s;
 
 namespace rmw::iox2
@@ -114,10 +112,6 @@ public:
     /// @return Reference to the options captured at rmw_init
     auto options() const -> const rmw_init_options_impl_s&;
 
-    /// @brief Generate a new unique identifier for a guard condition
-    /// @return The generated guard condition ID
-    auto generate_guard_condition_id() -> uint32_t;
-
     /// @brief Wake the graph guard conditions of every context
     auto notify_graph_change() -> void;
 
@@ -129,7 +123,6 @@ private:
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
     ::iox2::bb::Optional<::rmw::iox2::GraphGuardCondition> m_graph_guard_condition;
     rmw_init_options_impl_s m_options;
-    std::atomic<uint32_t> m_guard_condition_counter{0};
 };
 }
 

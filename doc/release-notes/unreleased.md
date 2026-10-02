@@ -49,6 +49,7 @@
 * Bump `iceoryx2` dependency to v0.10.0 [#23](https://github.com/ekxide/rmw_iceoryx2/issues/23)
 * Use https based url for git repos [#27](https://github.com/ekxide/rmw_iceoryx2/issues/27)
 * Remove dependency on `iceoryx_hoofs` [#33](https://github.com/ekxide/rmw_iceoryx2/issues/27)
+* Implement guard conditions with a pipe instead of an iceoryx2 event service [#83](https://github.com/ekxide/rmw_iceoryx2/issues/83)
 
 ### Workflow
 

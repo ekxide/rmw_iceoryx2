@@ -11,11 +11,16 @@
 
 #include "iox2/bb/into.hpp"
 #include "iox2/bb/optional.hpp"
-#include "iox2/event_id.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+
+#include <array>
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
+#include <utility>
 
 namespace
 {
@@ -40,75 +45,71 @@ auto open_graph_service(::rmw::iox2::Iceoryx2& iox2, const ::rmw::iox2::Iceoryx2
 namespace rmw::iox2
 {
 
-UserGuardCondition::UserGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Context& context)
-    : m_trigger_id{context.generate_guard_condition_id()}
-    , m_service_name{names::guard_condition(context.id(), m_trigger_id)} {
-    auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
-    if (!iox2_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
-        error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
+UserGuardCondition::UserGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error) {
+    std::array<int, 2> pipe_ends{};
+    if (::pipe(pipe_ends.data()) != 0) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to create the pipe of the guard condition");
+        error.emplace(ErrorType::PIPE_CREATION_FAILURE);
         return;
     }
 
-    auto iox2_service = context.iox2().local().service_builder(iox2_service_name.value()).event().open_or_create();
-    if (!iox2_service.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service.error()));
-        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+    m_read_end = pipe_ends[0];
+    m_write_end = pipe_ends[1];
+
+    if (::fcntl(m_read_end, F_SETFL, O_NONBLOCK) != 0 || ::fcntl(m_write_end, F_SETFL, O_NONBLOCK) != 0) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to make the pipe of the guard condition non-blocking");
+        error.emplace(ErrorType::PIPE_CREATION_FAILURE);
         return;
     }
 
-    auto iox2_notifier = iox2_service.value().notifier_builder().create();
-    if (!iox2_notifier.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_notifier.error()));
-        error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
-        return;
-    }
-
-    m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
-
-    auto iox2_listener = iox2_service.value().listener_builder().create();
-    if (!iox2_listener.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
-        error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
-        return;
-    }
-
-    m_iox2_listener.emplace(std::move(iox2_listener.value()));
-};
-
-auto UserGuardCondition::trigger_id() const -> uint32_t {
-    return m_trigger_id;
+    m_read_end_view = ::iox2::FileDescriptor::create_non_owning(m_read_end);
 }
 
-auto UserGuardCondition::unique_id() -> const ::iox2::bb::Optional<RawIdType>& {
-    auto& bytes = m_iox2_unique_id->bytes();
-    return bytes;
+UserGuardCondition::UserGuardCondition(UserGuardCondition&& other) noexcept
+    : m_read_end{std::exchange(other.m_read_end, -1)}
+    , m_write_end{std::exchange(other.m_write_end, -1)}
+    , m_read_end_view{std::move(other.m_read_end_view)} {
 }
 
+auto UserGuardCondition::operator=(UserGuardCondition&& other) noexcept -> UserGuardCondition& {
+    std::swap(m_read_end, other.m_read_end);
+    std::swap(m_write_end, other.m_write_end);
+    std::swap(m_read_end_view, other.m_read_end_view);
+    return *this;
+}
 
-auto UserGuardCondition::service_name() const -> const std::string& {
-    return m_service_name;
+UserGuardCondition::~UserGuardCondition() {
+    if (m_read_end >= 0) {
+        ::close(m_read_end);
+    }
+    if (m_write_end >= 0) {
+        ::close(m_write_end);
+    }
 }
 
 auto UserGuardCondition::trigger() -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
-    if (auto result = m_iox2_notifier->notify(); !result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
+    const uint8_t token = 1;
+    if (::write(m_write_end, &token, sizeof(token)) < 0 && errno != EAGAIN) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to write to the pipe of the guard condition");
         return err(ErrorType::NOTIFICATION_FAILURE);
-    };
+    }
 
     return {};
 }
 
 auto UserGuardCondition::drain() -> bool {
     bool triggered = false;
-    (void)m_iox2_listener->try_wait([&triggered](auto) { triggered = true; });
+    std::array<uint8_t, 64> tokens{};
+    while (::read(m_read_end, tokens.data(), tokens.size()) > 0) {
+        triggered = true;
+    }
     return triggered;
 }
 
 auto UserGuardCondition::file_descriptor() const -> ::iox2::FileDescriptorView {
-    return m_iox2_listener->file_descriptor();
+    return m_read_end_view->as_view();
 }
 
 GraphGuardCondition::GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Iceoryx2& iox2) {
