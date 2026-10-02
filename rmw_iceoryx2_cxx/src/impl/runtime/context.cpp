@@ -9,6 +9,7 @@
 
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 
+#include "iox2/bb/detail/assertions.hpp"
 #include "iox2/bb/into.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
@@ -52,23 +53,23 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
 
     auto graph_service_name = Iceoryx2::ServiceName::create(names::graph().c_str());
     if (!graph_service_name.has_value()) {
-        RMW_IOX2_LOG_WARN("failed to create the graph service name: %s",
-                          ::iox2::bb::into<const char*>(graph_service_name.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service_name.error()));
+        error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         return;
     }
 
     auto graph_service = open_graph_service(m_iox2.value(), graph_service_name.value());
     if (!graph_service.has_value()) {
-        RMW_IOX2_LOG_WARN("failed to open the graph event service: %s",
-                          ::iox2::bb::into<const char*>(graph_service.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service.error()));
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
     m_graph_service.emplace(std::move(graph_service.value()));
 
     auto graph_notifier = m_graph_service->notifier_builder().create();
     if (!graph_notifier.has_value()) {
-        RMW_IOX2_LOG_WARN("failed to create the graph notifier: %s",
-                          ::iox2::bb::into<const char*>(graph_notifier.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_notifier.error()));
+        error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
         return;
     }
     m_graph_notifier.emplace(std::move(graph_notifier.value()));
@@ -117,7 +118,7 @@ auto rmw_context_impl_s::graph_service() -> ::iox2::bb::Optional<GraphService>& 
 
 auto rmw_context_impl_s::notify_graph_change() -> void {
     if (!m_graph_notifier.has_value()) {
-        return;
+        IOX2_PANIC("Graph notifier is missing: the context was moved-from or used after a failed construction");
     }
     if (auto result = m_graph_notifier->notify(); !result.has_value()) {
         RMW_IOX2_LOG_WARN("failed to notify a graph change: %s", ::iox2::bb::into<const char*>(result.error()));

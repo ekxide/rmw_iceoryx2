@@ -13,7 +13,6 @@
 #include "iox2/bb/optional.hpp"
 #include "iox2/event_id.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 
@@ -62,14 +61,10 @@ GuardCondition::GuardCondition(CreationLock,
         return;
     }
 
-    if (!context.graph_service().has_value()) {
-        return;
-    }
-
     auto graph_listener = context.graph_service()->listener_builder().create();
     if (!graph_listener.has_value()) {
-        RMW_IOX2_LOG_WARN("failed to create the graph listener: %s",
-                          ::iox2::bb::into<const char*>(graph_listener.error()));
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_listener.error()));
+        error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
         return;
     }
     m_iox2_graph_listener.emplace(std::move(graph_listener.value()));

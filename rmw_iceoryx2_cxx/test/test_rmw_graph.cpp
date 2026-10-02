@@ -720,38 +720,48 @@ TEST_F(RmwGraphServiceTest, contexts_join_a_graph_service_created_by_another_ice
             .create();
     ASSERT_TRUE(native_service.has_value());
 
-    auto first_options = rmw_get_zero_initialized_init_options();
-    ASSERT_RMW_OK(rmw_init_options_init(&first_options, test_allocator()));
-    auto first = rmw_get_zero_initialized_context();
-    ASSERT_RMW_OK(rmw_init(&first_options, &first));
-    auto second_options = rmw_get_zero_initialized_init_options();
-    ASSERT_RMW_OK(rmw_init_options_init(&second_options, test_allocator()));
-    auto second = rmw_get_zero_initialized_context();
-    ASSERT_RMW_OK(rmw_init(&second_options, &second));
-    EXPECT_FALSE(rcutils_error_is_set());
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
     EXPECT_EQ(native_service->dynamic_config().number_of_notifiers(), 1U);
 
-    for (auto* context : {&first, &second}) {
-        auto* observer = rmw_create_node(context, "Observer", "/Sensors");
-        ASSERT_NE(observer, nullptr);
-        auto* waitset = rmw_create_wait_set(context, 1);
-        ASSERT_NE(waitset, nullptr);
-        void* conditions[] = {rmw_node_get_graph_guard_condition(observer)->data};
-        rmw_guard_conditions_t guard_conditions{1, conditions};
-        rmw_time_t timeout{0, 20000000};
-        auto result = rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout);
-        EXPECT_TRUE(result == RMW_RET_OK || result == RMW_RET_TIMEOUT) << "rmw_wait returned " << result;
-        EXPECT_FALSE(rcutils_error_is_set());
-        ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
-        ASSERT_RMW_OK(rmw_destroy_node(observer));
-    }
+    auto* observer = rmw_create_node(&context, "Observer", "/Sensors");
+    ASSERT_NE(observer, nullptr);
+    auto* waitset = rmw_create_wait_set(&context, 1);
+    ASSERT_NE(waitset, nullptr);
+    void* conditions[] = {rmw_node_get_graph_guard_condition(observer)->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    rmw_time_t timeout{0, 20000000};
+    auto result = rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout);
+    EXPECT_TRUE(result == RMW_RET_OK || result == RMW_RET_TIMEOUT) << "rmw_wait returned " << result;
+    EXPECT_FALSE(rcutils_error_is_set());
 
-    for (auto* context : {&first, &second}) {
-        ASSERT_RMW_OK(rmw_shutdown(context));
-        ASSERT_RMW_OK(rmw_context_fini(context));
-    }
-    ASSERT_RMW_OK(rmw_init_options_fini(&first_options));
-    ASSERT_RMW_OK(rmw_init_options_fini(&second_options));
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+    ASSERT_RMW_OK(rmw_destroy_node(observer));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
+}
+
+TEST_F(RmwGraphServiceTest, init_fails_when_the_graph_service_has_no_room_for_another_context) {
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service =
+        native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::graph().c_str()).value())
+            .event()
+            .max_notifiers(1)
+            .create();
+    ASSERT_TRUE(native_service.has_value());
+    auto native_notifier = native_service->notifier_builder().create();
+    ASSERT_TRUE(native_notifier.has_value());
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    auto context = rmw_get_zero_initialized_context();
+    EXPECT_EQ(rmw_init(&options, &context), RMW_RET_ERROR);
+    rcutils_reset_error();
+
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
 }
 
 } // namespace
