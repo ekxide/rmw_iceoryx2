@@ -60,6 +60,43 @@ samples 10000/10000 · lost 0 · warmup 100
 The bars are scaled to `max`, so the spread between `p50` and `p99` — the
 latency jitter — is visible at a glance.
 
+## rmw api benchmarks
+
+`rmw_iceoryx2_api_benchmarks` measures what single rmw operations cost,
+independent of message traffic:
+
+| recipe | measures |
+|---|---|
+| `idle-spin` | one `spin_some` of a `SingleThreadedExecutor` whose node has `subscriptions` idle subscriptions, which is the cost of `rmw_wait` with nothing ready |
+| `guard-condition` | creating, triggering and destroying a guard condition, the time until a thread waiting on a guard condition wakes up after it is triggered, and the file descriptors per guard condition |
+| `graph-change` | the time until a node's `wait_for_graph_change` returns after another context starts creating or destroying a publisher. Both contexts live in one process but use the same inter-process path as separate processes. Changes not seen within 1 s count as lost, and the run stops after three in a row |
+| `graph-query` | `get_topic_names_and_types`, `get_node_names`, `count_publishers` and `get_publishers_info_by_topic` with `topics` topics published by another context |
+| `node` | creating and destroying a node with the default node options, and the private memory and file descriptors per node with `nodes` nodes alive |
+| `node-scaling` | the private memory and file descriptors per node as the nodes of one process grow to each count in `scaling`, and the node that fails to start |
+| `endpoint` | creating and destroying a publisher and a subscription, and the private memory and file descriptors per publisher and per subscription with `endpoints` of each alive |
+| `service` | creating and destroying a service, the round trip of a request and its response between two contexts, and the private memory and file descriptors per service with `services` alive |
+
+```console
+just -f src/rmw_iceoryx2/justfile run-benchmark idle-spin subscriptions=100
+just -f src/rmw_iceoryx2/justfile run-benchmark guard-condition count=5000
+just -f src/rmw_iceoryx2/justfile run-benchmark graph-change
+just -f src/rmw_iceoryx2/justfile run-benchmark graph-query topics=500
+just -f src/rmw_iceoryx2/justfile run-benchmark node nodes=16
+just -f src/rmw_iceoryx2/justfile run-benchmark node-scaling scaling=1,10,30,100
+just -f src/rmw_iceoryx2/justfile run-benchmark endpoint endpoints=100
+just -f src/rmw_iceoryx2/justfile run-benchmark service rmw=rmw_fastrtps_cpp
+```
+
+`idle-spin` and `guard-condition` take `count` and `warmup` like the pairings.
+`graph-change`, `graph-query`, `node`, `endpoint` and `service` take `rounds`
+instead, since each round takes milliseconds. All of them take `rmw` to run the same measurement with
+another rmw implementation, e.g. `rmw=rmw_fastrtps_cpp`, and so does the
+`ros2-to-ros2` pairing. Every recipe takes `repeat` to run
+the benchmark several times; with more than one run, a summary with the median
+p50, its range and the median p99 of every report follows the runs. To see the
+effect of a change, build and run them once on `rolling` and once on the branch,
+on an otherwise idle machine, e.g. with `repeat=3`.
+
 ## Methodology & caveats
 
 - Latency is `receive time − source_timestamp`. The ROS 2 subscriber measures

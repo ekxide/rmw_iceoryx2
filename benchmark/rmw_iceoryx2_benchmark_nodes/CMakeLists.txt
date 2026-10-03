@@ -34,5 +34,7 @@ install(TARGETS
   ros2_publisher
   ros2_subscriber
   DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
+ament_export_include_directories(include/${PROJECT_NAME})
 
 ament_package()

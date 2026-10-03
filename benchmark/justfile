@@ -8,20 +8,48 @@ ws := invocation_directory()
 root := justfile_directory() / "../justfile"
 manifest := justfile_directory() / "iceoryx2_benchmark_nodes/Cargo.toml"
 native_bin := justfile_directory() / "iceoryx2_benchmark_nodes/target/release"
+summarize := justfile_directory() / "summarize.py"
 
 # Publish rate in Hz.
 rate := "1000"
 # Total samples in the run.
 count := "10000"
+# Runs of the benchmark, summarized with their median and range when more than one.
+repeat := "1"
 # Received samples excluded from the statistics.
 warmup := "100"
+# Rounds of the slow benchmarks: graph-change, graph-query and node.
+rounds := "100"
+# Idle subscriptions in the executor of idle-spin.
+subscriptions := "10"
+# Topics in the graph of graph-query.
+topics := "100"
+# Nodes kept alive to measure the memory per node in node.
+nodes := "10"
+# Node counts of node-scaling, measured one after the other in one process.
+scaling := "1,10,30,100"
+# Publishers and subscriptions kept alive to measure the memory per endpoint in endpoint.
+endpoints := "50"
+# Services kept alive to measure the memory per service in service.
+services := "10"
+# rmw implementation of ros2-to-ros2 and the api benchmarks, to compare against other implementations.
+rmw := "rmw_iceoryx2_cxx"
 
 _default:
     @just --justfile {{justfile()}} --list
     @printf '\n\033[2mrun parameters (named, in any order, e.g. `just ros2-to-ros2 rate=100`)\033[0m\n'
     @printf '    rate=%s    \033[2mpublish rate in Hz\033[0m\n' '{{rate}}'
     @printf '    count=%s  \033[2mtotal samples in the run\033[0m\n' '{{count}}'
+    @printf '    repeat=%s    \033[2mruns of the benchmark, summarized when more than one\033[0m\n' '{{repeat}}'
     @printf '    warmup=%s    \033[2mreceived samples excluded from the statistics\033[0m\n' '{{warmup}}'
+    @printf '    rounds=%s    \033[2mrounds of graph-change, graph-query and node\033[0m\n' '{{rounds}}'
+    @printf '    subscriptions=%s    \033[2midle subscriptions of idle-spin\033[0m\n' '{{subscriptions}}'
+    @printf '    topics=%s    \033[2mtopics in the graph of graph-query\033[0m\n' '{{topics}}'
+    @printf '    nodes=%s    \033[2mnodes kept alive to measure the memory per node\033[0m\n' '{{nodes}}'
+    @printf '    scaling=%s    \033[2mnode counts of node-scaling\033[0m\n' '{{scaling}}'
+    @printf '    endpoints=%s    \033[2mpublishers and subscriptions kept alive in endpoint\033[0m\n' '{{endpoints}}'
+    @printf '    services=%s    \033[2mservices kept alive in service\033[0m\n' '{{services}}'
+    @printf '    rmw=%s    \033[2mrmw implementation of ros2-to-ros2 and the api benchmarks\033[0m\n' '{{rmw}}'
 
 # Build the ROS 2 packages and native iceoryx2 nodes.
 build:
@@ -29,7 +57,7 @@ build:
     set -eo pipefail
 
     cd "{{ws}}"
-    just -f "{{root}}" build rmw_iceoryx2_benchmark_nodes
+    just -f "{{root}}" build rmw_iceoryx2_benchmark_nodes rmw_iceoryx2_api_benchmarks
 
     source install/setup.bash
     cargo build --release --manifest-path "{{manifest}}"
@@ -54,18 +82,52 @@ iceoryx2-to-ros2 *parameters:
 iceoryx2-to-iceoryx2 *parameters:
     @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _iceoryx2-to-iceoryx2
 
+# Cost of one idle executor spin with `subscriptions` idle subscriptions.
+idle-spin *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _idle-spin
+
+# Cost of creating, triggering and destroying a guard condition, and of waking a thread with it.
+guard-condition *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _guard-condition
+
+# Time until a node sees a publisher of another context being created or destroyed.
+graph-change *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _graph-change
+
+# Cost of the graph queries with `topics` topics in the graph.
+graph-query *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _graph-query
+
+# Cost of creating and destroying a node, and the memory and file descriptors per node.
+node *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _node
+
+# Memory and file descriptors per node as the nodes of one process grow to each count in `scaling`.
+node-scaling *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _node-scaling
+
+# Cost of creating and destroying publishers and subscriptions, and the memory and file descriptors per endpoint.
+endpoint *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _endpoint
+
+# Cost of creating and destroying a service and of a request and response, and the memory and file descriptors per service.
+service *parameters:
+    @just --justfile {{justfile()}} "ws={{ws}}" {{parameters}} _service
+
 _ros2-to-ros2:
     #!/usr/bin/env bash
     set -eo pipefail
     cd "{{ws}}"
     source install/setup.bash
-    export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx ROS_DISABLE_LOANED_MESSAGES=0
+    export RMW_IMPLEMENTATION={{rmw}} ROS_DISABLE_LOANED_MESSAGES=0
 
-    ros2 run rmw_iceoryx2_benchmark_nodes ros2_subscriber --count {{count}} --warmup {{warmup}} &
-    subscriber_pid=$!
-    sleep 1
-    ros2 run rmw_iceoryx2_benchmark_nodes ros2_publisher --rate {{rate}} --count {{count}}
-    wait "$subscriber_pid"
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_benchmark_nodes ros2_subscriber --count {{count}} --warmup {{warmup}} &
+        subscriber_pid=$!
+        sleep 1
+        ros2 run rmw_iceoryx2_benchmark_nodes ros2_publisher --rate {{rate}} --count {{count}}
+        wait "$subscriber_pid"
+    done | python3 "{{summarize}}"
 
 _ros2-to-iceoryx2:
     #!/usr/bin/env bash
@@ -74,11 +136,13 @@ _ros2-to-iceoryx2:
     source install/setup.bash
     export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx ROS_DISABLE_LOANED_MESSAGES=0
 
-    "{{native_bin}}/subscriber" --count {{count}} --warmup {{warmup}} &
-    subscriber_pid=$!
-    sleep 1
-    ros2 run rmw_iceoryx2_benchmark_nodes ros2_publisher --rate {{rate}} --count {{count}}
-    wait "$subscriber_pid"
+    for _ in $(seq {{repeat}}); do
+        "{{native_bin}}/subscriber" --count {{count}} --warmup {{warmup}} &
+        subscriber_pid=$!
+        sleep 1
+        ros2 run rmw_iceoryx2_benchmark_nodes ros2_publisher --rate {{rate}} --count {{count}}
+        wait "$subscriber_pid"
+    done | python3 "{{summarize}}"
 
 _iceoryx2-to-ros2:
     #!/usr/bin/env bash
@@ -87,11 +151,13 @@ _iceoryx2-to-ros2:
     source install/setup.bash
     export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx ROS_DISABLE_LOANED_MESSAGES=0
 
-    ros2 run rmw_iceoryx2_benchmark_nodes ros2_subscriber --count {{count}} --warmup {{warmup}} &
-    subscriber_pid=$!
-    sleep 1
-    "{{native_bin}}/publisher" --rate {{rate}} --count {{count}}
-    wait "$subscriber_pid"
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_benchmark_nodes ros2_subscriber --count {{count}} --warmup {{warmup}} &
+        subscriber_pid=$!
+        sleep 1
+        "{{native_bin}}/publisher" --rate {{rate}} --count {{count}}
+        wait "$subscriber_pid"
+    done | python3 "{{summarize}}"
 
 _iceoryx2-to-iceoryx2:
     #!/usr/bin/env bash
@@ -99,8 +165,98 @@ _iceoryx2-to-iceoryx2:
     cd "{{ws}}"
     source install/setup.bash
 
-    "{{native_bin}}/subscriber" --count {{count}} --warmup {{warmup}} &
-    subscriber_pid=$!
-    sleep 1
-    "{{native_bin}}/publisher" --rate {{rate}} --count {{count}}
-    wait "$subscriber_pid"
+    for _ in $(seq {{repeat}}); do
+        "{{native_bin}}/subscriber" --count {{count}} --warmup {{warmup}} &
+        subscriber_pid=$!
+        sleep 1
+        "{{native_bin}}/publisher" --rate {{rate}} --count {{count}}
+        wait "$subscriber_pid"
+    done | python3 "{{summarize}}"
+
+_idle-spin:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION={{rmw}}
+
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_api_benchmarks idle_spin --subscriptions {{subscriptions}} --count {{count}} --warmup {{warmup}}
+    done | python3 "{{summarize}}"
+
+_guard-condition:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION={{rmw}}
+
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_api_benchmarks guard_condition --count {{count}} --warmup {{warmup}}
+    done | python3 "{{summarize}}"
+
+_graph-change:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION={{rmw}}
+
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_api_benchmarks graph_change --count {{rounds}} --warmup 0
+    done | python3 "{{summarize}}"
+
+_graph-query:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION={{rmw}}
+
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_api_benchmarks graph_query --topics {{topics}} --count {{rounds}} --warmup 0
+    done | python3 "{{summarize}}"
+
+_node:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION={{rmw}}
+
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_api_benchmarks node --nodes {{nodes}} --count {{rounds}} --warmup 0
+    done | python3 "{{summarize}}"
+
+_node-scaling:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION={{rmw}}
+
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_api_benchmarks node --nodes {{scaling}} --count 1 --warmup 0
+    done | python3 "{{summarize}}"
+
+_endpoint:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION={{rmw}}
+
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_api_benchmarks endpoint --endpoints {{endpoints}} --count {{rounds}} --warmup 0
+    done | python3 "{{summarize}}"
+
+_service:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    cd "{{ws}}"
+    source install/setup.bash
+    export RMW_IMPLEMENTATION={{rmw}}
+
+    for _ in $(seq {{repeat}}); do
+        ros2 run rmw_iceoryx2_api_benchmarks service --services {{services}} --count {{rounds}} --warmup 0
+    done | python3 "{{summarize}}"
