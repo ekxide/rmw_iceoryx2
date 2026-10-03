@@ -91,9 +91,11 @@ just -f src/rmw_iceoryx2/justfile run-benchmark service rmw=rmw_fastrtps_cpp
 `graph-change`, `graph-query`, `node`, `endpoint` and `service` take `rounds`
 instead, since each round takes milliseconds. All of them take `rmw` to run the same measurement with
 another rmw implementation, e.g. `rmw=rmw_fastrtps_cpp`, and so does the
-`ros2-to-ros2` pairing. To see the effect of a
-change, build and run them once on `rolling` and once on the branch, on an
-otherwise idle machine.
+`ros2-to-ros2` pairing. Every recipe takes `repeat` to run
+the benchmark several times; with more than one run, a summary with the median
+p50, its range and the median p99 of every report follows the runs. To see the
+effect of a change, build and run them once on `rolling` and once on the branch,
+on an otherwise idle machine, e.g. with `repeat=3`.
 
 ## Methodology & caveats
 
