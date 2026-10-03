@@ -138,23 +138,17 @@ const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t
     using NodeImpl = rmw::iox2::Node;
     using rmw::iox2::unsafe_cast;
 
-    auto* rmw_guard_condition = rmw_guard_condition_allocate();
-    if (rmw_guard_condition == nullptr) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_guard_condition_t");
-        return nullptr;
-    }
-
-    rmw_guard_condition->implementation_identifier = rmw_get_implementation_identifier();
-    rmw_guard_condition->context = rmw_node->context;
-
     auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
     if (!node_impl.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
-    rmw_guard_condition->data = static_cast<void*>(&node_impl.value()->graph_guard_condition());
+    auto& rmw_guard_condition = node_impl.value()->graph_guard_condition_handle();
+    rmw_guard_condition.implementation_identifier = rmw_get_implementation_identifier();
+    rmw_guard_condition.context = rmw_node->context;
+    rmw_guard_condition.data = static_cast<void*>(&node_impl.value()->graph_guard_condition());
 
-    return rmw_guard_condition;
+    return &rmw_guard_condition;
 }
 }

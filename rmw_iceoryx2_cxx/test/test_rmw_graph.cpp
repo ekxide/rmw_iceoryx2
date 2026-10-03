@@ -786,6 +786,8 @@ TEST_F(RmwGraphServiceTest, init_fails_when_the_graph_service_has_no_room_for_an
     auto context = rmw_get_zero_initialized_context();
     EXPECT_EQ(rmw_init(&options, &context), RMW_RET_ERROR);
     rcutils_reset_error();
+    EXPECT_EQ(context.implementation_identifier, nullptr);
+    EXPECT_EQ(context.options.enclave, nullptr);
 
     ASSERT_RMW_OK(rmw_init_options_fini(&options));
 }

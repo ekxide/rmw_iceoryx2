@@ -101,6 +101,7 @@ rmw_ret_t take_impl(const rmw_subscription_t* rmw_subscription,
 
             if (auto deser = rmw_deserialize(&serialized_message, typesupport, ros_message); deser != RMW_RET_OK) {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received message");
+                (void)subscriber_impl->return_loan(loan.bytes);
                 return RMW_RET_ERROR;
             }
 
@@ -231,12 +232,14 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
 
     auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
     if (!node_impl.has_value()) {
+        deallocate(rmw_subscription->topic_name);
         rmw_subscription_free(rmw_subscription);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
     if (auto subscriber_impl = allocate<SubscriberImpl>(); !subscriber_impl.has_value()) {
+        deallocate(rmw_subscription->topic_name);
         rmw_subscription_free(rmw_subscription);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Subscriber");
         return nullptr;
@@ -262,6 +265,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
             }
             destruct<SubscriberImpl>(subscriber_impl.value());
             deallocate<SubscriberImpl>(subscriber_impl.value());
+            deallocate(rmw_subscription->topic_name);
             rmw_subscription_free(rmw_subscription);
             return nullptr;
         }
@@ -290,6 +294,7 @@ rmw_ret_t rmw_destroy_subscription(rmw_node_t* rmw_node, rmw_subscription_t* rmw
         destruct<SubscriberImpl>(rmw_subscription->data);
         deallocate(rmw_subscription->data);
     }
+    deallocate(rmw_subscription->topic_name);
     rmw_subscription_free(rmw_subscription);
     if (rmw_node->context->impl != nullptr) {
         rmw_node->context->impl->notify_graph_change();
@@ -432,6 +437,7 @@ rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* rmw_subscription
                 if (auto result = rmw_serialized_message_resize(serialized_message, loan.number_of_bytes);
                     result != RMW_RET_OK) {
                     RMW_IOX2_CHAIN_ERROR_MSG("failed to resize serialized message to store received payload");
+                    (void)subscriber_impl->return_loan(loan.bytes);
                     return RMW_RET_ERROR;
                 }
 

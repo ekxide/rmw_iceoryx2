@@ -97,12 +97,14 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
 
     auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
     if (!node_impl.has_value()) {
+        deallocate(rmw_publisher->topic_name);
         rmw_publisher_free(rmw_publisher);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
     if (auto publisher_impl = allocate<PublisherImpl>(); !publisher_impl.has_value()) {
+        deallocate(rmw_publisher->topic_name);
         rmw_publisher_free(rmw_publisher);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Publisher");
         return nullptr;
@@ -128,6 +130,7 @@ rmw_publisher_t* rmw_create_publisher(const rmw_node_t* rmw_node,
             }
             destruct<PublisherImpl>(publisher_impl.value());
             deallocate<PublisherImpl>(publisher_impl.value());
+            deallocate(rmw_publisher->topic_name);
             rmw_publisher_free(rmw_publisher);
             return nullptr;
         }
@@ -156,6 +159,7 @@ rmw_ret_t rmw_destroy_publisher(rmw_node_t* rmw_node, rmw_publisher_t* rmw_publi
         destruct<PublisherImpl>(rmw_publisher->data);
         deallocate(rmw_publisher->data);
     }
+    deallocate(rmw_publisher->topic_name);
     rmw_publisher_free(rmw_publisher);
     if (rmw_node->context->impl != nullptr) {
         rmw_node->context->impl->notify_graph_change();

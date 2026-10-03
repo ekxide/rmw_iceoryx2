@@ -212,22 +212,23 @@ rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* co
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
 
-    context->instance_id = rmw_init_options->instance_id;
-    context->implementation_identifier = rmw_get_implementation_identifier();
-    context->options.enclave = rcutils_strdup(rmw_init_options->enclave, rmw_init_options->allocator);
-
     auto ptr = allocate<rmw_context_impl_s>();
     if (!ptr.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_context_impl_s");
         return RMW_RET_ERROR;
     }
 
-    if (!create_in_place<rmw_context_impl_s>(ptr.value(), context->instance_id, *rmw_init_options->impl).has_value()) {
+    if (!create_in_place<rmw_context_impl_s>(ptr.value(), rmw_init_options->instance_id, *rmw_init_options->impl)
+             .has_value()) {
         destruct<rmw_context_impl_s>(ptr.value());
         deallocate(ptr.value());
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct rmw_context_impl_s");
         return RMW_RET_ERROR;
     }
+    context->instance_id = rmw_init_options->instance_id;
+    context->implementation_identifier = rmw_get_implementation_identifier();
+    context->options.allocator = rmw_init_options->allocator;
+    context->options.enclave = rcutils_strdup(rmw_init_options->enclave, rmw_init_options->allocator);
     context->impl = ptr.value();
 
     return RMW_RET_OK;
@@ -260,6 +261,9 @@ rmw_ret_t rmw_context_fini(rmw_context_t* rmw_context) {
     RMW_IOX2_ENSURE_NOT_INITIALIZED(rmw_context, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
+    if (rmw_context->options.enclave != nullptr) {
+        rmw_context->options.allocator.deallocate(rmw_context->options.enclave, rmw_context->options.allocator.state);
+    }
     *rmw_context = rmw_get_zero_initialized_context();
 
     return RMW_RET_OK;

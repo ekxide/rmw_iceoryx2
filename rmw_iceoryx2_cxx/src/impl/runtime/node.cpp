@@ -58,4 +58,8 @@ auto Node::graph_guard_condition() -> GuardCondition& {
     return m_graph_guard_condition.value();
 }
 
+auto Node::graph_guard_condition_handle() -> rmw_guard_condition_t& {
+    return m_graph_guard_condition_handle;
+}
+
 } // namespace rmw::iox2
