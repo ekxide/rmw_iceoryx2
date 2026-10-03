@@ -61,4 +61,22 @@ auto Iceoryx2::ipc() -> InterProcess::Handle& {
     return m_ipc.value();
 }
 
+auto Iceoryx2::open_event_service(const ServiceName& service_name,
+                                  uint64_t max_notifiers,
+                                  uint64_t max_listeners,
+                                  uint64_t max_nodes)
+    -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventOpenOrCreateError> {
+    auto opened = ipc().service_builder(service_name).event().open();
+    if (opened.has_value()) {
+        return std::move(opened.value());
+    }
+    return ipc()
+        .service_builder(service_name)
+        .event()
+        .max_notifiers(max_notifiers)
+        .max_listeners(max_listeners)
+        .max_nodes(max_nodes)
+        .open_or_create();
+}
+
 } // namespace rmw::iox2

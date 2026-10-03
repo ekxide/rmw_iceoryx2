@@ -132,7 +132,11 @@ Publisher::Publisher(CreationLock,
     m_iox2_publisher.emplace(std::move(iox2_publisher.value()));
     m_iox2_service.emplace(std::move(iox2_pubsub_service.value()));
 
-    auto iox2_event_service = node.iox2().ipc().service_builder(iox2_service_name.value()).event().open_or_create();
+    auto iox2_event_service =
+        node.iox2().open_event_service(iox2_service_name.value(),
+                                       options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC),
+                                       options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC),
+                                       options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE));
     if (!iox2_event_service.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_event_service.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);

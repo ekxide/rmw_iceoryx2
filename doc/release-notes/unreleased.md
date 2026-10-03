@@ -39,6 +39,7 @@
 * Report endpoints of unknown nodes with placeholder names [#63](https://github.com/ekxide/rmw_iceoryx2/issues/63)
 * Propagate the errors of the endpoint info setters [#64](https://github.com/ekxide/rmw_iceoryx2/issues/64)
 * Fix guard conditions failing after 255 per context [#82](https://github.com/ekxide/rmw_iceoryx2/issues/82)
+* Fix the 17th publisher or subscription of a topic failing [#94](https://github.com/ekxide/rmw_iceoryx2/issues/94)
 
 ### Refactoring
 

@@ -9,9 +9,12 @@
 
 #include <gtest/gtest.h>
 
+#include "iox2/node.hpp"
+#include "iox2/service_name.hpp"
 #include "rcutils/error_handling.h"
 #include "rcutils/time.h"
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/bounded_sequences.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.h"
@@ -591,6 +594,48 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_publication_sequence_number_incre
     }
 
     free(recv_payload);
+}
+
+// ---------------------------------------------------------------------------
+// Topic limits
+// ---------------------------------------------------------------------------
+
+TEST_F(RmwPublishSubscribeTest, more_than_sixteen_publishers_share_a_topic) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+    for (int i = 0; i < 20; ++i) {
+        ASSERT_NE(create_default_publisher<Defaults>(topic), nullptr) << "publisher " << i + 1;
+    }
+}
+
+TEST_F(RmwPublishSubscribeTest, more_than_sixteen_subscriptions_share_a_topic) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+    for (int i = 0; i < 20; ++i) {
+        ASSERT_NE(create_default_subscriber<Defaults>(topic), nullptr) << "subscription " << i + 1;
+    }
+}
+
+TEST_F(RmwPublishSubscribeTest, endpoints_join_an_event_service_created_by_another_iceoryx2_application) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service =
+        native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::topic(topic.c_str()).c_str()).value())
+            .event()
+            .max_nodes(2)
+            .max_notifiers(1)
+            .max_listeners(1)
+            .create();
+    ASSERT_TRUE(native_service.has_value());
+
+    ASSERT_NE(create_default_publisher<Defaults>(topic), nullptr);
+    ASSERT_NE(create_default_subscriber<Defaults>(topic), nullptr);
+    EXPECT_EQ(native_service->dynamic_config().number_of_notifiers(), 1U);
+    EXPECT_EQ(native_service->dynamic_config().number_of_listeners(), 1U);
 }
 
 // ---------------------------------------------------------------------------
