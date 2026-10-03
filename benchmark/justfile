@@ -29,7 +29,7 @@ scaling := "1,10,30,100"
 endpoints := "50"
 # Services kept alive to measure the memory per service in service.
 services := "10"
-# rmw implementation of the api benchmarks, to compare against other implementations.
+# rmw implementation of ros2-to-ros2 and the api benchmarks, to compare against other implementations.
 rmw := "rmw_iceoryx2_cxx"
 
 _default:
@@ -45,7 +45,7 @@ _default:
     @printf '    scaling=%s    \033[2mnode counts of node-scaling\033[0m\n' '{{scaling}}'
     @printf '    endpoints=%s    \033[2mpublishers and subscriptions kept alive in endpoint\033[0m\n' '{{endpoints}}'
     @printf '    services=%s    \033[2mservices kept alive in service\033[0m\n' '{{services}}'
-    @printf '    rmw=%s    \033[2mrmw implementation of the api benchmarks\033[0m\n' '{{rmw}}'
+    @printf '    rmw=%s    \033[2mrmw implementation of ros2-to-ros2 and the api benchmarks\033[0m\n' '{{rmw}}'
 
 # Build the ROS 2 packages and native iceoryx2 nodes.
 build:
@@ -115,7 +115,7 @@ _ros2-to-ros2:
     set -eo pipefail
     cd "{{ws}}"
     source install/setup.bash
-    export RMW_IMPLEMENTATION=rmw_iceoryx2_cxx ROS_DISABLE_LOANED_MESSAGES=0
+    export RMW_IMPLEMENTATION={{rmw}} ROS_DISABLE_LOANED_MESSAGES=0
 
     ros2 run rmw_iceoryx2_benchmark_nodes ros2_subscriber --count {{count}} --warmup {{warmup}} &
     subscriber_pid=$!

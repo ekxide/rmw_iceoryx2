@@ -90,7 +90,8 @@ just -f src/rmw_iceoryx2/justfile run-benchmark service rmw=rmw_fastrtps_cpp
 `idle-spin` and `guard-condition` take `count` and `warmup` like the pairings.
 `graph-change`, `graph-query`, `node`, `endpoint` and `service` take `rounds`
 instead, since each round takes milliseconds. All of them take `rmw` to run the same measurement with
-another rmw implementation, e.g. `rmw=rmw_fastrtps_cpp`. To see the effect of a
+another rmw implementation, e.g. `rmw=rmw_fastrtps_cpp`, and so does the
+`ros2-to-ros2` pairing. To see the effect of a
 change, build and run them once on `rolling` and once on the branch, on an
 otherwise idle machine.
 
