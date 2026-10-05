@@ -63,6 +63,7 @@
 * Add CI for building and testing with `gcc` [#15](https://github.com/ekxide/rmw_iceoryx2/issues/15)
 * Rename `main` branch to `rolling` [#38](https://github.com/ekxide/rmw_iceoryx2/issues/38)
 * Add `just` scripts for building / running packages, demos and benchmark
+* Build `performance_test` on Rolling [#88](https://github.com/ekxide/rmw_iceoryx2/issues/88)
   [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 * Update Python dependencies for benchmark to apply security fixes [#47](https://github.com/ekxide/rmw_iceoryx2/issues/47)
 * Make CI compatible with Ubuntu 26.04 [#49](https://github.com/ekxide/rmw_iceoryx2/issues/49)
