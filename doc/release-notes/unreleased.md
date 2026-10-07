@@ -49,6 +49,7 @@
 * Bump `iceoryx2` dependency to v0.10.0 [#23](https://github.com/ekxide/rmw_iceoryx2/issues/23)
 * Use https based url for git repos [#27](https://github.com/ekxide/rmw_iceoryx2/issues/27)
 * Remove dependency on `iceoryx_hoofs` [#33](https://github.com/ekxide/rmw_iceoryx2/issues/27)
+* Attach the listeners of the wait set in one function [#60](https://github.com/ekxide/rmw_iceoryx2/issues/60)
 
 ### Workflow
 

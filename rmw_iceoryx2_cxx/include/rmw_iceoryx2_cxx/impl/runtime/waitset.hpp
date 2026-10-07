@@ -12,7 +12,6 @@
 
 #include "iox2/bb/duration.hpp"
 #include "iox2/bb/expected.hpp"
-#include "iox2/bb/into.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/legacy/variant.hpp"
 #include "rmw/visibility_control.h"
@@ -181,22 +180,6 @@ private:
     /// @return Success if all listeners were attached, error otherwise
     auto attach_mapped_listeners(WaitContext& ctx) -> ::iox2::bb::Expected<void, ErrorType>;
 
-    /// @brief Attach a mapped listener to the waitset.
-    /// @details Creates a notification attachment to the waitset for the listener of the mapped entity.
-    /// @param[in] mapping The mapping containing details about the listener to attach
-    /// @return Success with the attachment details if successful, error otherwise
-    auto attach_mapped_listener(const RmwMapping& mapping) -> ::iox2::bb::Expected<AttachmentDetails, ErrorType>;
-
-    /// @brief Attach the listener of a mapped entity to the waitset.
-    /// @details Creates a notification attachment to the waitset for the given listener.
-    /// @tparam ListenerType The type of listener
-    /// @param[in] listener The listener to attach
-    /// @param[in] mapping The mapping of the entity that owns the listener
-    /// @return Success with the attachment details if successful, error otherwise
-    template <typename ListenerType>
-    auto attach_mapped_listener_impl(const ListenerType& listener, const RmwMapping& mapping)
-        -> ::iox2::bb::Expected<AttachmentDetails, ErrorType>;
-
     /// @brief Process a triggered waitable entity
     /// @details Consumes the events from the listener of a triggered subscriber. A triggered guard condition keeps
     ///          its trigger until it is collected.
@@ -227,21 +210,6 @@ private:
     // Maps the attachment to the index used in the RMW for tracking.
     std::vector<RmwMapping> m_mapping;
 };
-
-// ===================================================================================================================
-
-template <typename ListenerType>
-auto WaitSet::attach_mapped_listener_impl(const ListenerType& listener, const RmwMapping& mapping)
-    -> ::iox2::bb::Expected<AttachmentDetails, ErrorType> {
-    using ::iox2::bb::err;
-
-    auto guard = m_waitset->attach_notification(listener.file_descriptor());
-    if (!guard.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(guard.error()));
-        return err(ErrorType::ATTACHMENT_FAILURE);
-    }
-    return AttachmentDetails(std::move(guard.value()), mapping);
-}
 
 } // namespace rmw::iox2
 

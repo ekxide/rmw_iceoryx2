@@ -148,28 +148,26 @@ auto WaitSet::attach_mapped_listeners(WaitContext& ctx) -> ::iox2::bb::Expected<
     using ::iox2::bb::err;
 
     for (const auto& staged : m_mapping) {
-        auto result = attach_mapped_listener(staged);
-        if (!result.has_value()) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to attach mapped listeners to waitset");
-            return err(result.error());
+        ::iox2::bb::Optional<::iox2::FileDescriptorView> file_descriptor;
+        switch (staged.waitable_type) {
+        case WaitableEntity::GUARD_CONDITION:
+            file_descriptor.emplace((*staged.entity.get<GuardCondition*>())->file_descriptor());
+            break;
+        case WaitableEntity::SUBSCRIBER:
+            file_descriptor.emplace((*staged.entity.get<Subscriber*>())->listener().file_descriptor());
+            break;
+        default:
+            RMW_IOX2_CHAIN_ERROR_MSG("attempted to attach an unknown waitable type");
+            return err(ErrorType::INVALID_WAITABLE_TYPE);
         }
-        ctx.attached_listeners.push_back(std::move(result.value()));
+        auto guard = m_waitset->attach_notification(file_descriptor.value());
+        if (!guard.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(guard.error()));
+            return err(ErrorType::ATTACHMENT_FAILURE);
+        }
+        ctx.attached_listeners.emplace_back(std::move(guard.value()), staged);
     }
     return {};
-}
-
-auto WaitSet::attach_mapped_listener(const RmwMapping& mapping) -> ::iox2::bb::Expected<AttachmentDetails, ErrorType> {
-    using ::iox2::bb::err;
-
-    switch (mapping.waitable_type) {
-    case WaitableEntity::GUARD_CONDITION:
-        return attach_mapped_listener_impl(**mapping.entity.get<GuardCondition*>(), mapping);
-    case WaitableEntity::SUBSCRIBER:
-        return attach_mapped_listener_impl((*mapping.entity.get<Subscriber*>())->listener(), mapping);
-    default:
-        RMW_IOX2_CHAIN_ERROR_MSG("attempted to attach an unknown waitable type");
-        return err(ErrorType::INVALID_WAITABLE_TYPE);
-    }
 }
 
 auto WaitSet::process_trigger(const RmwMapping& mapping) -> ::iox2::bb::Expected<bool, ErrorType> {
