@@ -76,8 +76,8 @@ TEST_F(RmwGidTest, can_compare_publisher_gids) {
     auto gid_2_alloc = allocate<rmw_gid_t>();
     ASSERT_TRUE(gid_2_alloc.has_value()) << "unable to allocate for rmw_gid_t";
     auto gid_2 = gid_2_alloc.value();
-    ASSERT_TRUE(construct<rmw_gid_t>(gid_1).has_value()) << "unable to construct rmw_gid_t";
-    memset(gid_1->data, 0, RMW_GID_STORAGE_SIZE);
+    ASSERT_TRUE(construct<rmw_gid_t>(gid_2).has_value()) << "unable to construct rmw_gid_t";
+    memset(gid_2->data, 0, RMW_GID_STORAGE_SIZE);
 
     ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher_1, gid_1));
     ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher_2, gid_2));
@@ -87,8 +87,8 @@ TEST_F(RmwGidTest, can_compare_publisher_gids) {
     ASSERT_TRUE(result_equal);
 
     bool result_unequal{true};
-    ASSERT_RMW_OK(rmw_compare_gids_equal(gid_1, gid_2, &result_equal));
-    ASSERT_TRUE(result_unequal);
+    ASSERT_RMW_OK(rmw_compare_gids_equal(gid_1, gid_2, &result_unequal));
+    ASSERT_FALSE(result_unequal);
 
     deallocate(gid_1);
     deallocate(gid_2);
