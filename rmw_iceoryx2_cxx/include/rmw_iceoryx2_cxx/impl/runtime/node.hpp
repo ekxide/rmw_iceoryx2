@@ -11,7 +11,6 @@
 #define RMW_IOX2_RUNTIME_NODE_HPP_
 
 #include "iox2/bb/optional.hpp"
-#include "rmw/types.h"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -75,10 +74,6 @@ public:
     /// @return The guard condition for graph events
     auto graph_guard_condition() -> GuardCondition&;
 
-    /// @brief Get the rmw handle of the guard condition for graph events
-    /// @return The rmw handle of the graph guard condition
-    auto graph_guard_condition_handle() -> rmw_guard_condition_t&;
-
 private:
     // `reference_wrapper` so the class remains move-constructible, which
     // iox2::bb::Optional's emplace path requires. Cannot be null by construction.
@@ -86,7 +81,6 @@ private:
     std::string m_name;
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
     ::iox2::bb::Optional<GraphGuardCondition> m_graph_guard_condition;
-    rmw_guard_condition_t m_graph_guard_condition_handle{};
 };
 
 } // namespace rmw::iox2

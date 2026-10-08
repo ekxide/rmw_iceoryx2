@@ -27,7 +27,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/defaults.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
+#include "rmw_iceoryx2_cxx/rmw/node.hpp"
 
 #include <vector>
 
@@ -222,12 +222,12 @@ auto fill_names_and_types(rmw_names_and_types_t* names_and_types,
 
 /// @brief The graph as seen by a node.
 auto graph_of(const rmw_node_t* rmw_node) -> ::iox2::bb::Optional<::rmw::iox2::Graph> {
-    auto node_impl = ::rmw::iox2::unsafe_cast<::rmw::iox2::Node*>(rmw_node->data);
-    if (!node_impl.has_value()) {
+    auto node_data = ::rmw::iox2::unsafe_cast<::rmw::iox2::NodeData*>(rmw_node->data);
+    if (!node_data.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to get NodeImpl");
         return ::iox2::bb::NULLOPT;
     }
-    return ::rmw::iox2::Graph{*node_impl.value()};
+    return ::rmw::iox2::Graph{node_data.value()->node.value()};
 }
 
 } // namespace
