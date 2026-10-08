@@ -15,6 +15,7 @@
 #include "rcutils/time.h"
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/bounded_sequences.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.h"
@@ -600,20 +601,20 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_publication_sequence_number_incre
 // Topic limits
 // ---------------------------------------------------------------------------
 
-TEST_F(RmwPublishSubscribeTest, more_than_sixteen_publishers_share_a_topic) {
+TEST_F(RmwPublishSubscribeTest, creates_publishers_up_to_the_topic_limit) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto topic = create_test_topic();
-    for (int i = 0; i < 20; ++i) {
+    for (size_t i = 0; i < rmw::iox2::DEFAULT_MAX_PUBLISHERS_PER_TOPIC; ++i) {
         ASSERT_NE(create_default_publisher<Defaults>(topic), nullptr) << "publisher " << i + 1;
     }
 }
 
-TEST_F(RmwPublishSubscribeTest, more_than_sixteen_subscriptions_share_a_topic) {
+TEST_F(RmwPublishSubscribeTest, creates_subscriptions_up_to_the_topic_limit) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 
     auto topic = create_test_topic();
-    for (int i = 0; i < 20; ++i) {
+    for (size_t i = 0; i < rmw::iox2::DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC; ++i) {
         ASSERT_NE(create_default_subscriber<Defaults>(topic), nullptr) << "subscription " << i + 1;
     }
 }
