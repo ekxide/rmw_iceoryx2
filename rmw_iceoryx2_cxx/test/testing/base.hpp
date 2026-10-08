@@ -17,6 +17,7 @@
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 #include "rosidl_typesupport_cpp/service_type_support.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <optional>
 #include <string>
@@ -145,6 +146,22 @@ protected:
         return service;
     }
 
+    template <typename ServiceType>
+    rmw_client_t* create_client(const std::string& service_name,
+                                const rmw_qos_profile_t& qos = rmw_qos_profile_services_default) {
+        auto client =
+            rmw_create_client(test_node(), test_service_type_support<ServiceType>(), service_name.c_str(), &qos);
+        if (client != nullptr) {
+            m_clients.push_back(client);
+        }
+        return client;
+    }
+
+    void destroy_service(rmw_service_t* service) {
+        m_services.erase(std::find(m_services.begin(), m_services.end(), service));
+        EXPECT_RMW_OK(rmw_destroy_service(test_node(), service));
+    }
+
     void cleanup_endpoints() {
         for (auto pub : m_publishers) {
             EXPECT_RMW_OK(rmw_destroy_publisher(test_node(), pub));
@@ -158,6 +175,10 @@ protected:
             EXPECT_RMW_OK(rmw_destroy_service(test_node(), service));
         }
         m_services.clear();
+        for (auto client : m_clients) {
+            EXPECT_RMW_OK(rmw_destroy_client(test_node(), client));
+        }
+        m_clients.clear();
     }
 
     void cleanup_test_context() {
@@ -223,6 +244,7 @@ private:
     const rmw_subscription_options_t m_subscriber_options{rmw_get_default_subscription_options()};
     std::vector<rmw_subscription_t*> m_subscribers;
     std::vector<rmw_service_t*> m_services;
+    std::vector<rmw_client_t*> m_clients;
 
 private:
     uint32_t m_unique_id{0}; // avoid collisions between test cases

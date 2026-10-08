@@ -12,6 +12,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/client.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 
 rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t* rmw_publisher, rmw_gid_t* rmw_gid) {
@@ -49,7 +50,25 @@ rmw_ret_t rmw_get_gid_for_client(const rmw_client_t* rmw_client, rmw_gid_t* rmw_
     RMW_IOX2_ENSURE_NOT_NULL(rmw_gid, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ::rmw::iox2::Client;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto client_impl = unsafe_cast<Client*>(rmw_client->data);
+    if (!client_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Client");
+        return RMW_RET_ERROR;
+    }
+
+    if (auto client_id = client_impl.value()->unique_id(); client_id.has_value()) {
+        rmw_gid->implementation_identifier = rmw_get_implementation_identifier();
+        std::copy(client_id.value().unchecked_access().data(),
+                  client_id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
+                  rmw_gid->data);
+        return RMW_RET_OK;
+    }
+
+    RMW_IOX2_CHAIN_ERROR_MSG("unable to retrieve UniquePortId for Client");
+    return RMW_RET_ERROR;
 }
 
 rmw_ret_t rmw_compare_gids_equal(const rmw_gid_t* lhs, const rmw_gid_t* rhs, bool* result) {

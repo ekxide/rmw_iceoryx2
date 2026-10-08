@@ -11,11 +11,13 @@
 #define RMW_IOX2_MIDDLEWARE_ICEORYX2_HPP_
 
 #include "iox2/bb/optional.hpp"
+#include "iox2/client.hpp"
 #include "iox2/legacy/type_traits.hpp"
 #include "iox2/listener.hpp"
 #include "iox2/messaging_pattern.hpp"
 #include "iox2/node.hpp"
 #include "iox2/notifier.hpp"
+#include "iox2/port_factory_request_response.hpp"
 #include "iox2/publisher.hpp"
 #include "iox2/sample.hpp"
 #include "iox2/sample_mut.hpp"
@@ -112,7 +114,12 @@ public:
         };
 
         template <typename Payload, typename UserHeader>
+        using RequestResponseService =
+            ::iox2::PortFactoryRequestResponse<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader>
         using Server = ::iox2::Server<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader>
+        using Client = ::iox2::Client<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
     };
 
     struct WaitSet
