@@ -115,6 +115,10 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Node");
         return nullptr;
     }
+    auto& graph_guard_condition = node_data.value()->graph_guard_condition;
+    graph_guard_condition.implementation_identifier = rmw_get_implementation_identifier();
+    graph_guard_condition.context = rmw_context;
+    graph_guard_condition.data = static_cast<void*>(&node_data.value()->node.value().graph_guard_condition());
     rmw_node->data = node_data.value();
     rmw_context->impl->notify_graph_change();
 
@@ -155,11 +159,6 @@ const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t
         return nullptr;
     }
 
-    auto& rmw_guard_condition = node_data.value()->graph_guard_condition;
-    rmw_guard_condition.implementation_identifier = rmw_get_implementation_identifier();
-    rmw_guard_condition.context = rmw_node->context;
-    rmw_guard_condition.data = static_cast<void*>(&node_data.value()->node.value().graph_guard_condition());
-
-    return &rmw_guard_condition;
+    return &node_data.value()->graph_guard_condition;
 }
 }
