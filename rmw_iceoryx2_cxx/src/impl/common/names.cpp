@@ -41,4 +41,8 @@ std::string graph() {
     return "ros2://graph";
 }
 
+std::string service(const char* service) {
+    return "ros2://services" + std::string(service);
+}
+
 } // namespace rmw::iox2::names

@@ -15,6 +15,7 @@
 #include "rcutils/allocator.h"
 #include "rmw/rmw.h"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
+#include "rosidl_typesupport_cpp/service_type_support.hpp"
 
 #include <cstdlib>
 #include <optional>
@@ -58,6 +59,11 @@ protected:
     template <typename MessageT>
     const rosidl_message_type_support_t* test_type_support() {
         return rosidl_typesupport_cpp::get_message_type_support_handle<MessageT>();
+    }
+
+    template <typename ServiceT>
+    const rosidl_service_type_support_t* test_service_type_support() {
+        return rosidl_typesupport_cpp::get_service_type_support_handle<ServiceT>();
     }
 
     void initialize() {
@@ -128,6 +134,17 @@ protected:
         return sub;
     }
 
+    template <typename ServiceType>
+    rmw_service_t* create_service(const std::string& service_name,
+                                  const rmw_qos_profile_t& qos = rmw_qos_profile_services_default) {
+        auto service =
+            rmw_create_service(test_node(), test_service_type_support<ServiceType>(), service_name.c_str(), &qos);
+        if (service != nullptr) {
+            m_services.push_back(service);
+        }
+        return service;
+    }
+
     void cleanup_endpoints() {
         for (auto pub : m_publishers) {
             EXPECT_RMW_OK(rmw_destroy_publisher(test_node(), pub));
@@ -137,6 +154,10 @@ protected:
             EXPECT_RMW_OK(rmw_destroy_subscription(test_node(), sub));
         }
         m_subscribers.clear();
+        for (auto service : m_services) {
+            EXPECT_RMW_OK(rmw_destroy_service(test_node(), service));
+        }
+        m_services.clear();
     }
 
     void cleanup_test_context() {
@@ -201,6 +222,7 @@ private:
     std::vector<rmw_publisher_t*> m_publishers;
     const rmw_subscription_options_t m_subscriber_options{rmw_get_default_subscription_options()};
     std::vector<rmw_subscription_t*> m_subscribers;
+    std::vector<rmw_service_t*> m_services;
 
 private:
     uint32_t m_unique_id{0}; // avoid collisions between test cases

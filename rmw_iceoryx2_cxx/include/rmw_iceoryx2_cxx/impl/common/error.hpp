@@ -55,6 +55,12 @@ enum class SubscriberError : uint8_t {
     RECV_FAILURE,
     INVALID_PAYLOAD,
 };
+enum class ServerError : uint8_t {
+    INVARIANT_VIOLATION,
+    SERVICE_NAME_CREATION_FAILURE,
+    SERVICE_CREATION_FAILURE,
+    SERVER_CREATION_FAILURE,
+};
 enum class WaitSetError : uint8_t {
     INVARIANT_VIOLATION,
     WAITSET_CREATION_FAILURE,
