@@ -100,7 +100,7 @@ GraphGuardCondition::GraphGuardCondition(CreationLock, ::iox2::bb::Optional<Erro
         return;
     }
 
-    auto graph_service = iox2.open_event_service(
+    auto graph_service = iox2.open_or_create_event_service(
         graph_service_name.value(), GRAPH_MAX_GUARD_CONDITIONS, GRAPH_MAX_GUARD_CONDITIONS, GRAPH_MAX_GUARD_CONDITIONS);
     if (!graph_service.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service.error()));
