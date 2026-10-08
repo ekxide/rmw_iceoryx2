@@ -26,6 +26,7 @@
 #include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
+#include "rmw_iceoryx2_cxx/rmw/node.hpp"
 
 namespace
 {
@@ -101,6 +102,7 @@ rmw_ret_t take_impl(const rmw_subscription_t* rmw_subscription,
 
             if (auto deser = rmw_deserialize(&serialized_message, typesupport, ros_message); deser != RMW_RET_OK) {
                 RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received message");
+                (void)subscriber_impl->return_loan(loan.bytes);
                 return RMW_RET_ERROR;
             }
 
@@ -193,7 +195,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
     using ::rmw::iox2::Qos;
     using ::rmw::iox2::TryConvert;
     using Iceoryx2 = ::rmw::iox2::Iceoryx2;
-    using NodeImpl = ::rmw::iox2::Node;
+    using ::rmw::iox2::NodeData;
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
 
@@ -229,25 +231,28 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
         rmw_subscription->topic_name = ptr.value();
     }
 
-    auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl.has_value()) {
+    auto node_data = unsafe_cast<NodeData*>(rmw_node->data);
+    if (!node_data.has_value()) {
+        deallocate(rmw_subscription->topic_name);
         rmw_subscription_free(rmw_subscription);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
     if (auto subscriber_impl = allocate<SubscriberImpl>(); !subscriber_impl.has_value()) {
+        deallocate(rmw_subscription->topic_name);
         rmw_subscription_free(rmw_subscription);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Subscriber");
         return nullptr;
     } else {
         auto construct_result = create_in_place<SubscriberImpl>(
-            subscriber_impl.value(), *node_impl.value(), topic_name, type_support, resolved_qos.value());
+            subscriber_impl.value(), node_data.value()->node.value(), topic_name, type_support, resolved_qos.value());
 
         if (!construct_result.has_value()) {
             if (construct_result.error() == SubscriberImpl::ErrorType::QOS_INCOMPATIBLE) {
-                auto service_details = node_impl.value()->iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(
-                    ::rmw::iox2::names::topic(topic_name), Iceoryx2::MessagingPattern::PublishSubscribe);
+                auto service_details =
+                    node_data.value()->node.value().iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(
+                        ::rmw::iox2::names::topic(topic_name), Iceoryx2::MessagingPattern::PublishSubscribe);
                 if (!service_details.has_value()) {
                     RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
                         "QoS mismatch on '%s' (failed to look up service details)", topic_name);
@@ -262,6 +267,7 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
             }
             destruct<SubscriberImpl>(subscriber_impl.value());
             deallocate<SubscriberImpl>(subscriber_impl.value());
+            deallocate(rmw_subscription->topic_name);
             rmw_subscription_free(rmw_subscription);
             return nullptr;
         }
@@ -290,6 +296,7 @@ rmw_ret_t rmw_destroy_subscription(rmw_node_t* rmw_node, rmw_subscription_t* rmw
         destruct<SubscriberImpl>(rmw_subscription->data);
         deallocate(rmw_subscription->data);
     }
+    deallocate(rmw_subscription->topic_name);
     rmw_subscription_free(rmw_subscription);
     if (rmw_node->context->impl != nullptr) {
         rmw_node->context->impl->notify_graph_change();
@@ -432,6 +439,7 @@ rmw_ret_t rmw_take_serialized_message(const rmw_subscription_t* rmw_subscription
                 if (auto result = rmw_serialized_message_resize(serialized_message, loan.number_of_bytes);
                     result != RMW_RET_OK) {
                     RMW_IOX2_CHAIN_ERROR_MSG("failed to resize serialized message to store received payload");
+                    (void)subscriber_impl->return_loan(loan.bytes);
                     return RMW_RET_ERROR;
                 }
 

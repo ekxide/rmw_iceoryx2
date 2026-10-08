@@ -164,6 +164,64 @@ TEST_F(RmwPublishSubscribeTest, failed_publish_returns_the_loan) {
     rmw_iceoryx2_cxx_test_msgs__msg__BoundedSequences__fini(&message);
 }
 
+TEST_F(RmwPublishSubscribeTest, failed_take_returns_the_loan) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    std::array<uint8_t, 4> garbage{0xFF, 0xFF, 0xFF, 0xFF};
+    rmw_serialized_message_t garbage_message{garbage.data(), garbage.size(), garbage.size(), test_allocator()};
+    Strings output{};
+    bool taken{false};
+    for (int i = 0; i < 3; ++i) {
+        ASSERT_RMW_OK(rmw_publish_serialized_message(publisher, &garbage_message, nullptr));
+        EXPECT_RMW_ERR(RMW_RET_ERROR, rmw_take(subscription, &output, &taken, nullptr));
+    }
+
+    Strings input{};
+    input.string_value = "GloryToHypnoToad";
+    ASSERT_RMW_OK(rmw_publish(publisher, &input, nullptr));
+    ASSERT_RMW_OK(rmw_take(subscription, &output, &taken, nullptr));
+    ASSERT_TRUE(taken);
+    ASSERT_EQ(input, output);
+}
+
+TEST_F(RmwPublishSubscribeTest, failed_take_serialized_message_returns_the_loan) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    Strings input{};
+    input.string_value = "GloryToHypnoToad";
+
+    auto failing_allocator = rcutils_get_default_allocator();
+    failing_allocator.reallocate = [](void*, size_t, void*) -> void* { return nullptr; };
+    rmw_serialized_message_t too_small{};
+    ASSERT_RMW_OK(rmw_serialized_message_init(&too_small, 1, &failing_allocator));
+    bool taken{false};
+    for (int i = 0; i < 3; ++i) {
+        ASSERT_RMW_OK(rmw_publish(publisher, &input, nullptr));
+        EXPECT_RMW_ERR(RMW_RET_ERROR, rmw_take_serialized_message(subscription, &too_small, &taken, nullptr));
+    }
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&too_small));
+
+    ASSERT_RMW_OK(rmw_publish(publisher, &input, nullptr));
+    rmw_serialized_message_t output_serialized_msg{};
+    ASSERT_RMW_OK(rmw_serialized_message_init(&output_serialized_msg, sizeof(Strings), &test_allocator()));
+    ASSERT_RMW_OK(rmw_take_serialized_message(subscription, &output_serialized_msg, &taken, nullptr));
+    ASSERT_TRUE(taken);
+    Strings output{};
+    ASSERT_RMW_OK(rmw_deserialize(&output_serialized_msg, test_type_support<Strings>(), &output));
+    ASSERT_EQ(input, output);
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&output_serialized_msg));
+}
+
 TEST_F(RmwPublishSubscribeTest, take_non_self_contained_message_larger_than_struct) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
 

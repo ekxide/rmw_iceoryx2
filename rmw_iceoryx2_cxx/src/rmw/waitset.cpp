@@ -81,6 +81,7 @@ rmw_ret_t rmw_destroy_wait_set(rmw_wait_set_t* rmw_wait_set) {
         destruct<WaitSetImpl>(rmw_wait_set->data);
         deallocate(rmw_wait_set->data);
     }
+    rmw_wait_set_free(rmw_wait_set);
 
     return RMW_RET_OK;
 }

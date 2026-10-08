@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
+#include "rmw_iceoryx2_cxx/rmw/node.hpp"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -29,13 +29,13 @@ namespace
 void inline cleanup_node(rmw_node_t* rmw_node) noexcept {
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
-    using rmw::iox2::Node;
+    using rmw::iox2::NodeData;
 
     if (rmw_node) {
         deallocate(rmw_node->name);
         deallocate(rmw_node->namespace_);
         if (rmw_node->data) {
-            destruct<Node>(rmw_node->data);
+            destruct<NodeData>(rmw_node->data);
             deallocate(rmw_node->data);
         }
         rmw_node_free(rmw_node);
@@ -57,9 +57,11 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
     // Implementation -------------------------------------------------------------------------------
     using ::rmw::iox2::allocate;
     using ::rmw::iox2::allocate_copy;
+    using ::rmw::iox2::construct;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::deallocate;
     using ::rmw::iox2::destruct;
+    using ::rmw::iox2::NodeData;
     using NodeImpl = ::rmw::iox2::Node;
 
     RMW_IOX2_LOG_DEBUG("Creating node '%s' in namespace '%s'", name, namespace_);
@@ -88,23 +90,36 @@ rmw_node_t* rmw_create_node(rmw_context_t* rmw_context, const char* name, const 
     }
     rmw_node->namespace_ = namespace_ptr.value();
 
-    auto node_impl = allocate<NodeImpl>();
-    if (!node_impl.has_value()) {
+    auto node_data = allocate<NodeData>();
+    if (!node_data.has_value()) {
         cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Node");
         return nullptr;
     }
+    if (!construct<NodeData>(node_data.value()).has_value()) {
+        deallocate(node_data.value());
+        cleanup_node(rmw_node);
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to construct NodeData");
+        return nullptr;
+    }
 
-    if (auto construction = create_in_place<NodeImpl>(
-            node_impl.value(), *rmw_context->impl, rmw_node->name, rmw_node->namespace_, rmw_context->options.enclave);
+    if (auto construction = create_in_place<NodeImpl>(node_data.value()->node,
+                                                      *rmw_context->impl,
+                                                      rmw_node->name,
+                                                      rmw_node->namespace_,
+                                                      rmw_context->options.enclave);
         !construction.has_value()) {
-        destruct<NodeImpl>(node_impl.value());
-        deallocate<NodeImpl>(node_impl.value());
+        destruct<NodeData>(node_data.value());
+        deallocate<NodeData>(node_data.value());
         cleanup_node(rmw_node);
         RMW_IOX2_CHAIN_ERROR_MSG("failed to construct Node");
         return nullptr;
     }
-    rmw_node->data = node_impl.value();
+    auto& graph_guard_condition = node_data.value()->graph_guard_condition;
+    graph_guard_condition.implementation_identifier = rmw_get_implementation_identifier();
+    graph_guard_condition.context = rmw_context;
+    graph_guard_condition.data = static_cast<void*>(&node_data.value()->node.value().graph_guard_condition());
+    rmw_node->data = node_data.value();
     rmw_context->impl->notify_graph_change();
 
     return rmw_node;
@@ -135,26 +150,15 @@ const rmw_guard_condition_t* rmw_node_get_graph_guard_condition(const rmw_node_t
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_node->implementation_identifier, nullptr);
 
     // Implementation -------------------------------------------------------------------------------
-    using NodeImpl = rmw::iox2::Node;
+    using rmw::iox2::NodeData;
     using rmw::iox2::unsafe_cast;
 
-    auto* rmw_guard_condition = rmw_guard_condition_allocate();
-    if (rmw_guard_condition == nullptr) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_guard_condition_t");
-        return nullptr;
-    }
-
-    rmw_guard_condition->implementation_identifier = rmw_get_implementation_identifier();
-    rmw_guard_condition->context = rmw_node->context;
-
-    auto node_impl = unsafe_cast<NodeImpl*>(rmw_node->data);
-    if (!node_impl.has_value()) {
+    auto node_data = unsafe_cast<NodeData*>(rmw_node->data);
+    if (!node_data.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Node");
         return nullptr;
     }
 
-    rmw_guard_condition->data = static_cast<void*>(&node_impl.value()->graph_guard_condition());
-
-    return rmw_guard_condition;
+    return &node_data.value()->graph_guard_condition;
 }
 }
