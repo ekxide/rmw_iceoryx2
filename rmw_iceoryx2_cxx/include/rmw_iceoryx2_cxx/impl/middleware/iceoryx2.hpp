@@ -148,6 +148,18 @@ public:
     /// @return Factory to create IPC entities bound to the lifetime of this instance
     auto ipc() -> InterProcess::Handle&;
 
+    /// @brief Open an inter-process event service as it is, or create it with the given limits if it does not exist
+    /// @param[in] service_name Name of the event service
+    /// @param[in] max_notifiers Maximum number of notifiers when the service is created
+    /// @param[in] max_listeners Maximum number of listeners when the service is created
+    /// @param[in] max_nodes Maximum number of nodes when the service is created
+    /// @return The event service or the error of creating it
+    auto open_or_create_event_service(const ServiceName& service_name,
+                                      uint64_t max_notifiers,
+                                      uint64_t max_listeners,
+                                      uint64_t max_nodes)
+        -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventOpenOrCreateError>;
+
     /// @brief Creates a service builder for the specified service type and name
     /// @tparam ServiceType The type of service (Local or Ipc) to create
     /// @param[in] service_name Name of the service to create
