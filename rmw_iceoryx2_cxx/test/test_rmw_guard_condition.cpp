@@ -9,17 +9,13 @@
 
 #include <gtest/gtest.h>
 
-#include "iox2/bb/duration.hpp"
-#include "iox2/bb/optional.hpp"
 #include "rmw/rmw.h"
-#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
-#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
-#include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
+
+#include <filesystem>
+#include <iterator>
+#include <thread>
 
 namespace
 {
@@ -28,9 +24,15 @@ using namespace rmw::iox2::testing;
 
 class RmwGuardConditionTest : public TestBase
 {
-    using Listener = ::iox2::Listener<::iox2::ServiceType::Local>;
-
 protected:
+    static auto wait_for(rmw_guard_condition_t* guard_condition, rmw_wait_set_t* wait_set) -> bool {
+        void* conditions[] = {guard_condition->data};
+        rmw_guard_conditions_t guard_conditions{1, conditions};
+        rmw_time_t timeout{1, 0};
+        auto result = rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, wait_set, &timeout);
+        return result == RMW_RET_OK && conditions[0] != nullptr;
+    }
+
     void SetUp() override {
         initialize_test_context();
     }
@@ -39,29 +41,6 @@ protected:
         cleanup_test_context();
         print_rmw_errors();
     }
-
-    rmw::iox2::Iceoryx2& iox2() {
-        if (!m_iox2.has_value()) {
-            auto result = create_in_place(m_iox2, names::test_handle(test_id()));
-            EXPECT_TRUE(result.has_value()) << "failed to create test node";
-        }
-        return m_iox2.value();
-    }
-
-    template <typename String>
-    auto iox2_listener(String&& name) -> Listener {
-        auto service_name = ::iox2::ServiceName::create(name.c_str());
-        EXPECT_TRUE(service_name.has_value()) << "failed to create test listener service name";
-        auto service = iox2().local().service_builder(service_name.value()).event().open_or_create();
-        EXPECT_TRUE(service.has_value()) << "failed to create test listener service";
-        auto listener = service.value().listener_builder().create();
-        EXPECT_TRUE(listener.has_value()) << "failed to create test listener";
-
-        return std::move(listener.value());
-    }
-
-private:
-    ::iox2::bb::Optional<::rmw::iox2::Iceoryx2> m_iox2;
 };
 
 TEST_F(RmwGuardConditionTest, create_and_destroy) {
@@ -76,28 +55,19 @@ TEST_F(RmwGuardConditionTest, create_and_destroy) {
 }
 
 TEST_F(RmwGuardConditionTest, trigger) {
-    using ::rmw::iox2::GuardCondition;
-    using ::rmw::iox2::unsafe_cast;
-    using ::rmw::iox2::UserGuardCondition;
-    namespace names = ::rmw::iox2::names;
-
     auto guard_condition = rmw_create_guard_condition(test_context());
-    EXPECT_NE(guard_condition, nullptr);
-    EXPECT_NE(guard_condition->data, nullptr);
-
-    // TODO: An easier way to access the guard condition ID?
-    auto impl_result = unsafe_cast<GuardCondition*>(guard_condition->data);
-    ASSERT_TRUE(impl_result.has_value()) << "failed to get guard condition impl";
-    auto* impl = static_cast<UserGuardCondition*>(impl_result.value());
-    auto listener = iox2_listener(names::guard_condition(guard_condition->context->instance_id, impl->trigger_id()));
+    ASSERT_NE(guard_condition, nullptr);
+    auto wait_set = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(wait_set, nullptr);
 
     EXPECT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
-    bool received = false;
-    auto wait_result = listener.timed_wait([&](auto) { received = true; }, ::iox2::bb::Duration::from_micros(500u));
+    void* conditions[] = {guard_condition->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    rmw_time_t timeout{0, 500000};
+    EXPECT_RMW_OK(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, wait_set, &timeout));
+    EXPECT_NE(conditions[0], nullptr);
 
-    ASSERT_TRUE(wait_result.has_value()) << "failed to wait for trigger";
-    ASSERT_TRUE(received);
-
+    EXPECT_RMW_OK(rmw_destroy_wait_set(wait_set));
     EXPECT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
 }
 
@@ -110,6 +80,60 @@ TEST_F(RmwGuardConditionTest, trigger_more_guard_conditions_than_event_ids) {
         ASSERT_RMW_OK(rmw_trigger_guard_condition(guard_condition));
         ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
     }
+}
+
+TEST_F(RmwGuardConditionTest, destroying_a_guard_condition_closes_its_file_descriptors) {
+    constexpr size_t GUARD_CONDITION_COUNT = 100;
+    if (!std::filesystem::exists("/proc/self/fd")) {
+        GTEST_SKIP() << "needs /proc/self/fd to count file descriptors";
+    }
+    auto open_file_descriptors = [] {
+        return std::distance(std::filesystem::directory_iterator("/proc/self/fd"),
+                             std::filesystem::directory_iterator{});
+    };
+
+    const auto before = open_file_descriptors();
+    for (size_t i = 0; i < GUARD_CONDITION_COUNT; ++i) {
+        auto guard_condition = rmw_create_guard_condition(test_context());
+        ASSERT_NE(guard_condition, nullptr);
+        ASSERT_RMW_OK(rmw_destroy_guard_condition(guard_condition));
+    }
+    EXPECT_EQ(open_file_descriptors(), before);
+}
+
+TEST_F(RmwGuardConditionTest, wake_up_once_per_trigger_between_threads) {
+    constexpr size_t ROUND_TRIPS = 1000;
+
+    auto ping = rmw_create_guard_condition(test_context());
+    ASSERT_NE(ping, nullptr);
+    auto pong = rmw_create_guard_condition(test_context());
+    ASSERT_NE(pong, nullptr);
+    auto ping_wait_set = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(ping_wait_set, nullptr);
+    auto pong_wait_set = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(pong_wait_set, nullptr);
+
+    size_t responded = 0;
+    std::thread responder([&] {
+        while (responded < ROUND_TRIPS && wait_for(ping, pong_wait_set)) {
+            ++responded;
+            EXPECT_RMW_OK(rmw_trigger_guard_condition(pong));
+        }
+    });
+    size_t completed = 0;
+    while (completed < ROUND_TRIPS && rmw_trigger_guard_condition(ping) == RMW_RET_OK
+           && wait_for(pong, ping_wait_set)) {
+        ++completed;
+    }
+    responder.join();
+
+    EXPECT_EQ(completed, ROUND_TRIPS);
+    EXPECT_EQ(responded, ROUND_TRIPS);
+
+    EXPECT_RMW_OK(rmw_destroy_wait_set(pong_wait_set));
+    EXPECT_RMW_OK(rmw_destroy_wait_set(ping_wait_set));
+    EXPECT_RMW_OK(rmw_destroy_guard_condition(pong));
+    EXPECT_RMW_OK(rmw_destroy_guard_condition(ping));
 }
 
 } // namespace

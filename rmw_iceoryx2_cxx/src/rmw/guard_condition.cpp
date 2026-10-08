@@ -48,7 +48,7 @@ rmw_guard_condition_t* rmw_create_guard_condition(rmw_context_t* rmw_context) {
         return nullptr;
     }
 
-    if (!create_in_place<GuardConditionImpl>(guard_condition_impl.value(), *rmw_context->impl).has_value()) {
+    if (!create_in_place<GuardConditionImpl>(guard_condition_impl.value()).has_value()) {
         destruct<GuardConditionImpl>(guard_condition_impl.value());
         deallocate<GuardConditionImpl>(guard_condition_impl.value());
         rmw_guard_condition_free(rmw_guard_condition);
