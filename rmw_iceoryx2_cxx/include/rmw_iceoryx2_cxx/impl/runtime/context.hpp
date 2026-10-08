@@ -40,8 +40,8 @@ constexpr size_t DEFAULT_MAX_PUBLISHERS_PER_TOPIC = 32U;
 constexpr size_t DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC = 32U;
 constexpr size_t DEFAULT_MAX_NODES_PER_SERVICE = 32U;
 constexpr size_t DEFAULT_MAX_SERVERS_PER_SERVICE = 4U;
-constexpr size_t DEFAULT_MAX_CLIENTS_PER_SERVICE = 32U;
-constexpr size_t DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT = 16U;
+constexpr size_t DEFAULT_MAX_CLIENTS_PER_SERVICE = 16U;
+constexpr size_t DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT = 4U;
 constexpr size_t MAX_RESPONSES_PER_REQUEST = 1U;
 
 /// Limits of the graph event service, used only when a context creates it.
