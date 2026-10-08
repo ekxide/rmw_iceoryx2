@@ -64,7 +64,7 @@ Server::Server(CreationLock,
                             .max_clients(DEFAULT_MAX_CLIENTS_PER_SERVICE)
                             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
                             .max_active_requests_per_client(DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT)
-                            .max_response_buffer_size(DEFAULT_MAX_SERVERS_PER_SERVICE)
+                            .max_response_buffer_size(MAX_RESPONSES_PER_REQUEST)
                             .request_payload_alignment(SERIALIZED_PAYLOAD_ALIGNMENT)
                             .response_payload_alignment(SERIALIZED_PAYLOAD_ALIGNMENT)
                             .open_or_create();
