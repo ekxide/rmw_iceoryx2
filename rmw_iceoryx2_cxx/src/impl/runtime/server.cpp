@@ -151,4 +151,10 @@ auto Server::take_request() -> ::iox2::bb::Expected<::iox2::bb::Optional<ServerR
     return Optional<ServerRequest>(ServerRequest{bytes, number_of_bytes, message_info, client_id});
 }
 
+auto Server::discard_request(const ClientId& client_id, uint64_t sequence_number) -> void {
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    m_active_requests.erase(RequestId{client_id, sequence_number});
+}
+
 } // namespace rmw::iox2

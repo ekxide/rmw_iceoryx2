@@ -175,8 +175,6 @@ auto Client::send_request(void* loaned_memory) -> ::iox2::bb::Expected<uint64_t,
         return err(ErrorType::SEND_FAILURE);
     }
 
-    // Without a connected server the request is lost, as with any other RMW; keeping it would only
-    // occupy one of the client's active request slots.
     if (pending_response->number_of_server_connections() > 0) {
         m_pending_responses.emplace(sequence_number, std::move(pending_response.value()));
     }

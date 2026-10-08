@@ -13,6 +13,7 @@
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
 #include "iox2/marker.hpp"
+#include "iox2/unique_port_id.hpp"
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
@@ -37,7 +38,7 @@ struct Error<Server>
     using Type = ServerError;
 };
 
-using ClientId = std::array<uint8_t, RMW_GID_STORAGE_SIZE>;
+using ClientId = std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH>;
 
 /// @brief A request taken by a server, valid until it is responded to or its client disconnects
 struct ServerRequest
@@ -100,6 +101,11 @@ public:
     /// @brief Take the next request sent by a client
     /// @return Expected containing the request if one was available
     auto take_request() -> ::iox2::bb::Expected<::iox2::bb::Optional<ServerRequest>, ErrorType>;
+
+    /// @brief Drop a taken request without responding to it
+    /// @param[in] client_id The id of the client that sent the request
+    /// @param[in] sequence_number The sequence number of the request
+    auto discard_request(const ClientId& client_id, uint64_t sequence_number) -> void;
 
 private:
     const std::string m_service;

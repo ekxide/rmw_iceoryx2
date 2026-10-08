@@ -156,6 +156,7 @@ rmw_take_request(const rmw_service_t* rmw_service, rmw_service_info_t* request_h
     if (auto result =
             rmw_deserialize(&serialized_message, server_impl.value()->typesupport()->request_typesupport, ros_request);
         result != RMW_RET_OK) {
+        server_impl.value()->discard_request(loan.client_id, loan.message_info.publication_sequence_number);
         *taken = false;
         RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received request");
         return RMW_RET_ERROR;

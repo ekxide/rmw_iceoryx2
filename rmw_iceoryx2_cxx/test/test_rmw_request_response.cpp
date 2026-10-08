@@ -9,9 +9,18 @@
 
 #include <gtest/gtest.h>
 
+#include "iox2/node.hpp"
+#include "iox2/service_name.hpp"
+#include "rcutils/error_handling.h"
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/srv/basic_types.hpp"
+#include "rosidl_typesupport_cpp/service_type_support.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -123,6 +132,59 @@ TEST_F(RmwRequestResponseTest, a_request_without_a_server_is_lost) {
     bool taken = true;
     ASSERT_RMW_OK(rmw_take_request(service, &header, &request, &taken));
     EXPECT_FALSE(taken);
+}
+
+TEST_F(RmwRequestResponseTest, a_request_that_fails_to_deserialize_is_dropped) {
+    using Server = ::rmw::iox2::Server;
+
+    const auto topic = create_test_topic();
+    auto* service = create_service<BasicTypes>(topic);
+    RMW_ASSERT_NE(service, nullptr);
+
+    const auto* type_support = rosidl_typesupport_cpp::get_service_type_support_handle<BasicTypes>();
+    const auto request_type_name = ::rmw::iox2::message_type_name(type_support->request_typesupport);
+    const auto response_type_name = ::rmw::iox2::message_type_name(type_support->response_typesupport);
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto builder =
+        native_node
+            .service_builder(iox2::ServiceName::create(::rmw::iox2::names::service(topic.c_str()).c_str()).value())
+            .request_response<Server::Payload, Server::Payload>()
+            .request_user_header<Server::UserHeader>()
+            .response_user_header<Server::UserHeader>();
+    iox2::set_request_payload_type_details(builder,
+                                           iox2::TypeDetail(iox2::TypeVariant::Dynamic,
+                                                            request_type_name.c_str(),
+                                                            ::rmw::iox2::SERIALIZED_PAYLOAD_ELEMENT_SIZE,
+                                                            ::rmw::iox2::SERIALIZED_PAYLOAD_ALIGNMENT));
+    iox2::set_response_payload_type_details(builder,
+                                            iox2::TypeDetail(iox2::TypeVariant::Dynamic,
+                                                             response_type_name.c_str(),
+                                                             ::rmw::iox2::SERIALIZED_PAYLOAD_ELEMENT_SIZE,
+                                                             ::rmw::iox2::SERIALIZED_PAYLOAD_ALIGNMENT));
+    auto native_service = builder.resume_build()
+                              .max_active_requests_per_client(::rmw::iox2::DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT)
+                              .max_response_buffer_size(::rmw::iox2::MAX_RESPONSES_PER_REQUEST)
+                              .request_payload_alignment(::rmw::iox2::SERIALIZED_PAYLOAD_ALIGNMENT)
+                              .response_payload_alignment(::rmw::iox2::SERIALIZED_PAYLOAD_ALIGNMENT)
+                              .open();
+    ASSERT_TRUE(native_service.has_value()) << iox2::bb::into<const char*>(native_service.error());
+    auto native_client = native_service->client_builder().initial_max_slice_len(4).create();
+    ASSERT_TRUE(native_client.has_value());
+
+    auto garbage = native_client->loan_slice_uninit(4);
+    ASSERT_TRUE(garbage.has_value());
+    std::fill_n(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(garbage->payload().data())), 4, 0xFF);
+    auto pending_response = iox2::send(iox2::assume_init(std::move(garbage.value())));
+    ASSERT_TRUE(pending_response.has_value());
+    ASSERT_TRUE(pending_response->is_connected());
+
+    rmw_service_info_t header{};
+    BasicTypes::Request request;
+    bool taken = true;
+    EXPECT_EQ(rmw_take_request(service, &header, &request, &taken), RMW_RET_ERROR);
+    rcutils_reset_error();
+    EXPECT_FALSE(taken);
+    EXPECT_FALSE(pending_response->is_connected());
 }
 
 } // namespace
