@@ -13,6 +13,7 @@
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
 #include "iox2/marker.hpp"
+#include "iox2/unique_port_id.hpp"
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
@@ -21,6 +22,10 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_interoperability/rmw_iceoryx2_interoperability.h"
 #include "rosidl_runtime_c/service_type_support_struct.h"
+
+#include <array>
+#include <map>
+#include <mutex>
 
 namespace rmw::iox2
 {
@@ -33,10 +38,23 @@ struct Error<Server>
     using Type = ServerError;
 };
 
+using ClientId = std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH>;
+
+/// @brief A request taken by a server, valid until it is responded to or its client disconnects
+struct ServerRequest
+{
+    uint8_t* bytes;
+    size_t number_of_bytes;
+    ::rmw_iceoryx2_interoperability::MessageInfoHeader message_info;
+    ClientId client_id;
+};
+
 /// @brief Implementation of the RMW service for iceoryx2
 ///
 /// @details Requests and responses are exchanged as CDR-serialized payloads of an iceoryx2
-///          request-response service.
+///          request-response service. The user header carries the ROS sequence number of the
+///          request and the source timestamp. All operations are thread-safe, as the RMW API
+///          requires.
 class RMW_PUBLIC Server
 {
 public:
@@ -45,7 +63,9 @@ public:
     using ErrorType = Error<Server>::Type;
 
 private:
+    using RequestId = std::pair<ClientId, uint64_t>;
     using IceoryxServer = Iceoryx2::InterProcess::Server<Payload, UserHeader>;
+    using IceoryxActiveRequest = Iceoryx2::InterProcess::ActiveRequest<Payload, UserHeader>;
 
 public:
     /// @brief Constructor for Server
@@ -78,13 +98,24 @@ public:
     /// @return Reference to the QoS
     auto qos() const -> const rmw_qos_profile_t&;
 
+    /// @brief Take the next request sent by a client
+    /// @return Expected containing the request if one was available
+    auto take_request() -> ::iox2::bb::Expected<::iox2::bb::Optional<ServerRequest>, ErrorType>;
+
+    /// @brief Drop a taken request without responding to it
+    /// @param[in] client_id The id of the client that sent the request
+    /// @param[in] sequence_number The sequence number of the request
+    auto discard_request(const ClientId& client_id, uint64_t sequence_number) -> void;
+
 private:
     const std::string m_service;
     const rosidl_service_type_support_t* const m_typesupport;
     const std::string m_service_name;
     const rmw_qos_profile_t m_qos;
 
+    std::mutex m_mutex;
     ::iox2::bb::Optional<IceoryxServer> m_iox2_server;
+    std::map<RequestId, IceoryxActiveRequest> m_active_requests;
 };
 
 } // namespace rmw::iox2

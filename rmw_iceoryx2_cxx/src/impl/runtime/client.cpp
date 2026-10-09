@@ -11,6 +11,7 @@
 
 #include "iox2/bb/into.hpp"
 #include "iox2/type_variant.hpp"
+#include "rcutils/time.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
@@ -116,6 +117,69 @@ auto Client::qos() const -> const rmw_qos_profile_t& {
 
 auto Client::is_server_available() const -> bool {
     return m_iox2_service->dynamic_config().number_of_servers() > 0;
+}
+
+auto Client::loan_request(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType> {
+    using ::iox2::bb::err;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    auto request = m_iox2_client->loan_slice_uninit(number_of_bytes);
+    if (!request.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(request.error()));
+        return err(ErrorType::LOAN_FAILURE);
+    }
+
+    return static_cast<void*>(m_requests.store(std::move(request.value())));
+}
+
+auto Client::return_request_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType> {
+    using ::iox2::bb::err;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    if (auto result = m_requests.release(static_cast<uint8_t*>(loaned_memory)); !result.has_value()) {
+        return err(ErrorType::INVALID_PAYLOAD);
+    }
+    return {};
+}
+
+auto Client::send_request(void* loaned_memory) -> ::iox2::bb::Expected<uint64_t, ErrorType> {
+    using ::iox2::bb::err;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    // Requests of servers that are gone can no longer be responded to, unless they already were.
+    for (auto it = m_pending_responses.begin(); it != m_pending_responses.end();) {
+        const bool answerable = it->second.is_connected() || it->second.has_response();
+        it = answerable ? std::next(it) : m_pending_responses.erase(it);
+    }
+
+    auto request = m_requests.release(static_cast<uint8_t*>(loaned_memory));
+    if (!request.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("invalid payload pointer");
+        return err(ErrorType::INVALID_PAYLOAD);
+    }
+
+    rcutils_time_point_value_t now = 0;
+    if (rcutils_system_time_now(&now) != RCUTILS_RET_OK) {
+        now = 0;
+    }
+    auto sequence_number = ++m_sequence_number;
+    request->user_header_mut().source_timestamp = now;
+    request->user_header_mut().publication_sequence_number = sequence_number;
+
+    auto pending_response = ::iox2::send(::iox2::assume_init(std::move(request.value())));
+    if (!pending_response.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(pending_response.error()));
+        return err(ErrorType::SEND_FAILURE);
+    }
+
+    if (pending_response->number_of_server_connections() > 0) {
+        m_pending_responses.emplace(sequence_number, std::move(pending_response.value()));
+    }
+
+    return sequence_number;
 }
 
 } // namespace rmw::iox2

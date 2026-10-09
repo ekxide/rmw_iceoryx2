@@ -440,7 +440,7 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info) {
     EXPECT_GE(message_info.source_timestamp, before_publish);
     EXPECT_LE(message_info.source_timestamp, message_info.received_timestamp);
     EXPECT_LE(message_info.received_timestamp, after_take);
-    EXPECT_EQ(message_info.publication_sequence_number, 0u);
+    EXPECT_EQ(message_info.publication_sequence_number, 1u);
     EXPECT_FALSE(message_info.from_intra_process);
 
     free(recv_payload);
@@ -561,7 +561,7 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_populates_message_info_non_self_c
     EXPECT_GE(message_info.source_timestamp, before_publish);
     EXPECT_LE(message_info.source_timestamp, message_info.received_timestamp);
     EXPECT_LE(message_info.received_timestamp, after_take);
-    EXPECT_EQ(message_info.publication_sequence_number, 0u);
+    EXPECT_EQ(message_info.publication_sequence_number, 1u);
     EXPECT_FALSE(message_info.from_intra_process);
 
     ASSERT_EQ(*reinterpret_cast<Strings*>(recv_payload), send_payload);
@@ -591,7 +591,8 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_publication_sequence_number_incre
         rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
         ASSERT_RMW_OK(rmw_take_with_info(subscription, recv_payload, &taken, &message_info, nullptr));
         ASSERT_TRUE(taken);
-        EXPECT_EQ(message_info.publication_sequence_number, i);
+        // Numbered from 1, like the requests of a client.
+        EXPECT_EQ(message_info.publication_sequence_number, i + 1);
     }
 
     free(recv_payload);

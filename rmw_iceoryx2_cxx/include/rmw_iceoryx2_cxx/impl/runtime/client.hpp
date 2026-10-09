@@ -20,8 +20,12 @@
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rmw_iceoryx2_interoperability/rmw_iceoryx2_interoperability.h"
 #include "rosidl_runtime_c/service_type_support_struct.h"
+
+#include <map>
+#include <mutex>
 
 namespace rmw::iox2
 {
@@ -37,7 +41,9 @@ struct Error<Client>
 /// @brief Implementation of the RMW client for iceoryx2
 ///
 /// @details Requests and responses are exchanged as CDR-serialized payloads of an iceoryx2
-///          request-response service.
+///          request-response service. The user header carries the ROS sequence number of the
+///          request and the source timestamp. All operations are thread-safe, as the RMW API
+///          requires.
 class RMW_PUBLIC Client
 {
 public:
@@ -50,6 +56,8 @@ private:
     using IdType = ::iox2::UniqueClientId;
     using IceoryxService = Iceoryx2::InterProcess::RequestResponseService<Payload, UserHeader>;
     using IceoryxClient = Iceoryx2::InterProcess::Client<Payload, UserHeader>;
+    using IceoryxRequest = Iceoryx2::InterProcess::RequestMutUninit<Payload, UserHeader>;
+    using IceoryxPendingResponse = Iceoryx2::InterProcess::PendingResponse<Payload, UserHeader>;
 
 public:
     /// @brief Constructor for Client
@@ -90,6 +98,22 @@ public:
     /// @return True if at least one server exists
     auto is_server_available() const -> bool;
 
+    /// @brief Loan memory for a request
+    /// @param[in] number_of_bytes Required buffer size in bytes
+    /// @return Expected containing pointer to loaned memory or error
+    auto loan_request(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType>;
+
+    /// @brief Return previously loaned request memory without sending it
+    /// @param[in] loaned_memory Pointer to the loaned memory to return
+    /// @return Expected containing void or error if the return failed
+    auto return_request_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType>;
+
+    /// @brief Send previously loaned request memory to the servers
+    /// @param[in] loaned_memory Pointer to the loaned memory to send
+    /// @note The memory must be initialized before sending
+    /// @return Expected containing the sequence number of the request or error if sending failed
+    auto send_request(void* loaned_memory) -> ::iox2::bb::Expected<uint64_t, ErrorType>;
+
 private:
     const std::string m_service;
     const rosidl_service_type_support_t* const m_typesupport;
@@ -99,6 +123,10 @@ private:
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxService> m_iox2_service;
     ::iox2::bb::Optional<IceoryxClient> m_iox2_client;
+    std::mutex m_mutex;
+    SampleRegistry<IceoryxRequest> m_requests;
+    std::map<uint64_t, IceoryxPendingResponse> m_pending_responses;
+    uint64_t m_sequence_number{0};
 };
 
 } // namespace rmw::iox2

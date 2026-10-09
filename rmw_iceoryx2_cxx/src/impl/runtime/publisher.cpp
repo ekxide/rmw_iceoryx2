@@ -271,7 +271,7 @@ auto Publisher::populate_message_info(UserHeader& header) -> void {
         now = 0;
     }
     header.source_timestamp = now;
-    header.publication_sequence_number = m_publication_sequence_number++;
+    header.publication_sequence_number = ++m_publication_sequence_number;
 }
 
 } // namespace rmw::iox2

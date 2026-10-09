@@ -17,6 +17,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/rmw/node.hpp"
 
 extern "C" {
@@ -126,7 +127,43 @@ rmw_ret_t rmw_send_request(const rmw_client_t* rmw_client, const void* ros_reque
     RMW_IOX2_ENSURE_NOT_NULL(sequence_id, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ClientImpl = ::rmw::iox2::Client;
+    using ::rmw::iox2::serialized_message_size;
+    using ::rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_LOG_DEBUG("Sending request to '%s'", rmw_client->service_name);
+
+    auto client_impl = unsafe_cast<ClientImpl*>(rmw_client->data);
+    if (!client_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Client");
+        return RMW_RET_ERROR;
+    }
+
+    auto type_support = client_impl.value()->typesupport()->request_typesupport;
+    auto serialized_size = serialized_message_size(ros_request, type_support);
+
+    auto loan = client_impl.value()->loan_request(serialized_size);
+    if (!loan.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to loan bytes required for serialization");
+        return RMW_RET_ERROR;
+    }
+
+    auto serialized_message = rmw_serialized_message_t{
+        reinterpret_cast<uint8_t*>(loan.value()), serialized_size, serialized_size, rcutils_get_default_allocator()};
+    if (auto result = rmw_serialize(ros_request, type_support, &serialized_message); result != RMW_RET_OK) {
+        (void)client_impl.value()->return_request_loan(loan.value());
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
+        return RMW_RET_ERROR;
+    }
+
+    auto sequence_number = client_impl.value()->send_request(loan.value());
+    if (!sequence_number.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to send request");
+        return RMW_RET_ERROR;
+    }
+    *sequence_id = static_cast<int64_t>(sequence_number.value());
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t

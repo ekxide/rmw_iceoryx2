@@ -17,6 +17,8 @@
 #include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
+#include <algorithm>
+
 namespace rmw::iox2
 {
 
@@ -105,6 +107,54 @@ auto Server::service_name() const -> const std::string& {
 
 auto Server::qos() const -> const rmw_qos_profile_t& {
     return m_qos;
+}
+
+auto Server::take_request() -> ::iox2::bb::Expected<::iox2::bb::Optional<ServerRequest>, ErrorType> {
+    using ::iox2::bb::err;
+    using ::iox2::bb::Optional;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    // Requests of clients that are gone can no longer be responded to.
+    for (auto it = m_active_requests.begin(); it != m_active_requests.end();) {
+        it = it->second.is_connected() ? std::next(it) : m_active_requests.erase(it);
+    }
+
+    auto result = m_iox2_server->receive();
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
+        return err(ErrorType::RECV_FAILURE);
+    }
+    auto request = std::move(result.value());
+    if (!request.has_value()) {
+        return Optional<ServerRequest>{::iox2::bb::NULLOPT};
+    }
+
+    auto origin = request->origin();
+    const auto& origin_bytes = origin.bytes();
+    if (!origin_bytes.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("unable to retrieve UniquePortId of the requesting client");
+        return err(ErrorType::RECV_FAILURE);
+    }
+    ClientId client_id{};
+    std::copy_n(origin_bytes.value().unchecked_access().data(), client_id.size(), client_id.begin());
+
+    // reinterpret_cast to obtain a byte pointer from the CustomPayloadMarker element type;
+    // const_cast required because of the RMW API.
+    auto* bytes = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(request->payload().data()));
+    auto number_of_bytes = request->payload().number_of_bytes();
+    auto message_info = request->user_header();
+
+    m_active_requests.insert_or_assign(RequestId{client_id, message_info.publication_sequence_number},
+                                       std::move(request.value()));
+
+    return Optional<ServerRequest>(ServerRequest{bytes, number_of_bytes, message_info, client_id});
+}
+
+auto Server::discard_request(const ClientId& client_id, uint64_t sequence_number) -> void {
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    m_active_requests.erase(RequestId{client_id, sequence_number});
 }
 
 } // namespace rmw::iox2

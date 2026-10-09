@@ -10,6 +10,7 @@
 #ifndef RMW_IOX2_MIDDLEWARE_ICEORYX2_HPP_
 #define RMW_IOX2_MIDDLEWARE_ICEORYX2_HPP_
 
+#include "iox2/active_request.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/client.hpp"
 #include "iox2/legacy/type_traits.hpp"
@@ -17,8 +18,10 @@
 #include "iox2/messaging_pattern.hpp"
 #include "iox2/node.hpp"
 #include "iox2/notifier.hpp"
+#include "iox2/pending_response.hpp"
 #include "iox2/port_factory_request_response.hpp"
 #include "iox2/publisher.hpp"
+#include "iox2/request_mut_uninit.hpp"
 #include "iox2/sample.hpp"
 #include "iox2/sample_mut.hpp"
 #include "iox2/sample_mut_uninit.hpp"
@@ -120,6 +123,14 @@ public:
         using Server = ::iox2::Server<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
         template <typename Payload, typename UserHeader>
         using Client = ::iox2::Client<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader>
+        using ActiveRequest = ::iox2::ActiveRequest<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader>
+        using PendingResponse =
+            ::iox2::PendingResponse<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
+        template <typename Payload, typename UserHeader>
+        using RequestMutUninit =
+            ::iox2::RequestMutUninit<::iox2::ServiceType::Ipc, Payload, UserHeader, Payload, UserHeader>;
     };
 
     struct WaitSet

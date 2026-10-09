@@ -181,6 +181,7 @@ if(BUILD_TESTING)
     test/test_rmw_node.cpp
     test/test_rmw_publisher.cpp
     test/test_rmw_qos.cpp
+    test/test_rmw_request_response.cpp
     test/test_rmw_serialize.cpp
     test/test_rmw_service.cpp
     test/test_rmw_subscription.cpp
