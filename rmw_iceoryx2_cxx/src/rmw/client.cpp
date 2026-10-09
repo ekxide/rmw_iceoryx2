@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/impl/runtime/client.hpp"
+#include "rcutils/time.h"
 #include "rmw/allocators.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
@@ -175,7 +176,53 @@ rmw_take_response(const rmw_client_t* rmw_client, rmw_service_info_t* request_he
     RMW_IOX2_ENSURE_NOT_NULL(taken, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ClientImpl = ::rmw::iox2::Client;
+    using ::rmw::iox2::unsafe_cast;
+
+    RMW_IOX2_LOG_DEBUG("Taking response from '%s'", rmw_client->service_name);
+
+    auto client_impl = unsafe_cast<ClientImpl*>(rmw_client->data);
+    if (!client_impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Client");
+        return RMW_RET_ERROR;
+    }
+
+    auto response = client_impl.value()->take_response();
+    if (!response.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to take response");
+        return RMW_RET_ERROR;
+    }
+    *taken = response.value().has_value();
+    if (!*taken) {
+        return RMW_RET_OK;
+    }
+
+    auto& loan = response.value().value();
+    auto serialized_message = rmw_serialized_message_t{
+        loan.bytes, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
+    auto deserialized =
+        rmw_deserialize(&serialized_message, client_impl.value()->typesupport()->response_typesupport, ros_response);
+    (void)client_impl.value()->return_response_loan(loan.bytes);
+    if (deserialized != RMW_RET_OK) {
+        *taken = false;
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize received response");
+        return RMW_RET_ERROR;
+    }
+
+    rcutils_time_point_value_t received = 0;
+    if (rcutils_system_time_now(&received) != RCUTILS_RET_OK) {
+        received = 0;
+    }
+    request_header->source_timestamp = loan.message_info.source_timestamp;
+    request_header->received_timestamp = received;
+    request_header->request_id.sequence_number = static_cast<int64_t>(loan.message_info.publication_sequence_number);
+    if (auto client_id = client_impl.value()->unique_id(); client_id.has_value()) {
+        std::copy(client_id.value().unchecked_access().data(),
+                  client_id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
+                  request_header->request_id.writer_guid);
+    }
+
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_client_request_publisher_get_actual_qos(const rmw_client_t* rmw_client, rmw_qos_profile_t* qos) {

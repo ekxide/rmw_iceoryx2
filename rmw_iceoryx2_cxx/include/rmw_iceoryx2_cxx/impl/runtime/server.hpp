@@ -20,12 +20,14 @@
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rmw_iceoryx2_interoperability/rmw_iceoryx2_interoperability.h"
 #include "rosidl_runtime_c/service_type_support_struct.h"
 
 #include <array>
 #include <map>
 #include <mutex>
+#include <unordered_map>
 
 namespace rmw::iox2
 {
@@ -66,6 +68,7 @@ private:
     using RequestId = std::pair<ClientId, uint64_t>;
     using IceoryxServer = Iceoryx2::InterProcess::Server<Payload, UserHeader>;
     using IceoryxActiveRequest = Iceoryx2::InterProcess::ActiveRequest<Payload, UserHeader>;
+    using IceoryxResponse = Iceoryx2::InterProcess::ResponseMutUninit<Payload, UserHeader>;
 
 public:
     /// @brief Constructor for Server
@@ -107,6 +110,25 @@ public:
     /// @param[in] sequence_number The sequence number of the request
     auto discard_request(const ClientId& client_id, uint64_t sequence_number) -> void;
 
+    /// @brief Loan memory for the response to a taken request
+    /// @param[in] client_id The id of the client that sent the request
+    /// @param[in] sequence_number The sequence number of the request
+    /// @param[in] number_of_bytes Required buffer size in bytes
+    /// @return Expected containing pointer to the loaned memory, or empty if the client is gone
+    auto loan_response(const ClientId& client_id, uint64_t sequence_number, uint64_t number_of_bytes)
+        -> ::iox2::bb::Expected<::iox2::bb::Optional<void*>, ErrorType>;
+
+    /// @brief Return previously loaned response memory without sending it
+    /// @param[in] loaned_memory Pointer to the loaned memory to return
+    /// @return Expected containing void or error if the return failed
+    auto return_response_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType>;
+
+    /// @brief Send previously loaned response memory to the client of the request
+    /// @param[in] loaned_memory Pointer to the loaned memory to send
+    /// @note The memory must be initialized before sending
+    /// @return Expected containing void or error if sending failed
+    auto send_response(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType>;
+
 private:
     const std::string m_service;
     const rosidl_service_type_support_t* const m_typesupport;
@@ -116,6 +138,8 @@ private:
     std::mutex m_mutex;
     ::iox2::bb::Optional<IceoryxServer> m_iox2_server;
     std::map<RequestId, IceoryxActiveRequest> m_active_requests;
+    SampleRegistry<IceoryxResponse> m_responses;
+    std::unordered_map<const uint8_t*, RequestId> m_response_requests;
 };
 
 } // namespace rmw::iox2
