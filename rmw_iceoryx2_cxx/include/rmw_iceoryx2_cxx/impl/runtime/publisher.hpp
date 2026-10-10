@@ -24,6 +24,8 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
+#include <mutex>
+
 namespace rmw::iox2
 {
 
@@ -145,6 +147,7 @@ private:
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
     ::iox2::bb::Optional<IceoryxService> m_iox2_service;
     ::iox2::bb::Optional<IceoryxPublisher> m_iox2_publisher;
+    std::mutex m_mutex;
     IceoryxSampleRegistry m_registry;
     uint64_t m_publication_sequence_number{0};
 };

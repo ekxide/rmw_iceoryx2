@@ -23,6 +23,8 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
+#include <mutex>
+
 namespace rmw::iox2
 {
 
@@ -145,6 +147,7 @@ private:
     ::iox2::bb::Optional<IceoryxService> m_iox2_service;
     ::iox2::bb::Optional<IceoryxSubscriber> m_iox2_subscriber;
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
+    std::mutex m_mutex;
     IceoryxSampleRegistry m_registry;
 };
 

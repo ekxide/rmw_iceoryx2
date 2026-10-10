@@ -209,6 +209,8 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
     using ::iox2::bb::err;
     using ::iox2::bb::Optional;
 
+    std::lock_guard<std::mutex> lock{m_mutex};
+
     auto result = m_iox2_subscriber->receive();
     if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
@@ -239,6 +241,8 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
 
 auto Subscriber::return_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
 
     if (auto result = m_registry.release(static_cast<uint8_t*>(loaned_memory)); !result.has_value()) {
         switch (result.error()) {

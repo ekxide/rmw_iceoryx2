@@ -11,6 +11,7 @@
 
 #include "iox2/bb/optional.hpp"
 #include "rmw/qos_profiles.h"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
@@ -36,8 +37,11 @@ protected:
 };
 
 TEST_F(SubscriberTest, construction) {
+    using ::rmw::iox2::allocate;
     using ::rmw::iox2::Context;
     using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
     using ::rmw::iox2::Node;
     using ::rmw::iox2::ProfileKind;
     using ::rmw::iox2::Qos;
@@ -59,9 +63,12 @@ TEST_F(SubscriberTest, construction) {
     auto qos = TryConvert<Qos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
     ASSERT_TRUE(qos.has_value()) << "failed to resolve default QoS";
 
-    ::iox2::bb::Optional<Subscriber> subscriber_storage;
-    ASSERT_TRUE(
-        create_in_place(subscriber_storage, node, "Topic", test_type_support<Defaults>(), qos.value()).has_value());
+    auto subscriber = allocate<Subscriber>();
+    ASSERT_TRUE(subscriber.has_value());
+    EXPECT_TRUE(
+        create_in_place(subscriber.value(), node, "Topic", test_type_support<Defaults>(), qos.value()).has_value());
+    destruct<Subscriber>(subscriber.value());
+    deallocate(subscriber.value());
 }
 
 } // namespace

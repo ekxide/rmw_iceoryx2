@@ -11,6 +11,7 @@
 
 #include "iox2/bb/optional.hpp"
 #include "rmw/qos_profiles.h"
+#include "rmw_iceoryx2_cxx/impl/common/allocator.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/create.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
@@ -36,8 +37,11 @@ protected:
 };
 
 TEST_F(PublisherTest, construction) {
+    using ::rmw::iox2::allocate;
     using ::rmw::iox2::Context;
     using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::deallocate;
+    using ::rmw::iox2::destruct;
     using ::rmw::iox2::Node;
     using ::rmw::iox2::ProfileKind;
     using ::rmw::iox2::Publisher;
@@ -59,9 +63,12 @@ TEST_F(PublisherTest, construction) {
     auto qos = TryConvert<Qos>::from(rmw_qos_profile_default, ProfileKind::PUBLISH_SUBSCRIBE);
     ASSERT_TRUE(qos.has_value()) << "failed to resolve default QoS";
 
-    ::iox2::bb::Optional<Publisher> publisher_storage;
-    ASSERT_TRUE(
-        create_in_place(publisher_storage, node, "Topic", test_type_support<Defaults>(), qos.value()).has_value());
+    auto publisher = allocate<Publisher>();
+    ASSERT_TRUE(publisher.has_value());
+    EXPECT_TRUE(
+        create_in_place(publisher.value(), node, "Topic", test_type_support<Defaults>(), qos.value()).has_value());
+    destruct<Publisher>(publisher.value());
+    deallocate(publisher.value());
 }
 
 } // namespace

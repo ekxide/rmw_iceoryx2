@@ -25,9 +25,13 @@
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
+#include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdlib>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace
 {
@@ -596,6 +600,124 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_publication_sequence_number_incre
     }
 
     free(recv_payload);
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent calls
+// ---------------------------------------------------------------------------
+
+TEST_F(RmwPublishSubscribeTest, concurrent_loans_of_a_publisher_are_all_returned) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    constexpr int NUM_THREADS = 2;
+    constexpr int NUM_LOANS = 5000;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+
+    std::atomic<int> failures{0};
+    std::vector<std::thread> threads;
+    for (int t = 0; t < NUM_THREADS; ++t) {
+        threads.emplace_back([&] {
+            for (int i = 0; i < NUM_LOANS; ++i) {
+                void* loan = nullptr;
+                if (rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &loan) != RMW_RET_OK
+                    || rmw_return_loaned_message_from_publisher(publisher, loan) != RMW_RET_OK) {
+                    ++failures;
+                }
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    EXPECT_EQ(failures.load(), 0);
+}
+
+TEST_F(RmwPublishSubscribeTest, concurrent_publishes_number_every_message) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    constexpr int NUM_THREADS = 4;
+    constexpr int NUM_MESSAGES = 5000;
+
+    auto qos = rmw_qos_profile_default;
+    qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    auto* publisher = create_publisher<Defaults>(create_test_topic(), qos);
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_subscriber<Defaults>(create_test_topic(), qos);
+    ASSERT_NE(subscription, nullptr);
+
+    std::vector<std::thread> threads;
+    for (int t = 0; t < NUM_THREADS; ++t) {
+        threads.emplace_back([&] {
+            for (int i = 0; i < NUM_MESSAGES; ++i) {
+                auto payload = Defaults{};
+                EXPECT_EQ(rmw_publish(publisher, &payload, nullptr), RMW_RET_OK);
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    uint64_t last_sequence_number = 0;
+    auto payload = Defaults{};
+    bool taken{true};
+    while (taken) {
+        rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+        ASSERT_RMW_OK(rmw_take_with_info(subscription, &payload, &taken, &message_info, nullptr));
+        if (taken) {
+            last_sequence_number = std::max(last_sequence_number, message_info.publication_sequence_number);
+        }
+    }
+
+    EXPECT_EQ(last_sequence_number, static_cast<uint64_t>(NUM_THREADS) * NUM_MESSAGES);
+}
+
+TEST_F(RmwPublishSubscribeTest, concurrent_loaned_takes_of_a_subscription_are_all_returned) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    constexpr int NUM_THREADS = 2;
+    constexpr int NUM_TAKES = 5000;
+
+    auto qos = rmw_qos_profile_default;
+    qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    auto* publisher = create_publisher<Defaults>(create_test_topic(), qos);
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_subscriber<Defaults>(create_test_topic(), qos);
+    ASSERT_NE(subscription, nullptr);
+
+    std::atomic<bool> done{false};
+    std::thread publishing_thread([&] {
+        while (!done) {
+            auto payload = Defaults{};
+            EXPECT_RMW_OK(rmw_publish(publisher, &payload, nullptr));
+        }
+    });
+
+    std::atomic<int> failures{0};
+    std::vector<std::thread> threads;
+    for (int t = 0; t < NUM_THREADS; ++t) {
+        threads.emplace_back([&] {
+            for (int i = 0; i < NUM_TAKES; ++i) {
+                void* loan = nullptr;
+                bool taken{false};
+                if (rmw_take_loaned_message(subscription, &loan, &taken, nullptr) != RMW_RET_OK) {
+                    ++failures;
+                } else if (taken && rmw_return_loaned_message_from_subscription(subscription, loan) != RMW_RET_OK) {
+                    ++failures;
+                }
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+    done = true;
+    publishing_thread.join();
+
+    EXPECT_EQ(failures.load(), 0);
 }
 
 // ---------------------------------------------------------------------------
