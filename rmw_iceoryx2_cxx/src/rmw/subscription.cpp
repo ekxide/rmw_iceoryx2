@@ -43,12 +43,8 @@ void populate_message_info(rmw_message_info_t* message_info, const ::rmw::iox2::
     message_info->from_intra_process = false;
     message_info->publisher_gid = rmw_gid_t{};
     message_info->publisher_gid.implementation_identifier = rmw_get_implementation_identifier();
-    if (!sample_info.publisher_id.has_value()) {
-        RMW_IOX2_LOG_WARN("received a sample without a publisher id, its publisher gid is zero");
-        return;
-    }
-    std::copy(sample_info.publisher_id.value().unchecked_access().data(),
-              sample_info.publisher_id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
+    std::copy(sample_info.publisher_id.unchecked_access().data(),
+              sample_info.publisher_id.unchecked_access().data() + RMW_GID_STORAGE_SIZE,
               message_info->publisher_gid.data);
 }
 
