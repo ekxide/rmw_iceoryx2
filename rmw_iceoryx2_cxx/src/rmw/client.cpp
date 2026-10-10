@@ -90,6 +90,7 @@ rmw_client_t* rmw_create_client(const rmw_node_t* rmw_node,
         }
         rmw_client->data = client_impl.value();
     }
+    rmw_node->context->impl->notify_graph_change();
 
     return rmw_client;
 }
@@ -116,6 +117,9 @@ rmw_ret_t rmw_destroy_client(rmw_node_t* rmw_node, rmw_client_t* rmw_client) {
         deallocate(rmw_client->service_name);
     }
     rmw_client_free(rmw_client);
+    if (rmw_node->context->impl != nullptr) {
+        rmw_node->context->impl->notify_graph_change();
+    }
 
     return RMW_RET_OK;
 }

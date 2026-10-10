@@ -539,7 +539,18 @@ rmw_ret_t rmw_count_services(const rmw_node_t* rmw_node, const char* service_nam
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    *count = 0;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().count_servers(service_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to count servers");
+        return RMW_RET_ERROR;
+    }
+    *count = result.value();
+
     return RMW_RET_OK;
 }
 
@@ -557,7 +568,17 @@ rmw_ret_t rmw_get_service_names_and_types(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return fill_names_and_types(service_names_and_types, {}, allocator);
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().service_names_and_types();
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to list service names and types");
+        return RMW_RET_ERROR;
+    }
+    return fill_names_and_types(service_names_and_types, result.value(), allocator);
 }
 
 rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
@@ -584,17 +605,19 @@ rmw_ret_t rmw_get_service_names_and_types_by_node(const rmw_node_t* rmw_node,
     if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto has_node = graph.value().has_node(node_name, node_namespace);
-    if (!has_node.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+
+    auto result = graph.value().servers_by_node(node_name, node_namespace);
+    if (!result.has_value()) {
+        if (result.error() == ::rmw::iox2::GraphError::NODE_NOT_FOUND) {
+            RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+                "node %s in namespace %s does not exist", node_name, node_namespace);
+            return RMW_RET_NODE_NAME_NON_EXISTENT;
+        }
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get service names and types by node");
         return RMW_RET_ERROR;
     }
-    if (!has_node.value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
-            "node %s in namespace %s does not exist", node_name, node_namespace);
-        return RMW_RET_NODE_NAME_NON_EXISTENT;
-    }
-    return fill_names_and_types(service_names_and_types, {}, allocator);
+
+    return fill_names_and_types(service_names_and_types, result.value(), allocator);
 }
 
 rmw_ret_t rmw_get_servers_info_by_service(const rmw_node_t* rmw_node,
@@ -628,7 +651,18 @@ rmw_ret_t rmw_count_clients(const rmw_node_t* rmw_node, const char* service_name
     RMW_IOX2_ENSURE_NOT_NULL(count, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    *count = 0;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().count_clients(service_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to count clients");
+        return RMW_RET_ERROR;
+    }
+    *count = result.value();
+
     return RMW_RET_OK;
 }
 
@@ -657,17 +691,19 @@ rmw_ret_t rmw_get_client_names_and_types_by_node(const rmw_node_t* rmw_node,
     if (!graph.has_value()) {
         return RMW_RET_ERROR;
     }
-    auto has_node = graph.value().has_node(node_name, node_namespace);
-    if (!has_node.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to list node names");
+
+    auto result = graph.value().clients_by_node(node_name, node_namespace);
+    if (!result.has_value()) {
+        if (result.error() == ::rmw::iox2::GraphError::NODE_NOT_FOUND) {
+            RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+                "node %s in namespace %s does not exist", node_name, node_namespace);
+            return RMW_RET_NODE_NAME_NON_EXISTENT;
+        }
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get client names and types by node");
         return RMW_RET_ERROR;
     }
-    if (!has_node.value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
-            "node %s in namespace %s does not exist", node_name, node_namespace);
-        return RMW_RET_NODE_NAME_NON_EXISTENT;
-    }
-    return fill_names_and_types(service_names_and_types, {}, allocator);
+
+    return fill_names_and_types(service_names_and_types, result.value(), allocator);
 }
 
 rmw_ret_t rmw_get_clients_info_by_service(const rmw_node_t* rmw_node,

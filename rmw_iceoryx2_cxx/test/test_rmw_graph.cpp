@@ -27,6 +27,7 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/srv/basic_types.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -474,6 +475,66 @@ TEST_F(RmwGraphTest, reports_no_services_or_clients) {
     EXPECT_EQ(clients_info.size, 0U);
 }
 
+TEST_F(RmwGraphTest, reports_services_and_clients) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::BasicTypes;
+
+    auto allocator = rcutils_get_default_allocator();
+    const auto* node_name = test_node()->name;
+    const auto* node_namespace = test_node()->namespace_;
+    const auto service_name = create_test_topic("/service");
+    ASSERT_NE(create_service<BasicTypes>(service_name), nullptr);
+    ASSERT_NE(create_client<BasicTypes>(service_name), nullptr);
+    ASSERT_NE(create_client<BasicTypes>(service_name), nullptr);
+
+    size_t count{0};
+    EXPECT_RMW_OK(rmw_count_services(test_node(), service_name.c_str(), &count));
+    EXPECT_EQ(count, 1U);
+    EXPECT_RMW_OK(rmw_count_clients(test_node(), service_name.c_str(), &count));
+    EXPECT_EQ(count, 2U);
+
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    EXPECT_RMW_OK(rmw_get_service_names_and_types(test_node(), &allocator, &names_and_types));
+    EXPECT_STREQ(first_type_of_topic(names_and_types, service_name.c_str()),
+                 "rmw_iceoryx2_cxx_test_msgs/srv/BasicTypes");
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+    EXPECT_RMW_OK(
+        rmw_get_service_names_and_types_by_node(test_node(), &allocator, node_name, node_namespace, &names_and_types));
+    EXPECT_NE(first_type_of_topic(names_and_types, service_name.c_str()), nullptr);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+    EXPECT_RMW_OK(
+        rmw_get_client_names_and_types_by_node(test_node(), &allocator, node_name, node_namespace, &names_and_types));
+    EXPECT_NE(first_type_of_topic(names_and_types, service_name.c_str()), nullptr);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+
+    auto topics = rmw_get_zero_initialized_names_and_types();
+    EXPECT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topics));
+    EXPECT_EQ(first_type_of_topic(topics, service_name.c_str()), nullptr);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&topics));
+}
+
+TEST_F(RmwGraphTest, services_and_clients_of_another_node_are_not_listed_by_node) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::BasicTypes;
+
+    auto allocator = rcutils_get_default_allocator();
+    const auto service_name = create_test_topic("/service");
+    ASSERT_NE(create_service<BasicTypes>(service_name), nullptr);
+    ASSERT_NE(create_client<BasicTypes>(service_name), nullptr);
+
+    auto* other_node = rmw_create_node(test_context(), "other_node", "/");
+    ASSERT_NE(other_node, nullptr);
+
+    auto names_and_types = rmw_get_zero_initialized_names_and_types();
+    EXPECT_RMW_OK(
+        rmw_get_service_names_and_types_by_node(test_node(), &allocator, "other_node", "/", &names_and_types));
+    EXPECT_EQ(names_and_types.names.size, 0U);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+    EXPECT_RMW_OK(rmw_get_client_names_and_types_by_node(test_node(), &allocator, "other_node", "/", &names_and_types));
+    EXPECT_EQ(names_and_types.names.size, 0U);
+    EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
+
+    EXPECT_RMW_OK(rmw_destroy_node(other_node));
+}
+
 TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {
     auto allocator = rcutils_get_default_allocator();
     auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
@@ -722,6 +783,60 @@ TEST_F(RmwGraphTest, triggering_a_graph_guard_condition_wakes_a_waiting_wait_set
     EXPECT_RMW_OK(rmw_trigger_guard_condition(graph_guard_condition));
     waiter.join();
     EXPECT_TRUE(woken);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+}
+
+TEST_F(RmwGraphTest, creating_and_destroying_a_service_triggers_the_graph_guard_condition) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::BasicTypes;
+
+    const auto* graph_guard_condition = rmw_node_get_graph_guard_condition(test_node());
+    ASSERT_NE(graph_guard_condition, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(waitset, nullptr);
+    void* conditions[] = {graph_guard_condition->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    rmw_time_t no_wait{0, 0};
+    EXPECT_NE(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &no_wait), RMW_RET_ERROR);
+
+    auto* service = create_service<BasicTypes>(create_test_topic("/service"));
+    ASSERT_NE(service, nullptr);
+    guard_conditions.guard_conditions[0] = graph_guard_condition->data;
+    rmw_time_t timeout{1, 0};
+    EXPECT_RMW_OK(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+
+    destroy_service(service);
+    guard_conditions.guard_conditions[0] = graph_guard_condition->data;
+    EXPECT_RMW_OK(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+
+    ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
+}
+
+TEST_F(RmwGraphTest, creating_and_destroying_a_client_triggers_the_graph_guard_condition) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::BasicTypes;
+
+    const auto* graph_guard_condition = rmw_node_get_graph_guard_condition(test_node());
+    ASSERT_NE(graph_guard_condition, nullptr);
+    auto* waitset = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(waitset, nullptr);
+    void* conditions[] = {graph_guard_condition->data};
+    rmw_guard_conditions_t guard_conditions{1, conditions};
+    rmw_time_t no_wait{0, 0};
+    EXPECT_NE(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &no_wait), RMW_RET_ERROR);
+
+    auto* client = create_client<BasicTypes>(create_test_topic("/service"));
+    ASSERT_NE(client, nullptr);
+    guard_conditions.guard_conditions[0] = graph_guard_condition->data;
+    rmw_time_t timeout{1, 0};
+    EXPECT_RMW_OK(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
+
+    destroy_client(client);
+    guard_conditions.guard_conditions[0] = graph_guard_condition->data;
+    EXPECT_RMW_OK(rmw_wait(nullptr, &guard_conditions, nullptr, nullptr, nullptr, waitset, &timeout));
+    EXPECT_NE(guard_conditions.guard_conditions[0], nullptr);
 
     ASSERT_RMW_OK(rmw_destroy_wait_set(waitset));
 }
