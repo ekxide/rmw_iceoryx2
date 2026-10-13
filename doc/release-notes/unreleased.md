@@ -41,6 +41,7 @@
 * Propagate the errors of the endpoint info setters [#64](https://github.com/ekxide/rmw_iceoryx2/issues/64)
 * Fix guard conditions failing after 255 per context [#82](https://github.com/ekxide/rmw_iceoryx2/issues/82)
 * Ensure the configured number of publishers and subscriptions per topic can be created [#94](https://github.com/ekxide/rmw_iceoryx2/issues/94)
+* Guard the loans and the sequence number of publishers and subscriptions against concurrent rmw calls [#99](https://github.com/ekxide/rmw_iceoryx2/issues/99)
 
 ### Refactoring
 

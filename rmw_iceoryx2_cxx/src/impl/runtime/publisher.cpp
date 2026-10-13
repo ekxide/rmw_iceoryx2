@@ -186,6 +186,8 @@ auto Publisher::number_of_subscribers() const -> uint64_t {
 auto Publisher::loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType> {
     using ::iox2::bb::err;
 
+    std::lock_guard<std::mutex> lock{m_mutex};
+
     const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
     auto sample = m_iox2_publisher->loan_slice_uninit(number_of_elements);
     if (!sample.has_value()) {
@@ -201,6 +203,8 @@ auto Publisher::loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, Er
 auto Publisher::return_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
+    std::lock_guard<std::mutex> lock{m_mutex};
+
     if (auto result = m_registry.release(static_cast<uint8_t*>(loaned_memory)); !result.has_value()) {
         switch (result.error()) {
         case SampleRegistryError::INVALID_PAYLOAD:
@@ -212,6 +216,8 @@ auto Publisher::return_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, E
 
 auto Publisher::publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
 
     // Send
     auto sample = m_registry.release(static_cast<uint8_t*>(loaned_memory));
@@ -239,6 +245,8 @@ auto Publisher::publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, 
 
 auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
 
     const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
     auto sample = m_iox2_publisher->loan_slice_uninit(number_of_elements);
