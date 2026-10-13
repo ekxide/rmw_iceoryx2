@@ -38,7 +38,7 @@ struct Error<Subscriber>
 struct SampleInfo
 {
     ::rmw_iceoryx2_interoperability::MessageInfoHeader header;
-    ::iox2::bb::Optional<::iox2::RawIdType> publisher_id;
+    ::iox2::RawIdType publisher_id;
 };
 
 struct SubscriberLoan

@@ -193,9 +193,16 @@ auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optio
         return Optional<SampleInfo>{::iox2::bb::NULLOPT};
     }
 
+    auto origin = sample.value().origin();
+    const auto& origin_bytes = origin.bytes();
+    if (!origin_bytes.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("unable to retrieve UniquePortId of the publisher");
+        return err(ErrorType::RECV_FAILURE);
+    }
+
     auto payload = sample.value().payload();
     std::memcpy(dest, payload.data(), payload.number_of_bytes());
-    return Optional<SampleInfo>(SampleInfo{sample.value().user_header(), sample.value().origin().bytes()});
+    return Optional<SampleInfo>(SampleInfo{sample.value().user_header(), origin_bytes.value()});
 }
 
 auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<SubscriberLoan>, ErrorType> {
@@ -210,11 +217,18 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
     auto sample = std::move(result.value());
 
     if (sample.has_value()) {
+        auto origin = sample->origin();
+        const auto& origin_bytes = origin.bytes();
+        if (!origin_bytes.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("unable to retrieve UniquePortId of the publisher");
+            return err(ErrorType::RECV_FAILURE);
+        }
+
         // reinterpret_cast to obtain a byte pointer from the CustomPayloadMarker element type;
         // const_cast required because of the RMW API.
         auto* data = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(sample->payload().data()));
         auto number_of_bytes = sample->payload().number_of_bytes();
-        auto message_info = SampleInfo{sample->user_header(), sample->origin().bytes()};
+        auto message_info = SampleInfo{sample->user_header(), origin_bytes.value()};
         m_registry.store(std::move(sample.value()));
 
         return Optional<SubscriberLoan>(SubscriberLoan{data, number_of_bytes, message_info});
