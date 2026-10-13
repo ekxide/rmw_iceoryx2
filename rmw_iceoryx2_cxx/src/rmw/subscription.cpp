@@ -586,7 +586,23 @@ rmw_ret_t rmw_subscription_get_content_filter(const rmw_subscription_t* rmw_subs
 rmw_ret_t rmw_subscription_set_on_new_message_callback(rmw_subscription_t* rmw_subscription,
                                                        rmw_event_callback_t callback,
                                                        const void* user_data) {
-    return RMW_RET_UNSUPPORTED;
+    // Invariants ----------------------------------------------------------------------------------
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_subscription, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_subscription->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+    // Implementation -------------------------------------------------------------------------------
+    using ::rmw::iox2::unsafe_cast;
+    using SubscriberImpl = ::rmw::iox2::Subscriber;
+
+    auto impl = unsafe_cast<SubscriberImpl*>(rmw_subscription->data);
+    if (!impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Subscriber");
+        return RMW_RET_ERROR;
+    }
+    if (!impl.value()->set_callback(callback, user_data).has_value()) {
+        return RMW_RET_ERROR;
+    }
+    return RMW_RET_OK;
 }
 
 rmw_ret_t rmw_subscription_get_network_flow_endpoints(const rmw_subscription_t* rmw_subscription,

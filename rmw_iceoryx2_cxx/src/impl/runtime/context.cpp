@@ -45,7 +45,8 @@ rmw_context_impl_s::rmw_context_impl_s(rmw_context_impl_s&& other) noexcept
     : m_id{other.m_id}
     , m_iox2{std::move(other.m_iox2)}
     , m_graph_guard_condition{std::move(other.m_graph_guard_condition)}
-    , m_options{std::move(other.m_options)} {
+    , m_options{std::move(other.m_options)}
+    , m_callback_thread{std::move(other.m_callback_thread)} {
 }
 
 auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_context_impl_s& {
@@ -54,6 +55,7 @@ auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_c
         m_iox2 = std::move(other.m_iox2);
         m_graph_guard_condition = std::move(other.m_graph_guard_condition);
         m_options = std::move(other.m_options);
+        m_callback_thread = std::move(other.m_callback_thread);
     }
     return *this;
 }
@@ -78,4 +80,8 @@ auto rmw_context_impl_s::notify_graph_change() -> void {
         RMW_IOX2_LOG_WARN("failed to notify a graph change: %s", rcutils_get_error_string().str);
         rcutils_reset_error();
     }
+}
+
+auto rmw_context_impl_s::callback_thread() const -> const std::shared_ptr<::rmw::iox2::CallbackThread>& {
+    return m_callback_thread;
 }

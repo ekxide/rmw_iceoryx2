@@ -15,7 +15,10 @@
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/callback_thread.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
+
+#include <memory>
 
 class rmw_context_impl_s;
 
@@ -121,6 +124,10 @@ public:
     /// @brief Wake the graph guard conditions of every context
     auto notify_graph_change() -> void;
 
+    /// @brief Get the thread that calls the callbacks of the entities of this context
+    /// @return The callback thread, shared with the entities so that it outlives a shut down context
+    auto callback_thread() const -> const std::shared_ptr<::rmw::iox2::CallbackThread>&;
+
 private:
     // m_id is logically const after construction. The `const` qualifier is omitted
     // only because the explicit move-assignment operator needs to overwrite it.
@@ -129,6 +136,7 @@ private:
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
     ::iox2::bb::Optional<::rmw::iox2::GraphGuardCondition> m_graph_guard_condition;
     rmw_init_options_impl_s m_options;
+    std::shared_ptr<::rmw::iox2::CallbackThread> m_callback_thread{std::make_shared<::rmw::iox2::CallbackThread>()};
 };
 }
 

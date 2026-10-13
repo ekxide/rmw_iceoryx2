@@ -280,9 +280,19 @@ rmw_ret_t rmw_service_set_on_new_request_callback(rmw_service_t* rmw_service,
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_service, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_service->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    RMW_IOX2_ENSURE_NOT_NULL(user_data, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ::rmw::iox2::unsafe_cast;
+    using ServerImpl = ::rmw::iox2::Server;
+
+    auto impl = unsafe_cast<ServerImpl*>(rmw_service->data);
+    if (!impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Server");
+        return RMW_RET_ERROR;
+    }
+    if (!impl.value()->set_callback(callback, user_data).has_value()) {
+        return RMW_RET_ERROR;
+    }
+    return RMW_RET_OK;
 }
 }

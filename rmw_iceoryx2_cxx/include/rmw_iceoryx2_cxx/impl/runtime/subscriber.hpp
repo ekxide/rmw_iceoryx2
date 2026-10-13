@@ -19,10 +19,12 @@
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/callback_thread.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
 
+#include <memory>
 #include <mutex>
 
 namespace rmw::iox2
@@ -86,6 +88,9 @@ public:
                const char* topic,
                const rosidl_message_type_support_t* type_support,
                const Qos& qos);
+    Subscriber(Subscriber&&) = delete;
+    auto operator=(Subscriber&&) -> Subscriber& = delete;
+    ~Subscriber();
 
     /// @brief Get the unique identifier of the subscriber
     /// @return Optional containing the raw ID of the subscriber
@@ -111,6 +116,13 @@ public:
     /// @return Reference to the listener
     auto listener() -> IceoryxListener&;
 
+    /// @brief Calls the callback with the number of new messages, first with those already received
+    /// @param[in] callback The callback, nullptr removes the callback
+    /// @param[in] user_data Passed to the callback
+    /// @return Expected containing void if successful, error otherwise
+    auto set_callback(rmw_event_callback_t callback, const void* user_data)
+        -> ::iox2::bb::Expected<void, CallbackThread::ErrorType>;
+
     /// @brief Get the resolved QoS used to create this subscriber
     /// @return Reference to the resolved QoS
     auto qos() const -> const Qos&;
@@ -134,13 +146,10 @@ public:
     auto return_loan(void* loan) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
-    // m_topic, m_service_name, and m_qos are logically const after
-    // construction. The `const` qualifier is omitted only because storing
-    // this class in `iox2::bb::Optional` requires it to be move-assignable.
-    // Do not mutate them.
-    std::string m_topic;
+    std::shared_ptr<CallbackThread> m_callback_thread;
+    const std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
-    std::string m_service_name;
+    const std::string m_service_name;
     Qos m_qos;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
