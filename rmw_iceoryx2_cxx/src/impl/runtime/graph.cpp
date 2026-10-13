@@ -13,8 +13,10 @@
 #include "iox2/bb/optional.hpp"
 #include "iox2/message_type_details.hpp"
 #include "iox2/port_factory_publish_subscribe.hpp"
+#include "iox2/port_factory_request_response.hpp"
 #include "iox2/service.hpp"
 #include "iox2/service_builder_publish_subscribe.hpp"
+#include "iox2/service_builder_request_response.hpp"
 #include "iox2/static_config.hpp"
 #include "iox2/unique_node_id.hpp"
 #include "rcutils/error_handling.h"
@@ -23,6 +25,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
 #include "rosidl_runtime_c/type_hash.h"
 
 #include <algorithm>
@@ -33,6 +36,10 @@
 
 namespace
 {
+
+constexpr std::string_view TOPIC_PREFIX = "ros2://topics";
+constexpr std::string_view SERVICE_PREFIX = "ros2://services";
+constexpr std::string_view REQUEST_SUFFIX = "_Request";
 
 /// Parse a node's namespace, name and enclave out of an iceoryx2 instance name of the
 /// form `ros2://context/<id>/nodes/<namespace>/<name>`.
@@ -75,21 +82,20 @@ auto parse_node_name(std::string_view full_name) -> ::iox2::bb::Optional<::rmw::
                     std::move(enclave)};
 }
 
-/// Parse a ROS topic name out of an iceoryx2 service name of the form
-/// `ros2://topics<topic>`.
-auto parse_topic_name(const char* full_name) -> ::iox2::bb::Optional<std::string> {
-    constexpr std::string_view ROS2_PREFIX = "ros2://topics";
+/// Parse a ROS topic or service name out of an iceoryx2 service name of the form
+/// `<prefix><name>`, e.g. `ros2://topics<topic>` or `ros2://services<service>`.
+auto parse_ros_name(std::string_view prefix, const char* full_name) -> ::iox2::bb::Optional<std::string> {
     std::string_view full_view(full_name);
-    if (full_view.substr(0, ROS2_PREFIX.length()) != ROS2_PREFIX) {
+    if (full_view.substr(0, prefix.length()) != prefix) {
         return ::iox2::bb::NULLOPT;
     }
 
-    auto topic_part = full_view.substr(ROS2_PREFIX.length());
-    if (topic_part.empty()) {
+    auto name_part = full_view.substr(prefix.length());
+    if (name_part.empty()) {
         return ::iox2::bb::NULLOPT;
     }
 
-    return std::string(topic_part);
+    return std::string(name_part);
 }
 
 /// A node's unique id as a comparable key: (high bits, low bits).
@@ -188,6 +194,62 @@ auto open_topic_service(::rmw::iox2::Node& node, const std::string& topic)
     return ::iox2::bb::Optional<TopicService>{std::move(service.value())};
 }
 
+/// The opened request-response service backing a ROS service, as used by this RMW.
+using RequestResponseService = ::iox2::PortFactoryRequestResponse<::rmw::iox2::Iceoryx2::ServiceType::Ipc,
+                                                                  ::rmw::iox2::Server::Payload,
+                                                                  ::rmw::iox2::Server::UserHeader,
+                                                                  ::rmw::iox2::Server::Payload,
+                                                                  ::rmw::iox2::Server::UserHeader>;
+
+/// Open the existing request-response service backing `service` so its dynamic
+/// config can be inspected. The payload type details are read from the registry,
+/// so the service opens without the original typesupport. Returns `NULLOPT` when
+/// no service exists for the name.
+auto open_request_response_service(::rmw::iox2::Node& node, const std::string& service)
+    -> ::iox2::bb::Expected<::iox2::bb::Optional<RequestResponseService>, ::rmw::iox2::GraphError> {
+    using ::iox2::bb::err;
+    using ::rmw::iox2::GraphError;
+    using ::rmw::iox2::Iceoryx2;
+    using Payload = ::rmw::iox2::Server::Payload;
+    using UserHeader = ::rmw::iox2::Server::UserHeader;
+    namespace names = ::rmw::iox2::names;
+
+    auto service_name = names::service(service.c_str());
+
+    auto details = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(service_name,
+                                                                          Iceoryx2::MessagingPattern::RequestResponse);
+    if (!details.has_value()) {
+        return ::iox2::bb::Optional<RequestResponseService>{::iox2::bb::NULLOPT};
+    }
+    const auto static_config = details.value().static_details.request_response();
+
+    auto iox2_service_name = Iceoryx2::ServiceName::create(service_name.c_str());
+    if (!iox2_service_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
+        return err(GraphError::SERVICE_NAME_CREATION_FAILURE);
+    }
+
+    auto service_builder = node.iox2()
+                               .ipc()
+                               .service_builder(iox2_service_name.value())
+                               .request_response<Payload, Payload>()
+                               .request_user_header<UserHeader>()
+                               .response_user_header<UserHeader>();
+    ::iox2::set_request_payload_type_details(service_builder, static_config.request_message_type_details().payload());
+    ::iox2::set_response_payload_type_details(service_builder, static_config.response_message_type_details().payload());
+
+    auto opened = service_builder.resume_build().open();
+    if (!opened.has_value()) {
+        if (opened.error() == ::iox2::RequestResponseOpenError::DoesNotExist) {
+            return ::iox2::bb::Optional<RequestResponseService>{::iox2::bb::NULLOPT};
+        }
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(opened.error()));
+        return err(GraphError::SERVICE_OPEN_FAILURE);
+    }
+
+    return ::iox2::bb::Optional<RequestResponseService>{std::move(opened.value())};
+}
+
 } // namespace
 
 namespace rmw::iox2
@@ -231,7 +293,7 @@ auto Graph::topic_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInf
     auto config = m_node.get().iox2().ipc().config();
     auto list_result = Iceoryx2::InterProcess::Service::list(config, [&topics](auto service) {
         if (service.static_details.messaging_pattern() == MessagingPattern::PublishSubscribe) {
-            if (auto topic = parse_topic_name(service.static_details.name()); topic.has_value()) {
+            if (auto topic = parse_ros_name(TOPIC_PREFIX, service.static_details.name()); topic.has_value()) {
                 // The rmw stores the ROS type name (`<pkg>/msg/<Type>`) as the
                 // iceoryx2 payload type name at publisher/subscriber creation.
                 auto payload = service.static_details.publish_subscribe().message_type_details().payload();
@@ -435,6 +497,132 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
             result.push_back(endpoint_info(view.node_id(), view.subscriber_id().bytes()));
             return CallbackProgression::Continue;
         });
+    }
+
+    return result;
+}
+
+auto Graph::service_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
+    using ::iox2::CallbackProgression;
+    using ::iox2::MessagingPattern;
+    using ::iox2::bb::err;
+
+    std::set<TopicInfo> services{};
+    auto config = m_node.get().iox2().ipc().config();
+    auto list_result = Iceoryx2::InterProcess::Service::list(config, [&](auto service) {
+        if (service.static_details.messaging_pattern() == MessagingPattern::RequestResponse) {
+            if (auto name = parse_ros_name(SERVICE_PREFIX, service.static_details.name()); name.has_value()) {
+                auto request = service.static_details.request_response().request_message_type_details().payload();
+                std::string type = request.type_name();
+                if (type.size() > REQUEST_SUFFIX.size()
+                    && type.compare(type.size() - REQUEST_SUFFIX.size(), REQUEST_SUFFIX.size(), REQUEST_SUFFIX) == 0) {
+                    type.erase(type.size() - REQUEST_SUFFIX.size());
+                }
+                services.emplace(TopicInfo{std::move(name.value()), type.empty() ? "UNKNOWN" : std::move(type)});
+            }
+        }
+        return CallbackProgression::Continue;
+    });
+    if (!list_result.has_value()) {
+        return err(ErrorType::LISTING_FAILURE);
+    }
+
+    return std::vector<TopicInfo>{services.begin(), services.end()};
+}
+
+auto Graph::count_servers(const std::string& service) -> ::iox2::bb::Expected<size_t, ErrorType> {
+    return count_service_endpoints(service, EndpointKind::SERVER);
+}
+
+auto Graph::count_clients(const std::string& service) -> ::iox2::bb::Expected<size_t, ErrorType> {
+    return count_service_endpoints(service, EndpointKind::CLIENT);
+}
+
+auto Graph::servers_by_node(const std::string& node_name, const std::string& node_namespace)
+    -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
+    return service_endpoints_by_node(node_name, node_namespace, EndpointKind::SERVER);
+}
+
+auto Graph::clients_by_node(const std::string& node_name, const std::string& node_namespace)
+    -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
+    return service_endpoints_by_node(node_name, node_namespace, EndpointKind::CLIENT);
+}
+
+auto Graph::count_service_endpoints(const std::string& service, EndpointKind kind)
+    -> ::iox2::bb::Expected<size_t, ErrorType> {
+    using ::iox2::bb::err;
+
+    auto opened = open_request_response_service(m_node.get(), service);
+    if (!opened.has_value()) {
+        return err(opened.error());
+    }
+    if (!opened.value().has_value()) {
+        return size_t{0};
+    }
+
+    const auto& dynamic_config = opened.value().value().dynamic_config();
+
+    return kind == EndpointKind::SERVER ? dynamic_config.number_of_servers() : dynamic_config.number_of_clients();
+}
+
+auto Graph::service_endpoints_by_node(const std::string& node_name,
+                                      const std::string& node_namespace,
+                                      EndpointKind kind) -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType> {
+    using ::iox2::CallbackProgression;
+    using ::iox2::bb::err;
+
+    auto& node = m_node.get();
+
+    auto services = service_names_and_types();
+    if (!services.has_value()) {
+        return err(services.error());
+    }
+    auto lookup = build_node_id_lookup(node);
+    if (!lookup.has_value()) {
+        return err(lookup.error());
+    }
+    const auto& nodes = lookup.value();
+    if (!contains_node(nodes, node_name, node_namespace)) {
+        return err(ErrorType::NODE_NOT_FOUND);
+    }
+
+    auto owned_by_target = [&](const ::iox2::UniqueNodeId& node_id) -> bool {
+        auto entry = nodes.find(to_key(node_id));
+        return entry != nodes.end() && entry->second.node_name == node_name
+               && entry->second.node_namespace == node_namespace;
+    };
+
+    std::vector<TopicInfo> result{};
+    for (const auto& service : services.value()) {
+        auto opened = open_request_response_service(node, service.name);
+        if (!opened.has_value()) {
+            rcutils_reset_error();
+            RMW_IOX2_LOG_WARN("skipping service '%s' in a per-node graph query, it cannot be opened",
+                              service.name.c_str());
+            continue;
+        }
+        if (!opened.value().has_value()) {
+            continue;
+        }
+        const auto& dynamic_config = opened.value().value().dynamic_config();
+
+        bool found = false;
+        auto scan = [&](auto view) {
+            if (owned_by_target(view.node_id())) {
+                found = true;
+                return CallbackProgression::Stop;
+            }
+            return CallbackProgression::Continue;
+        };
+        if (kind == EndpointKind::SERVER) {
+            dynamic_config.list_servers(scan);
+        } else {
+            dynamic_config.list_clients(scan);
+        }
+
+        if (found) {
+            result.push_back(service);
+        }
     }
 
     return result;

@@ -150,8 +150,41 @@ public:
     auto subscriptions_by_node(const std::string& node_name, const std::string& node_namespace)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
+    /// @brief List every service in the graph with its type.
+    /// @return The name and type of each service, deduplicated and ordered, or an
+    ///         error if the registry cannot be read.
+    auto service_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
+
+    /// @brief Count the servers of a service.
+    /// @param[in] service The ROS service name.
+    /// @return The number of servers (0 if no service exists for the name), or an
+    ///         error if an existing service cannot be opened.
+    auto count_servers(const std::string& service) -> ::iox2::bb::Expected<size_t, ErrorType>;
+
+    /// @brief Count the clients of a service.
+    /// @param[in] service The ROS service name.
+    /// @return The number of clients (0 if no service exists for the name), or an
+    ///         error if an existing service cannot be opened.
+    auto count_clients(const std::string& service) -> ::iox2::bb::Expected<size_t, ErrorType>;
+
+    /// @brief List the services a given node has a server for, with their types.
+    /// @param[in] node_name The node's name.
+    /// @param[in] node_namespace The node's namespace.
+    /// @return The name and type of each service, `NODE_NOT_FOUND` if the node is
+    ///         not in the graph, or an error if the registry cannot be read.
+    auto servers_by_node(const std::string& node_name, const std::string& node_namespace)
+        -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
+
+    /// @brief List the services a given node has a client for, with their types.
+    /// @param[in] node_name The node's name.
+    /// @param[in] node_namespace The node's namespace.
+    /// @return The name and type of each service, `NODE_NOT_FOUND` if the node is
+    ///         not in the graph, or an error if the registry cannot be read.
+    auto clients_by_node(const std::string& node_name, const std::string& node_namespace)
+        -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
+
 private:
-    enum class EndpointKind : uint8_t { PUBLISHER, SUBSCRIBER };
+    enum class EndpointKind : uint8_t { PUBLISHER, SUBSCRIBER, SERVER, CLIENT };
 
     /// Shared implementation of `count_publishers`/`count_subscribers`: opens the
     /// topic's existing service and reads the requested endpoint count from its
@@ -169,6 +202,14 @@ private:
     /// walks every topic and keeps those carrying an endpoint of the requested
     /// kind that is owned by the named node.
     auto endpoints_by_node(const std::string& node_name, const std::string& node_namespace, EndpointKind kind)
+        -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
+
+    /// Shared implementation of `count_servers`/`count_clients`.
+    auto count_service_endpoints(const std::string& service, EndpointKind kind)
+        -> ::iox2::bb::Expected<size_t, ErrorType>;
+
+    /// Shared implementation of `servers_by_node`/`clients_by_node`.
+    auto service_endpoints_by_node(const std::string& node_name, const std::string& node_namespace, EndpointKind kind)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
     // `reference_wrapper` so the class remains move-constructible. Cannot be
