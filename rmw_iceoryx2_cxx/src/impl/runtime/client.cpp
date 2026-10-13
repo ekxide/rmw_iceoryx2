@@ -18,6 +18,8 @@
 #include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
+#include <algorithm>
+
 namespace rmw::iox2
 {
 
@@ -92,6 +94,37 @@ Client::Client(CreationLock,
     m_iox2_unique_id.emplace(iox2_client->id());
     m_iox2_client.emplace(std::move(iox2_client.value()));
     m_iox2_service.emplace(std::move(iox2_service.value()));
+
+    auto iox2_event_service =
+        node.iox2().open_or_create_event_service(iox2_service_name.value(),
+                                                 DEFAULT_MAX_SERVERS_AND_CLIENTS_PER_SERVICE,
+                                                 DEFAULT_MAX_SERVERS_AND_CLIENTS_PER_SERVICE,
+                                                 options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE));
+    if (!iox2_event_service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_event_service.error()));
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
+    auto iox2_notifier = iox2_event_service.value().notifier_builder().create();
+    if (!iox2_notifier.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_notifier.error()));
+        error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
+        return;
+    }
+    m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
+
+    auto iox2_listener = iox2_event_service.value().listener_builder().create();
+    if (!iox2_listener.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
+        error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
+        return;
+    }
+    m_iox2_listener.emplace(std::move(iox2_listener.value()));
+}
+
+auto Client::listener() -> IceoryxListener& {
+    return m_iox2_listener.value();
 }
 
 auto Client::unique_id() -> const ::iox2::bb::Optional<RawIdType>& {
@@ -179,7 +212,20 @@ auto Client::send_request(void* loaned_memory) -> ::iox2::bb::Expected<uint64_t,
         m_pending_responses.emplace(sequence_number, std::move(pending_response.value()));
     }
 
+    if (auto notified = m_iox2_notifier->notify(); !notified.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(notified.error()));
+        return err(ErrorType::NOTIFICATION_FAILURE);
+    }
+
     return sequence_number;
+}
+
+auto Client::has_responses() -> bool {
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    return std::any_of(m_pending_responses.begin(), m_pending_responses.end(), [](auto& pending_response) {
+        return pending_response.second.has_response();
+    });
 }
 
 auto Client::take_response() -> ::iox2::bb::Expected<::iox2::bb::Optional<ClientResponse>, ErrorType> {

@@ -92,6 +92,37 @@ Server::Server(CreationLock,
     }
 
     m_iox2_server.emplace(std::move(iox2_server.value()));
+
+    auto iox2_event_service =
+        node.iox2().open_or_create_event_service(iox2_service_name.value(),
+                                                 DEFAULT_MAX_SERVERS_AND_CLIENTS_PER_SERVICE,
+                                                 DEFAULT_MAX_SERVERS_AND_CLIENTS_PER_SERVICE,
+                                                 options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE));
+    if (!iox2_event_service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_event_service.error()));
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
+    auto iox2_notifier = iox2_event_service.value().notifier_builder().create();
+    if (!iox2_notifier.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_notifier.error()));
+        error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
+        return;
+    }
+    m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
+
+    auto iox2_listener = iox2_event_service.value().listener_builder().create();
+    if (!iox2_listener.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
+        error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
+        return;
+    }
+    m_iox2_listener.emplace(std::move(iox2_listener.value()));
+}
+
+auto Server::listener() -> IceoryxListener& {
+    return m_iox2_listener.value();
 }
 
 auto Server::service() const -> const std::string& {
@@ -108,6 +139,13 @@ auto Server::service_name() const -> const std::string& {
 
 auto Server::qos() const -> const rmw_qos_profile_t& {
     return m_qos;
+}
+
+auto Server::has_requests() -> bool {
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    auto result = m_iox2_server->has_requests();
+    return result.has_value() && result.value();
 }
 
 auto Server::take_request() -> ::iox2::bb::Expected<::iox2::bb::Optional<ServerRequest>, ErrorType> {
@@ -225,6 +263,11 @@ auto Server::send_response(void* loaned_memory) -> ::iox2::bb::Expected<void, Er
     if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::SEND_FAILURE);
+    }
+
+    if (auto notified = m_iox2_notifier->notify(); !notified.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(notified.error()));
+        return err(ErrorType::NOTIFICATION_FAILURE);
     }
 
     return {};

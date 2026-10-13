@@ -25,6 +25,7 @@
 #include "testing/base.hpp"
 
 #include <algorithm>
+#include <thread>
 
 namespace
 {
@@ -41,6 +42,28 @@ protected:
     void TearDown() override {
         cleanup();
         print_rmw_errors();
+    }
+
+    bool is_ready(rmw_service_t* service, rmw_time_t timeout) {
+        void* services[1] = {service->data};
+        rmw_services_t rmw_services{1U, services};
+        wait(&rmw_services, nullptr, timeout);
+        return services[0] != nullptr;
+    }
+
+    bool is_ready(rmw_client_t* client, rmw_time_t timeout) {
+        void* clients[1] = {client->data};
+        rmw_clients_t rmw_clients{1U, clients};
+        wait(nullptr, &rmw_clients, timeout);
+        return clients[0] != nullptr;
+    }
+
+    void wait(rmw_services_t* services, rmw_clients_t* clients, rmw_time_t timeout) {
+        auto* wait_set = rmw_create_wait_set(test_context(), 0);
+        ASSERT_NE(wait_set, nullptr);
+        auto result = rmw_wait(nullptr, nullptr, services, clients, nullptr, wait_set, &timeout);
+        EXPECT_TRUE(result == RMW_RET_OK || result == RMW_RET_TIMEOUT);
+        EXPECT_RMW_OK(rmw_destroy_wait_set(wait_set));
     }
 
     static BasicTypes::Request make_request(int32_t value) {
@@ -410,6 +433,90 @@ TEST_F(RmwRequestResponseTest, responding_to_an_unknown_request_succeeds) {
     request_id.sequence_number = 7;
     auto response = make_response(1);
     EXPECT_EQ(rmw_send_response(service, &request_id, &response), RMW_RET_OK);
+}
+
+TEST_F(RmwRequestResponseTest, a_server_is_ready_while_a_request_waits) {
+    auto* service = create_service<BasicTypes>(create_test_topic());
+    auto* client = create_client<BasicTypes>(create_test_topic());
+    RMW_ASSERT_NE(service, nullptr);
+    RMW_ASSERT_NE(client, nullptr);
+
+    EXPECT_FALSE(is_ready(service, rmw_time_t{0, 0}));
+
+    auto request = make_request(1);
+    int64_t sequence_id = 0;
+    ASSERT_RMW_OK(rmw_send_request(client, &request, &sequence_id));
+    EXPECT_TRUE(is_ready(service, rmw_time_t{0, 0}));
+    EXPECT_TRUE(is_ready(service, rmw_time_t{0, 0}));
+
+    rmw_service_info_t header{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take_request(service, &header, &request, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_FALSE(is_ready(service, rmw_time_t{0, 0}));
+}
+
+TEST_F(RmwRequestResponseTest, a_client_is_ready_while_a_response_waits) {
+    auto* service = create_service<BasicTypes>(create_test_topic());
+    auto* client = create_client<BasicTypes>(create_test_topic());
+    RMW_ASSERT_NE(service, nullptr);
+    RMW_ASSERT_NE(client, nullptr);
+
+    auto request = make_request(1);
+    int64_t sequence_id = 0;
+    ASSERT_RMW_OK(rmw_send_request(client, &request, &sequence_id));
+    EXPECT_FALSE(is_ready(client, rmw_time_t{0, 0}));
+
+    rmw_service_info_t header{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take_request(service, &header, &request, &taken));
+    ASSERT_TRUE(taken);
+    auto response = make_response(1);
+    ASSERT_RMW_OK(rmw_send_response(service, &header.request_id, &response));
+    EXPECT_TRUE(is_ready(client, rmw_time_t{0, 0}));
+
+    ASSERT_RMW_OK(rmw_take_response(client, &header, &response, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_FALSE(is_ready(client, rmw_time_t{0, 0}));
+}
+
+TEST_F(RmwRequestResponseTest, requests_and_responses_wake_up_waiting_threads) {
+    constexpr int32_t ROUND_TRIPS = 100;
+    auto* service = create_service<BasicTypes>(create_test_topic());
+    auto* client = create_client<BasicTypes>(create_test_topic());
+    RMW_ASSERT_NE(service, nullptr);
+    RMW_ASSERT_NE(client, nullptr);
+
+    int32_t responded = 0;
+    std::thread server([&] {
+        while (responded < ROUND_TRIPS && is_ready(service, rmw_time_t{1, 0})) {
+            BasicTypes::Request request;
+            rmw_service_info_t header{};
+            bool taken = false;
+            EXPECT_RMW_OK(rmw_take_request(service, &header, &request, &taken));
+            EXPECT_TRUE(taken);
+            auto response = make_response(request.int32_value);
+            EXPECT_RMW_OK(rmw_send_response(service, &header.request_id, &response));
+            ++responded;
+        }
+    });
+    int32_t completed = 0;
+    int64_t sequence_id = 0;
+    auto request = make_request(completed);
+    while (completed < ROUND_TRIPS && rmw_send_request(client, &request, &sequence_id) == RMW_RET_OK
+           && is_ready(client, rmw_time_t{1, 0})) {
+        BasicTypes::Response response;
+        rmw_service_info_t header{};
+        bool taken = false;
+        EXPECT_RMW_OK(rmw_take_response(client, &header, &response, &taken));
+        EXPECT_TRUE(taken);
+        EXPECT_EQ(response.int32_value, completed);
+        request = make_request(++completed);
+    }
+    server.join();
+
+    EXPECT_EQ(completed, ROUND_TRIPS);
+    EXPECT_EQ(responded, ROUND_TRIPS);
 }
 
 } // namespace
