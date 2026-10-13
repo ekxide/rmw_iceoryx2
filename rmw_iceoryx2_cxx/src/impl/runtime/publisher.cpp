@@ -151,6 +151,9 @@ Publisher::Publisher(CreationLock,
     }
 
     m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
+
+    const auto context_id = node.context().iox2().ipc().id();
+    m_context_id = {context_id.value_high(), context_id.value_low()};
 }
 
 
@@ -280,6 +283,7 @@ auto Publisher::populate_message_info(UserHeader& header) -> void {
     }
     header.source_timestamp = now;
     header.publication_sequence_number = ++m_publication_sequence_number;
+    header.context_id = m_context_id;
 }
 
 } // namespace rmw::iox2

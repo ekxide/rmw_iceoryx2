@@ -94,6 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         *sample.user_header_mut() = MessageInfoHeader {
             source_timestamp: system_time_nanos(),
             publication_sequence_number: sequence,
+            ..Default::default()
         };
         sample.write_payload(Payload(Sample { sequence })).send()?;
         notifier.notify()?;

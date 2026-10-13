@@ -299,8 +299,12 @@ rmw_subscription_t* rmw_create_subscription(const rmw_node_t* rmw_node,
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for Subscriber");
         return nullptr;
     } else {
-        auto construct_result = create_in_place<SubscriberImpl>(
-            subscriber_impl.value(), node_data.value()->node.value(), topic_name, type_support, resolved_qos.value());
+        auto construct_result = create_in_place<SubscriberImpl>(subscriber_impl.value(),
+                                                                node_data.value()->node.value(),
+                                                                topic_name,
+                                                                type_support,
+                                                                resolved_qos.value(),
+                                                                subscription_options->ignore_local_publications);
 
         if (!construct_result.has_value()) {
             if (construct_result.error() == SubscriberImpl::ErrorType::QOS_INCOMPATIBLE) {

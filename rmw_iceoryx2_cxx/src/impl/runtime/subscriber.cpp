@@ -27,7 +27,8 @@ Subscriber::Subscriber(CreationLock,
                        Node& node,
                        const char* topic,
                        const rosidl_message_type_support_t* type_support,
-                       const Qos& qos)
+                       const Qos& qos,
+                       bool ignore_local_publications)
     : m_callback_thread{node.context().callback_thread()}
     , m_topic{topic}
     , m_typesupport{type_support}
@@ -143,6 +144,20 @@ Subscriber::Subscriber(CreationLock,
     }
 
     m_iox2_listener.emplace(std::move(iox2_listener.value()));
+
+    if (ignore_local_publications) {
+        const auto context_id = node.context().iox2().ipc().id();
+        m_context_id = ::rmw_iceoryx2_interoperability::ContextId{context_id.value_high(), context_id.value_low()};
+    }
+}
+
+auto Subscriber::receive_next() -> ::iox2::bb::Expected<::iox2::bb::Optional<IceoryxSample>, ::iox2::ReceiveError> {
+    auto result = m_iox2_subscriber->receive();
+    while (m_context_id.has_value() && result.has_value() && result->has_value()
+           && result->value().user_header().context_id == *m_context_id) {
+        result = m_iox2_subscriber->receive();
+    }
+    return result;
 }
 
 auto Subscriber::unique_id() -> const ::iox2::bb::Optional<RawIdType>& {
@@ -194,7 +209,7 @@ auto Subscriber::take_copy(void* dest) -> ::iox2::bb::Expected<::iox2::bb::Optio
     using ::iox2::bb::err;
     using ::iox2::bb::Optional;
 
-    auto result = m_iox2_subscriber->receive();
+    auto result = receive_next();
     if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);
@@ -223,7 +238,7 @@ auto Subscriber::take_loan() -> ::iox2::bb::Expected<::iox2::bb::Optional<Subscr
 
     std::lock_guard<std::mutex> lock{m_mutex};
 
-    auto result = m_iox2_subscriber->receive();
+    auto result = receive_next();
     if (!result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::RECV_FAILURE);
