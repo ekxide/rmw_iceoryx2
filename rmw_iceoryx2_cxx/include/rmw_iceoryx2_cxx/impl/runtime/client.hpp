@@ -19,12 +19,14 @@
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/callback_thread.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rmw_iceoryx2_interoperability/rmw_iceoryx2_interoperability.h"
 #include "rosidl_runtime_c/service_type_support_struct.h"
 
 #include <map>
+#include <memory>
 #include <mutex>
 
 namespace rmw::iox2
@@ -84,6 +86,9 @@ public:
            const char* service,
            const rosidl_service_type_support_t* type_support,
            const rmw_qos_profile_t& qos);
+    Client(Client&&) = delete;
+    auto operator=(Client&&) -> Client& = delete;
+    ~Client();
 
     /// @brief Get the unique identifier of this client
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
@@ -129,6 +134,13 @@ public:
     /// @return Reference to the listener
     auto listener() -> IceoryxListener&;
 
+    /// @brief Calls the callback with the number of new responses, first with those already received
+    /// @param[in] callback The callback, nullptr removes the callback
+    /// @param[in] user_data Passed to the callback
+    /// @return Expected containing void if successful, error otherwise
+    auto set_callback(rmw_event_callback_t callback, const void* user_data)
+        -> ::iox2::bb::Expected<void, CallbackThread::ErrorType>;
+
     /// @brief Check if responses are available to take
     /// @return True if at least one response can be taken
     auto has_responses() -> bool;
@@ -143,6 +155,7 @@ public:
     auto return_response_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
+    std::shared_ptr<CallbackThread> m_callback_thread;
     const std::string m_service;
     const rosidl_service_type_support_t* const m_typesupport;
     const std::string m_service_name;

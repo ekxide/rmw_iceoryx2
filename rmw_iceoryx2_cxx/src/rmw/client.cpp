@@ -277,10 +277,20 @@ rmw_ret_t rmw_client_set_on_new_response_callback(rmw_client_t* rmw_client,
     // Invariants ----------------------------------------------------------------------------------
     RMW_IOX2_ENSURE_NOT_NULL(rmw_client, RMW_RET_INVALID_ARGUMENT);
     RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_client->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
-    RMW_IOX2_ENSURE_NOT_NULL(user_data, RMW_RET_INVALID_ARGUMENT);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ::rmw::iox2::unsafe_cast;
+    using ClientImpl = ::rmw::iox2::Client;
+
+    auto impl = unsafe_cast<ClientImpl*>(rmw_client->data);
+    if (!impl.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Client");
+        return RMW_RET_ERROR;
+    }
+    if (!impl.value()->set_callback(callback, user_data).has_value()) {
+        return RMW_RET_ERROR;
+    }
+    return RMW_RET_OK;
 }
 
 rmw_ret_t

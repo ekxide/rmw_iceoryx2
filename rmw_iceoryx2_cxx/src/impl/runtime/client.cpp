@@ -29,7 +29,8 @@ Client::Client(CreationLock,
                const char* service,
                const rosidl_service_type_support_t* type_support,
                const rmw_qos_profile_t& qos)
-    : m_service{service}
+    : m_callback_thread{node.context().callback_thread()}
+    , m_service{service}
     , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::service(service)}
     , m_qos{qos} {
@@ -123,8 +124,19 @@ Client::Client(CreationLock,
     m_iox2_listener.emplace(std::move(iox2_listener.value()));
 }
 
+Client::~Client() {
+    if (m_iox2_listener.has_value()) {
+        m_callback_thread->remove_callback(m_iox2_listener.value());
+    }
+}
+
 auto Client::listener() -> IceoryxListener& {
     return m_iox2_listener.value();
+}
+
+auto Client::set_callback(rmw_event_callback_t callback, const void* user_data)
+    -> ::iox2::bb::Expected<void, CallbackThread::ErrorType> {
+    return m_callback_thread->set_callback(m_iox2_listener.value(), callback, user_data);
 }
 
 auto Client::unique_id() -> const ::iox2::bb::Optional<RawIdType>& {

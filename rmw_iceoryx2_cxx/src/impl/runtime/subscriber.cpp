@@ -28,7 +28,8 @@ Subscriber::Subscriber(CreationLock,
                        const char* topic,
                        const rosidl_message_type_support_t* type_support,
                        const Qos& qos)
-    : m_topic{topic}
+    : m_callback_thread{node.context().callback_thread()}
+    , m_topic{topic}
     , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::topic(topic)}
     , m_qos{qos} {
@@ -166,8 +167,19 @@ auto Subscriber::has_samples() const -> bool {
     return result.has_value() && result.value();
 }
 
+Subscriber::~Subscriber() {
+    if (m_iox2_listener.has_value()) {
+        m_callback_thread->remove_callback(m_iox2_listener.value());
+    }
+}
+
 auto Subscriber::listener() -> IceoryxListener& {
     return m_iox2_listener.value();
+}
+
+auto Subscriber::set_callback(rmw_event_callback_t callback, const void* user_data)
+    -> ::iox2::bb::Expected<void, CallbackThread::ErrorType> {
+    return m_callback_thread->set_callback(m_iox2_listener.value(), callback, user_data);
 }
 
 auto Subscriber::qos() const -> const Qos& {
