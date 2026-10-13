@@ -42,6 +42,8 @@
 * Fix guard conditions failing after 255 per context [#82](https://github.com/ekxide/rmw_iceoryx2/issues/82)
 * Ensure the configured number of publishers and subscriptions per topic can be created [#94](https://github.com/ekxide/rmw_iceoryx2/issues/94)
 * Guard the loans and the sequence number of publishers and subscriptions against concurrent rmw calls [#99](https://github.com/ekxide/rmw_iceoryx2/issues/99)
+* Take serialized messages with message info [#107](https://github.com/ekxide/rmw_iceoryx2/issues/107)
+* Convert self-contained messages to and from CDR when they are taken or published serialized [#107](https://github.com/ekxide/rmw_iceoryx2/issues/107)
 
 ### Refactoring
 
