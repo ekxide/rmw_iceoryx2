@@ -20,6 +20,7 @@
 #include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/events.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
@@ -75,6 +76,10 @@ public:
               const char* topic,
               const rosidl_message_type_support_t* type_support,
               const Qos& qos);
+
+    /// @brief Get the events of this publisher, which listen to the graph from the first call
+    /// @return The events or the error of creating them
+    auto events() -> ::iox2::bb::Expected<Events*, Events::ErrorType>;
 
     /// @brief Get the unique identifier of this publisher
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
@@ -151,6 +156,7 @@ private:
     IceoryxSampleRegistry m_registry;
     uint64_t m_publication_sequence_number{0};
     ::rmw_iceoryx2_interoperability::ContextId m_context_id{};
+    Events m_events;
 };
 
 } // namespace rmw::iox2

@@ -128,11 +128,20 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
             }
         }
     }
+    if (rmw_events) {
+        for (size_t index = 0; index < rmw_events->event_count; index++) {
+            if (rmw_events->events[index] == nullptr) {
+                RMW_IOX2_CHAIN_ERROR_MSG("waitset input event contains nullptr");
+                return RMW_RET_INVALID_ARGUMENT;
+            }
+        }
+    }
 
     // Implementation -------------------------------------------------------------------------------
     using ClientImpl = ::rmw::iox2::Client;
     using Duration = ::iox2::bb::Duration;
     using GuardConditionImpl = ::rmw::iox2::GuardCondition;
+    using EventsImpl = ::rmw::iox2::Events;
     using ServerImpl = ::rmw::iox2::Server;
     using SubscriberImpl = ::rmw::iox2::Subscriber;
     using ::rmw::iox2::unsafe_cast;
@@ -214,6 +223,21 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
         }
     }
 
+    if (rmw_events) {
+        for (size_t index = 0; index < rmw_events->event_count; index++) {
+            auto* rmw_event = static_cast<rmw_event_t*>(rmw_events->events[index]);
+            auto events = unsafe_cast<EventsImpl*>(rmw_event->data);
+            if (!events.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve Events");
+                return RMW_RET_ERROR;
+            }
+            if (auto result = waitset_impl->map(index, *events.value(), rmw_event->event_type); !result.has_value()) {
+                RMW_IOX2_CHAIN_ERROR_MSG("failed to attach Events to WaitSet");
+                return RMW_RET_ERROR;
+            }
+        }
+    }
+
     // Wait and process
     if (timeout.has_value()) {
         RMW_IOX2_LOG_DEBUG("Waiting on waitset (timeout=%lu)", timeout->as_nanos());
@@ -233,6 +257,7 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
     std::set<size_t> triggered_guard_conditions;
     std::set<size_t> triggered_servers;
     std::set<size_t> triggered_clients;
+    std::set<size_t> triggered_events;
 
     if (!triggers.empty()) {
         return_code = RMW_RET_OK;
@@ -249,6 +274,9 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
                 break;
             case WaitableEntity::CLIENT:
                 triggered_clients.insert(trigger.rmw_index);
+                break;
+            case WaitableEntity::EVENT:
+                triggered_events.insert(trigger.rmw_index);
                 break;
             }
         }
@@ -270,10 +298,11 @@ rmw_ret_t rmw_wait(rmw_subscriptions_t* rmw_subscriptions,
         }
     }
 
-    // Set all events to null (not supported yet)
     if (rmw_events) {
         for (size_t index = 0; index < rmw_events->event_count; index++) {
-            rmw_events->events[index] = nullptr;
+            if (triggered_events.find(index) == triggered_events.end()) {
+                rmw_events->events[index] = nullptr;
+            }
         }
     }
     if (rmw_services) {

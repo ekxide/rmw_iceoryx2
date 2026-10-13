@@ -70,6 +70,7 @@ add_library(${PROJECT_NAME} SHARED
   src/impl/runtime/callback_thread.cpp
   src/impl/runtime/client.cpp
   src/impl/runtime/context.cpp
+  src/impl/runtime/events.cpp
   src/impl/runtime/graph.cpp
   src/impl/runtime/guard_condition.cpp
   src/impl/runtime/node.cpp
