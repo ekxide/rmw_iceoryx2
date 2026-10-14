@@ -16,10 +16,15 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/arrays.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/basic_types.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/bounded_sequences.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/empty.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/padded.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/strings.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/unbounded_sequences.hpp"
 #include "rosidl_runtime_c/primitives_sequence_functions.h"
 #include "rosidl_runtime_c/string_functions.h"
 #include "testing/assertions.hpp"
@@ -47,6 +52,36 @@ protected:
     void TearDown() override {
         cleanup();
         print_rmw_errors();
+    }
+
+    template <typename T>
+    void expect_serialized_round_trip(const T& input) {
+        auto* publisher = create_default_publisher<T>(create_test_topic());
+        ASSERT_NE(publisher, nullptr);
+        auto* subscription = create_default_subscriber<T>(create_test_topic());
+        ASSERT_NE(subscription, nullptr);
+        rmw_serialized_message_t expected{};
+        ASSERT_RMW_OK(rmw_serialized_message_init(&expected, 0, &test_allocator()));
+        ASSERT_RMW_OK(rmw_serialize(&input, test_type_support<T>(), &expected));
+
+        ASSERT_RMW_OK(rmw_publish(publisher, &input, nullptr));
+        rmw_serialized_message_t serialized{};
+        ASSERT_RMW_OK(rmw_serialized_message_init(&serialized, 0, &test_allocator()));
+        bool taken{false};
+        ASSERT_RMW_OK(rmw_take_serialized_message(subscription, &serialized, &taken, nullptr));
+        ASSERT_TRUE(taken);
+        T deserialized{};
+        ASSERT_RMW_OK(rmw_deserialize(&serialized, test_type_support<T>(), &deserialized));
+        EXPECT_EQ(deserialized, input);
+
+        ASSERT_RMW_OK(rmw_publish_serialized_message(publisher, &expected, nullptr));
+        T output{};
+        ASSERT_RMW_OK(rmw_take(subscription, &output, &taken, nullptr));
+        ASSERT_TRUE(taken);
+        EXPECT_EQ(output, input);
+
+        ASSERT_RMW_OK(rmw_serialized_message_fini(&expected));
+        ASSERT_RMW_OK(rmw_serialized_message_fini(&serialized));
     }
 };
 
@@ -369,6 +404,104 @@ TEST_F(RmwPublishSubscribeTest, take_serialized_one_new_messages) {
 
     // Verify
     ASSERT_EQ(input, output);
+}
+
+TEST_F(RmwPublishSubscribeTest, take_serialized_message_reports_its_length) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    Strings input{};
+    input.string_value = "GloryToHypnoToad";
+    rmw_serialized_message_t input_serialized_msg{};
+    ASSERT_RMW_OK(rmw_serialized_message_init(&input_serialized_msg, sizeof(Strings), &test_allocator()));
+    ASSERT_RMW_OK(rmw_serialize(&input, test_type_support<Strings>(), &input_serialized_msg));
+    ASSERT_RMW_OK(rmw_publish_serialized_message(publisher, &input_serialized_msg, nullptr));
+
+    rmw_serialized_message_t output_serialized_msg{};
+    ASSERT_RMW_OK(rmw_serialized_message_init(&output_serialized_msg, 0, &test_allocator()));
+    bool taken{false};
+    ASSERT_RMW_OK(rmw_take_serialized_message(subscription, &output_serialized_msg, &taken, nullptr));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(output_serialized_msg.buffer_length, input_serialized_msg.buffer_length);
+
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&input_serialized_msg));
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&output_serialized_msg));
+}
+
+TEST_F(RmwPublishSubscribeTest, serialized_take_and_publish_convert_basic_types) {
+    rmw_iceoryx2_cxx_test_msgs::msg::BasicTypes input{};
+    input.bool_value = true;
+    input.char_value = 'x';
+    input.int16_value = -16;
+    input.float64_value = 2.5;
+    input.uint64_value = 64;
+    expect_serialized_round_trip(input);
+}
+
+TEST_F(RmwPublishSubscribeTest, serialized_take_and_publish_convert_empty) {
+    expect_serialized_round_trip(rmw_iceoryx2_cxx_test_msgs::msg::Empty{});
+}
+
+TEST_F(RmwPublishSubscribeTest, serialized_take_and_publish_convert_arrays) {
+    rmw_iceoryx2_cxx_test_msgs::msg::Arrays input{};
+    input.int32_values = {1, -2, 3};
+    input.string_values = {"GloryTo", "", "HypnoToad"};
+    input.basic_types_values[1].float32_value = 1.5F;
+    expect_serialized_round_trip(input);
+}
+
+TEST_F(RmwPublishSubscribeTest, serialized_take_and_publish_convert_unbounded_sequences) {
+    rmw_iceoryx2_cxx_test_msgs::msg::UnboundedSequences input{};
+    input.uint8_values = {1, 2, 3, 4, 5};
+    input.string_values = {"GloryToHypnoToad"};
+    input.basic_types_values.resize(2);
+    input.basic_types_values[1].int64_value = -64;
+    expect_serialized_round_trip(input);
+}
+
+TEST_F(RmwPublishSubscribeTest, serialized_take_and_publish_convert_padded_types) {
+    rmw_iceoryx2_cxx_test_msgs::msg::Padded input{};
+    input.first = 1;
+    input.basic_types_value.bool_value = true;
+    input.basic_types_value.float64_value = 2.5;
+    input.last = 3;
+    expect_serialized_round_trip(input);
+}
+
+TEST_F(RmwPublishSubscribeTest, take_serialized_message_with_info_populates_message_info) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+
+    auto* publisher = create_default_publisher<Strings>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Strings>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    Strings input{};
+    input.string_value = "GloryToHypnoToad";
+    ASSERT_RMW_OK(rmw_publish(publisher, &input, nullptr));
+
+    rmw_serialized_message_t output_serialized_msg{};
+    ASSERT_RMW_OK(rmw_serialized_message_init(&output_serialized_msg, 0, &test_allocator()));
+    rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+    bool taken{false};
+    ASSERT_RMW_OK(
+        rmw_take_serialized_message_with_info(subscription, &output_serialized_msg, &taken, &message_info, nullptr));
+    ASSERT_TRUE(taken);
+    EXPECT_NE(message_info.source_timestamp, 0);
+    rmw_gid_t publisher_gid{};
+    ASSERT_RMW_OK(rmw_get_gid_for_publisher(publisher, &publisher_gid));
+    bool same_publisher{false};
+    ASSERT_RMW_OK(rmw_compare_gids_equal(&publisher_gid, &message_info.publisher_gid, &same_publisher));
+    EXPECT_TRUE(same_publisher);
+
+    Strings output{};
+    ASSERT_RMW_OK(rmw_deserialize(&output_serialized_msg, test_type_support<Strings>(), &output));
+    EXPECT_EQ(input, output);
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&output_serialized_msg));
 }
 
 TEST_F(RmwPublishSubscribeTest, take_serialized_many_new_messages) {

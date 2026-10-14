@@ -348,13 +348,29 @@ rmw_ret_t rmw_publish_serialized_message(const rmw_publisher_t* rmw_publisher,
         return RMW_RET_ERROR;
     }
 
-    // Copy serialized payload into `iceoryx2` payload
-    // WARNING: This publish variant is usable if ONLY serialized payloads are published on this topic.
-    if (auto result =
-            publisher_impl.value()->publish_copy(serialized_message->buffer, serialized_message->buffer_length);
-        !result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to publish copy");
-        return RMW_RET_ERROR;
+    if (rmw_publisher->can_loan_messages) {
+        auto loan = publisher_impl.value()->loan(publisher_impl.value()->unserialized_size());
+        if (!loan.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to loan payload for deserialization");
+            return RMW_RET_ERROR;
+        }
+        if (auto result = rmw_deserialize(serialized_message, publisher_impl.value()->typesupport(), loan.value());
+            result != RMW_RET_OK) {
+            (void)publisher_impl.value()->return_loan(loan.value());
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize into loaned payload");
+            return RMW_RET_ERROR;
+        }
+        if (auto result = publisher_impl.value()->publish_loan(loan.value()); !result.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to publish deserialized payload");
+            return RMW_RET_ERROR;
+        }
+    } else {
+        if (auto result =
+                publisher_impl.value()->publish_copy(serialized_message->buffer, serialized_message->buffer_length);
+            !result.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to publish copy");
+            return RMW_RET_ERROR;
+        }
     }
 
     return RMW_RET_OK;
