@@ -150,6 +150,7 @@ private:
     std::mutex m_mutex;
     IceoryxSampleRegistry m_registry;
     uint64_t m_publication_sequence_number{0};
+    ::rmw_iceoryx2_interoperability::ContextId m_context_id{};
 };
 
 } // namespace rmw::iox2

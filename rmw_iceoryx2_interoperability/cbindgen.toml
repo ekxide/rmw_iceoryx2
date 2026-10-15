@@ -10,5 +10,8 @@ namespace = "rmw_iceoryx2_interoperability"
 [export]
 include = ["MessageInfoHeader"]
 
+[struct]
+derive_eq = true
+
 [parse]
 parse_deps = false

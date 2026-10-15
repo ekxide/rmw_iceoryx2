@@ -1061,4 +1061,74 @@ TEST_F(RmwPublishSubscribeQosEnvTest, adoptive_publisher_inherits_subscriber_dur
     EXPECT_EQ(actual.durability, RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL);
 }
 
+// ---------------------------------------------------------------------------
+// Local publications
+// ---------------------------------------------------------------------------
+
+TEST_F(RmwPublishSubscribeTest, a_subscription_ignoring_local_publications_does_not_take_them) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto options = rmw_get_default_subscription_options();
+    options.ignore_local_publications = true;
+    auto qos = rmw_qos_profile_default;
+    auto* subscription = rmw_create_subscription(
+        test_node(), test_type_support<Defaults>(), create_test_topic().c_str(), &qos, &options);
+    ASSERT_NE(subscription, nullptr);
+
+    auto message = Defaults{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    bool taken{true};
+    ASSERT_RMW_OK(rmw_take(subscription, &message, &taken, nullptr));
+    EXPECT_FALSE(taken);
+
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription));
+}
+
+TEST_F(RmwPublishSubscribeTest, a_subscription_ignoring_local_publications_takes_those_of_other_contexts) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto init_options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&init_options, test_allocator()));
+    auto other_context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&init_options, &other_context));
+    auto* other_node = rmw_create_node(&other_context, "OtherNode", "/");
+    ASSERT_NE(other_node, nullptr);
+    auto qos = rmw_qos_profile_default;
+    auto publisher_options = rmw_get_default_publisher_options();
+    auto* other_publisher = rmw_create_publisher(
+        other_node, test_type_support<Defaults>(), create_test_topic().c_str(), &qos, &publisher_options);
+    ASSERT_NE(other_publisher, nullptr);
+    auto* local_publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(local_publisher, nullptr);
+    auto options = rmw_get_default_subscription_options();
+    options.ignore_local_publications = true;
+    auto* subscription = rmw_create_subscription(
+        test_node(), test_type_support<Defaults>(), create_test_topic().c_str(), &qos, &options);
+    ASSERT_NE(subscription, nullptr);
+
+    auto local_message = Defaults{};
+    local_message.int32_value = 1;
+    ASSERT_RMW_OK(rmw_publish(local_publisher, &local_message, nullptr));
+    auto other_message = Defaults{};
+    other_message.int32_value = 2;
+    ASSERT_RMW_OK(rmw_publish(other_publisher, &other_message, nullptr));
+
+    auto message = Defaults{};
+    bool taken{false};
+    ASSERT_RMW_OK(rmw_take(subscription, &message, &taken, nullptr));
+    EXPECT_TRUE(taken);
+    EXPECT_EQ(message.int32_value, 2);
+    ASSERT_RMW_OK(rmw_take(subscription, &message, &taken, nullptr));
+    EXPECT_FALSE(taken);
+
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription));
+    ASSERT_RMW_OK(rmw_destroy_publisher(other_node, other_publisher));
+    ASSERT_RMW_OK(rmw_destroy_node(other_node));
+    ASSERT_RMW_OK(rmw_shutdown(&other_context));
+    ASSERT_RMW_OK(rmw_context_fini(&other_context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&init_options));
+}
+
 } // namespace

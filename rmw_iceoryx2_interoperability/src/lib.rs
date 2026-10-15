@@ -27,6 +27,16 @@ pub struct MessageInfoHeader {
     pub source_timestamp: i64,
     /// Per-publisher monotonically increasing sample counter.
     pub publication_sequence_number: u64,
+    /// Id of the iceoryx2 node of the publishing rmw context, zero for other publishers.
+    pub context_id: ContextId,
+}
+
+/// Id of the iceoryx2 node of an rmw context, unique on the system.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ContextId {
+    pub high: u64,
+    pub low: u64,
 }
 
 // Lets the header be used as an iceoryx2 user header. The type name must match the one the C++

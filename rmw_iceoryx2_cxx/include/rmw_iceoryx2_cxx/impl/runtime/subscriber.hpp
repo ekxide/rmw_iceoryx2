@@ -82,12 +82,14 @@ public:
     /// @param[in] topic The topic name to subscribe to
     /// @param[in] type_support The message typesupport
     /// @param[in] qos The resolved QoS for this subscriber
+    /// @param[in] ignore_local_publications Skip the samples of the publishers in the same context
     Subscriber(CreationLock,
                ::iox2::bb::Optional<ErrorType>& error,
                Node& node,
                const char* topic,
                const rosidl_message_type_support_t* type_support,
-               const Qos& qos);
+               const Qos& qos,
+               bool ignore_local_publications = false);
     Subscriber(Subscriber&&) = delete;
     auto operator=(Subscriber&&) -> Subscriber& = delete;
     ~Subscriber();
@@ -146,6 +148,8 @@ public:
     auto return_loan(void* loan) -> ::iox2::bb::Expected<void, ErrorType>;
 
 private:
+    auto receive_next() -> ::iox2::bb::Expected<::iox2::bb::Optional<IceoryxSample>, ::iox2::ReceiveError>;
+
     std::shared_ptr<CallbackThread> m_callback_thread;
     const std::string m_topic;
     const rosidl_message_type_support_t* m_typesupport;
@@ -158,6 +162,7 @@ private:
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
     std::mutex m_mutex;
     IceoryxSampleRegistry m_registry;
+    ::iox2::bb::Optional<::rmw_iceoryx2_interoperability::ContextId> m_context_id;
 };
 
 } // namespace rmw::iox2
