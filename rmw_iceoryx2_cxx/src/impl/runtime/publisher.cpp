@@ -17,6 +17,7 @@
 #include "rcutils/time.h"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
@@ -256,8 +257,7 @@ auto Publisher::publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, 
 
     // Notify
     if (auto result = m_iox2_notifier->notify(); !result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
-        return err(ErrorType::NOTIFICATION_FAILURE);
+        log_notify_error(result.error(), "message on", m_topic);
     }
 
     return {};
@@ -286,8 +286,7 @@ auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::io
 
     // Notify
     if (auto result = m_iox2_notifier->notify(); !result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
-        return err(ErrorType::NOTIFICATION_FAILURE);
+        log_notify_error(result.error(), "message on", m_topic);
     }
 
     return {};

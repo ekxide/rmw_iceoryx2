@@ -13,6 +13,7 @@
 #include "iox2/type_variant.hpp"
 #include "rcutils/time.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
@@ -278,8 +279,7 @@ auto Server::send_response(void* loaned_memory) -> ::iox2::bb::Expected<void, Er
     }
 
     if (auto notified = m_iox2_notifier->notify(); !notified.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(notified.error()));
-        return err(ErrorType::NOTIFICATION_FAILURE);
+        log_notify_error(notified.error(), "response to", m_service);
     }
 
     return {};

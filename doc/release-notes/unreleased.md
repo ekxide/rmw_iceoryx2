@@ -47,6 +47,7 @@
 * Take serialized messages with message info [#107](https://github.com/ekxide/rmw_iceoryx2/issues/107)
 * Convert self-contained messages to and from CDR when they are taken or published serialized [#107](https://github.com/ekxide/rmw_iceoryx2/issues/107)
 * Skip the samples of publishers in the same context when `ignore_local_publications` is set [#108](https://github.com/ekxide/rmw_iceoryx2/issues/108)
+* Log a failed wake-up instead of failing a send that was delivered [#110](https://github.com/ekxide/rmw_iceoryx2/issues/110)
 
 ### Refactoring
 

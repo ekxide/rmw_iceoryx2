@@ -895,6 +895,41 @@ TEST_F(RmwPublishSubscribeTest, endpoints_join_an_event_service_created_by_anoth
     EXPECT_EQ(native_service->dynamic_config().number_of_listeners(), 1U);
 }
 
+TEST_F(RmwPublishSubscribeTest, a_message_is_published_when_waking_up_the_subscriptions_fails) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service =
+        native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::topic(topic.c_str()).c_str()).value())
+            .event()
+            .deadline(iox2::bb::Duration::from_nanos(1))
+            .create();
+    ASSERT_TRUE(native_service.has_value());
+    auto* publisher = create_default_publisher<Defaults>(topic);
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(topic);
+    ASSERT_NE(subscription, nullptr);
+
+    auto message = Defaults{};
+    message.int32_value = 1;
+    ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    void* publisher_loan = nullptr;
+    ASSERT_RMW_OK(rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &publisher_loan));
+    new (publisher_loan) Defaults{};
+    static_cast<Defaults*>(publisher_loan)->int32_value = 2;
+    ASSERT_RMW_OK(rmw_publish_loaned_message(publisher, publisher_loan, nullptr));
+
+    auto received = Defaults{};
+    bool taken{false};
+    ASSERT_RMW_OK(rmw_take(subscription, &received, &taken, nullptr));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received.int32_value, 1);
+    ASSERT_RMW_OK(rmw_take(subscription, &received, &taken, nullptr));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received.int32_value, 2);
+}
+
 // ---------------------------------------------------------------------------
 // Strict matching
 // ---------------------------------------------------------------------------
