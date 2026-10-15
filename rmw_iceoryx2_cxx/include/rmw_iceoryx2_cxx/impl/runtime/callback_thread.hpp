@@ -13,6 +13,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/callback_progression.hpp"
+#include "iox2/file_descriptor.hpp"
 #include "rmw/event_callback_type.h"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -21,6 +22,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
@@ -31,12 +33,13 @@
 namespace rmw::iox2
 {
 
-/// @brief Calls the new data callbacks of the entities of a context from one thread
+/// @brief Calls the callbacks of the entities of a context from one thread
 class RMW_PUBLIC CallbackThread : public std::enable_shared_from_this<CallbackThread>
 {
 public:
     using ErrorType = CallbackThreadError;
     using Listener = Iceoryx2::InterProcess::Listener;
+    using CountEvents = std::function<uint64_t()>;
     using CallbackId = uint64_t;
 
     /// @brief A callback of the thread, removed when the registration is destroyed
@@ -79,13 +82,27 @@ public:
     auto add(Listener& listener, rmw_event_callback_t callback, const void* user_data)
         -> ::iox2::bb::Expected<Registration, ErrorType>;
 
+    /// @brief Adds a callback that is called with the number of events count_events returns whenever the file
+    ///        descriptor is readable
+    /// @details The callback is called right away with the events that already happened
+    /// @param[in] file_descriptor The file descriptor that is readable when events might have happened
+    /// @param[in] count_events Returns the number of events since its last call
+    /// @param[in] callback The callback
+    /// @param[in] user_data Passed to the callback
+    /// @return Expected containing the registration of the callback if successful, error otherwise
+    auto add(::iox2::FileDescriptorView file_descriptor,
+             CountEvents count_events,
+             rmw_event_callback_t callback,
+             const void* user_data) -> ::iox2::bb::Expected<Registration, ErrorType>;
+
 private:
     using Guard = Iceoryx2::WaitSet::Guard;
     using AttachmentId = Iceoryx2::WaitSet::AttachmentId;
 
     struct Callback
     {
-        std::reference_wrapper<Listener> listener;
+        ::iox2::FileDescriptorView file_descriptor;
+        CountEvents count_events;
         rmw_event_callback_t callback;
         const void* user_data;
         ::iox2::bb::Optional<Guard> guard;
