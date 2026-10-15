@@ -11,6 +11,7 @@
 
 #include "iox2/bb/into.hpp"
 #include "iox2/bb/slice.hpp"
+#include "iox2/callback_progression.hpp"
 #include "iox2/message_type_details.hpp"
 #include "iox2/type_variant.hpp"
 #include "rcutils/time.h"
@@ -22,6 +23,7 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
 #include <cstring>
+#include <set>
 
 namespace rmw::iox2
 {
@@ -37,7 +39,15 @@ Publisher::Publisher(CreationLock,
     , m_unserialized_size{::rmw::iox2::message_size(type_support)}
     , m_is_self_contained{::rmw::iox2::is_self_contained(type_support)}
     , m_service_name{::rmw::iox2::names::topic(topic)}
-    , m_qos{qos} {
+    , m_qos{qos}
+    , m_events{node.iox2(), [this] {
+                   std::set<Events::Gid> gids;
+                   m_iox2_service->dynamic_config().list_subscribers([&gids](auto view) {
+                       gids.insert(Events::gid_of(view.subscriber_id().bytes()));
+                       return ::iox2::CallbackProgression::Continue;
+                   });
+                   return gids;
+               }} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
     if (!iox2_service_name.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
@@ -156,6 +166,13 @@ Publisher::Publisher(CreationLock,
     m_context_id = {context_id.value_high(), context_id.value_low()};
 }
 
+
+auto Publisher::events() -> ::iox2::bb::Expected<Events*, Events::ErrorType> {
+    if (auto listening = m_events.listen(); !listening.has_value()) {
+        return ::iox2::bb::err(listening.error());
+    }
+    return &m_events;
+}
 
 auto Publisher::unique_id() -> const ::iox2::bb::Optional<RawIdType>& {
     auto& bytes = m_iox2_unique_id->bytes();

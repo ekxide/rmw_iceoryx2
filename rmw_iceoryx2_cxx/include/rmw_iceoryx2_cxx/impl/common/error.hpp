@@ -107,6 +107,7 @@ enum class GraphError : uint8_t {
     NODE_NOT_FOUND,
 };
 enum class CallbackThreadError : uint8_t { WAKE_UP_FAILURE, WAITSET_CREATION_FAILURE, ATTACHMENT_FAILURE, STOPPED };
+enum class EventsError : uint8_t { GUARD_CONDITION_CREATION_FAILURE };
 
 /**
  * @brief Trait to determine the error type of a given type T

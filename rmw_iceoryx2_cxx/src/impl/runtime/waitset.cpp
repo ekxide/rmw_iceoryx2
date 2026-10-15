@@ -53,6 +53,12 @@ auto WaitSet::map(RmwIndex rmw_index, Client& client) -> ::iox2::bb::Expected<vo
     return {};
 }
 
+auto WaitSet::map(RmwIndex rmw_index, Events& events, rmw_event_type_t event_type)
+    -> ::iox2::bb::Expected<void, WaitSetError> {
+    m_mapping.push_back(RmwMapping{WaitableEntity::EVENT, rmw_index, Waitable{&events}, event_type});
+    return {};
+}
+
 auto WaitSet::unmap_all() -> void {
     m_mapping.clear();
 }
@@ -172,6 +178,9 @@ auto WaitSet::attach_mapped_listeners(WaitContext& ctx) -> ::iox2::bb::Expected<
         case WaitableEntity::CLIENT:
             file_descriptor.emplace((*staged.entity.get<Client*>())->listener().file_descriptor());
             break;
+        case WaitableEntity::EVENT:
+            file_descriptor.emplace((*staged.entity.get<Events*>())->guard_condition().file_descriptor());
+            break;
         default:
             RMW_IOX2_CHAIN_ERROR_MSG("attempted to attach an unknown waitable type");
             return err(ErrorType::INVALID_WAITABLE_TYPE);
@@ -223,6 +232,8 @@ auto WaitSet::process_trigger(const RmwMapping& mapping) -> ::iox2::bb::Expected
         }
         return client->has_responses();
     }
+    case WaitableEntity::EVENT:
+        return (*mapping.entity.get<Events*>())->is_ready(mapping.event_type);
     default:
         RMW_IOX2_CHAIN_ERROR_MSG("received trigger for unknown waitable type");
         return err(ErrorType::INVALID_WAITABLE_TYPE);
@@ -239,6 +250,8 @@ auto WaitSet::is_ready(const RmwMapping& mapping) -> bool {
         return (*mapping.entity.get<Server*>())->has_requests();
     case WaitableEntity::CLIENT:
         return (*mapping.entity.get<Client*>())->has_responses();
+    case WaitableEntity::EVENT:
+        return (*mapping.entity.get<Events*>())->is_ready(mapping.event_type);
     default:
         return false;
     }

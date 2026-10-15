@@ -10,6 +10,7 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
 
 #include "iox2/bb/into.hpp"
+#include "iox2/callback_progression.hpp"
 #include "iox2/message_type_details.hpp"
 #include "iox2/type_variant.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
@@ -18,6 +19,8 @@
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
+
+#include <set>
 
 namespace rmw::iox2
 {
@@ -33,7 +36,15 @@ Subscriber::Subscriber(CreationLock,
     , m_topic{topic}
     , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::topic(topic)}
-    , m_qos{qos} {
+    , m_qos{qos}
+    , m_events{node.iox2(), [this] {
+                   std::set<Events::Gid> gids;
+                   m_iox2_service->dynamic_config().list_publishers([&gids](auto view) {
+                       gids.insert(Events::gid_of(view.publisher_id().bytes()));
+                       return ::iox2::CallbackProgression::Continue;
+                   });
+                   return gids;
+               }} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
 
     if (!iox2_service_name.has_value()) {
@@ -158,6 +169,13 @@ auto Subscriber::receive_next() -> ::iox2::bb::Expected<::iox2::bb::Optional<Ice
         result = m_iox2_subscriber->receive();
     }
     return result;
+}
+
+auto Subscriber::events() -> ::iox2::bb::Expected<Events*, Events::ErrorType> {
+    if (auto listening = m_events.listen(); !listening.has_value()) {
+        return ::iox2::bb::err(listening.error());
+    }
+    return &m_events;
 }
 
 auto Subscriber::unique_id() -> const ::iox2::bb::Optional<RawIdType>& {

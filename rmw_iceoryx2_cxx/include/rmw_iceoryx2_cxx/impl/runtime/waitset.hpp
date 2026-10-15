@@ -21,6 +21,7 @@
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/client.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/events.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/subscriber.hpp"
@@ -35,7 +36,7 @@ namespace rmw::iox2
 using RmwIndex = size_t;
 
 /// Types of entities that the waitset is capable of waiting on.
-enum class WaitableEntity { SUBSCRIBER, GUARD_CONDITION, SERVER, CLIENT };
+enum class WaitableEntity { SUBSCRIBER, GUARD_CONDITION, SERVER, CLIENT, EVENT };
 
 class WaitSet;
 
@@ -56,7 +57,7 @@ class RMW_PUBLIC WaitSet
     using Guard = Iceoryx2::WaitSet::Guard;
     using AttachmentId = Iceoryx2::WaitSet::AttachmentId;
     using IceoryxWaitSet = Iceoryx2::WaitSet::Handle;
-    using Waitable = ::iox2::legacy::variant<Subscriber*, GuardCondition*, Server*, Client*>;
+    using Waitable = ::iox2::legacy::variant<Subscriber*, GuardCondition*, Server*, Client*, Events*>;
 
     /// @brief Mapping from RMW index to a waitable entity.
     /// @details Allows for triggered listeners to be mapped back to the index that RMW uses for tracking
@@ -65,6 +66,7 @@ class RMW_PUBLIC WaitSet
         WaitableEntity waitable_type;
         RmwIndex rmw_index;
         Waitable entity;
+        rmw_event_type_t event_type{RMW_EVENT_INVALID};
     };
 
     /// @brief Description of a waitable that has been triggered
@@ -148,6 +150,12 @@ public:
     /// @param[in] rmw_index The index used to track the client in the RMW
     /// @param[in] client The client to be mapped
     auto map(RmwIndex rmw_index, Client& client) -> ::iox2::bb::Expected<void, ErrorType>;
+
+    /// @brief Maps an event type of the events of an endpoint to an RMW index
+    /// @param[in] rmw_index The index used to track the event in the RMW
+    /// @param[in] events The events of the endpoint
+    /// @param[in] event_type The event type to be mapped
+    auto map(RmwIndex rmw_index, Events& events, rmw_event_type_t event_type) -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Unmap all currently mapped waitable entities
     /// @note Unmapped entities will not be waited on in subsequent wait calls
