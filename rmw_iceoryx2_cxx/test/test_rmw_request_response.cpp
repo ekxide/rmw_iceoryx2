@@ -246,6 +246,37 @@ TEST_F(RmwRequestResponseTest, a_response_reaches_the_client) {
     EXPECT_FALSE(taken);
 }
 
+TEST_F(RmwRequestResponseTest, a_request_and_its_response_are_sent_when_waking_up_fails) {
+    auto topic = create_test_topic();
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service =
+        native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::service(topic.c_str()).c_str()).value())
+            .event()
+            .deadline(iox2::bb::Duration::from_nanos(1))
+            .create();
+    ASSERT_TRUE(native_service.has_value());
+    auto* service = create_service<BasicTypes>(topic);
+    auto* client = create_client<BasicTypes>(topic);
+    RMW_ASSERT_NE(service, nullptr);
+    RMW_ASSERT_NE(client, nullptr);
+
+    auto request = make_request(42);
+    int64_t sequence_id = 0;
+    ASSERT_RMW_OK(rmw_send_request(client, &request, &sequence_id));
+    rmw_service_info_t request_header{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take_request(service, &request_header, &request, &taken));
+    ASSERT_TRUE(taken);
+
+    auto response = make_response(43);
+    ASSERT_RMW_OK(rmw_send_response(service, &request_header.request_id, &response));
+    BasicTypes::Response received_response;
+    rmw_service_info_t response_header{};
+    ASSERT_RMW_OK(rmw_take_response(client, &response_header, &received_response, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received_response, response);
+}
+
 TEST_F(RmwRequestResponseTest, request_and_response_rounds_beyond_the_active_request_limit_succeed) {
     using ::rmw::iox2::DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT;
 
