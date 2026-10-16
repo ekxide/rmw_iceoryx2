@@ -40,6 +40,7 @@ namespace
 constexpr std::string_view TOPIC_PREFIX = "ros2://topics";
 constexpr std::string_view SERVICE_PREFIX = "ros2://services";
 constexpr std::string_view REQUEST_SUFFIX = "_Request";
+constexpr const char* UNKNOWN_TYPE = "UNKNOWN";
 
 /// Parse a node's namespace, name and enclave out of an iceoryx2 instance name of the
 /// form `ros2://context/<id>/nodes/<namespace>/<name>`.
@@ -131,6 +132,36 @@ auto build_node_id_lookup(::rmw::iox2::Node& node)
         return err(::rmw::iox2::GraphError::LISTING_FAILURE);
     }
     return nodes;
+}
+
+/// The name and namespace of an endpoint's node, or placeholders if the node is unknown.
+auto node_of(const std::map<NodeIdKey, ::rmw::iox2::NodeName>& nodes, const ::iox2::UniqueNodeId& node_id)
+    -> ::rmw::iox2::NodeName {
+    if (auto entry = nodes.find(to_key(node_id)); entry != nodes.end()) {
+        return entry->second;
+    }
+    return ::rmw::iox2::NodeName{::rmw::iox2::UNKNOWN_NODE_NAME, ::rmw::iox2::UNKNOWN_NODE_NAMESPACE};
+}
+
+/// The rmw gid of an endpoint, its iceoryx2 unique port id, or zero if it has none.
+auto gid_of(const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes)
+    -> std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH> {
+    std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH> gid{};
+    if (gid_bytes.has_value()) {
+        const auto& raw = gid_bytes.value();
+        std::copy(raw.unchecked_access().begin(), raw.unchecked_access().end(), gid.begin());
+    }
+    return gid;
+}
+
+/// The ROS service type of a request payload type name, which ends with `_Request`.
+auto service_type_of(std::string request_type) -> std::string {
+    if (request_type.size() > REQUEST_SUFFIX.size()
+        && request_type.compare(request_type.size() - REQUEST_SUFFIX.size(), REQUEST_SUFFIX.size(), REQUEST_SUFFIX)
+               == 0) {
+        request_type.erase(request_type.size() - REQUEST_SUFFIX.size());
+    }
+    return request_type.empty() ? UNKNOWN_TYPE : request_type;
 }
 
 auto contains_node(const std::map<NodeIdKey, ::rmw::iox2::NodeName>& nodes,
@@ -298,7 +329,7 @@ auto Graph::topic_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicInf
                 // iceoryx2 payload type name at publisher/subscriber creation.
                 auto payload = service.static_details.publish_subscribe().message_type_details().payload();
                 std::string type = payload.type_name();
-                topics.emplace(TopicInfo{std::move(topic.value()), type.empty() ? "UNKNOWN" : std::move(type)});
+                topics.emplace(TopicInfo{std::move(topic.value()), type.empty() ? UNKNOWN_TYPE : std::move(type)});
             }
         }
         return CallbackProgression::Continue;
@@ -441,7 +472,7 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
     // The rmw stores the ROS type name as the iceoryx2 payload type name.
     std::string topic_type = port_factory.static_config().message_type_details().payload().type_name();
     if (topic_type.empty()) {
-        topic_type = "UNKNOWN";
+        topic_type = UNKNOWN_TYPE;
     }
 
     // All endpoints on a topic share the service-level QoS and type hash in
@@ -470,20 +501,13 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
     // type hash, and service-level QoS.
     auto endpoint_info = [&](const ::iox2::UniqueNodeId& node_id,
                              const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes) -> EndpointInfo {
-        std::string node_name{UNKNOWN_NODE_NAME};
-        std::string node_namespace{UNKNOWN_NODE_NAMESPACE};
-        if (auto entry = nodes.find(to_key(node_id)); entry != nodes.end()) {
-            node_name = entry->second.node_name;
-            node_namespace = entry->second.node_namespace;
-        }
-
-        std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH> gid{};
-        if (gid_bytes.has_value()) {
-            const auto& raw = gid_bytes.value();
-            std::copy(raw.unchecked_access().begin(), raw.unchecked_access().end(), gid.begin());
-        }
-
-        return EndpointInfo{std::move(node_name), std::move(node_namespace), topic_type, type_hash, qos.value(), gid};
+        auto owner = node_of(nodes, node_id);
+        return EndpointInfo{std::move(owner.node_name),
+                            std::move(owner.node_namespace),
+                            topic_type,
+                            type_hash,
+                            qos.value(),
+                            gid_of(gid_bytes)};
     };
 
     std::vector<EndpointInfo> result{};
@@ -513,12 +537,7 @@ auto Graph::service_names_and_types() -> ::iox2::bb::Expected<std::vector<TopicI
         if (service.static_details.messaging_pattern() == MessagingPattern::RequestResponse) {
             if (auto name = parse_ros_name(SERVICE_PREFIX, service.static_details.name()); name.has_value()) {
                 auto request = service.static_details.request_response().request_message_type_details().payload();
-                std::string type = request.type_name();
-                if (type.size() > REQUEST_SUFFIX.size()
-                    && type.compare(type.size() - REQUEST_SUFFIX.size(), REQUEST_SUFFIX.size(), REQUEST_SUFFIX) == 0) {
-                    type.erase(type.size() - REQUEST_SUFFIX.size());
-                }
-                services.emplace(TopicInfo{std::move(name.value()), type.empty() ? "UNKNOWN" : std::move(type)});
+                services.emplace(TopicInfo{std::move(name.value()), service_type_of(request.type_name())});
             }
         }
         return CallbackProgression::Continue;
