@@ -10,9 +10,13 @@
 #ifndef RMW_IOX2_RUNTIME_PAYLOAD_LAYOUT_HPP_
 #define RMW_IOX2_RUNTIME_PAYLOAD_LAYOUT_HPP_
 
+#include "iox2/message_type_details.hpp"
+#include "rmw/visibility_control.h"
+#include "rosidl_runtime_c/message_type_support_struct.h"
+
 #include <cstdint>
 
-// Payload layout values shared by Publisher and Subscriber. They must agree on both ends or
+// Payload layout values shared by all endpoints. They must agree on both ends or
 // iceoryx2 rejects the service as incompatible.
 namespace rmw::iox2
 {
@@ -28,6 +32,9 @@ constexpr uint64_t SERIALIZED_PAYLOAD_ELEMENT_SIZE = 1U;
 
 /// CDR alignment is relative to the buffer start, so byte alignment suffices.
 constexpr uint64_t SERIALIZED_PAYLOAD_ALIGNMENT = 1U;
+
+/// @brief The iceoryx2 payload type of the message: the struct if it is self-contained, CDR bytes otherwise.
+RMW_PUBLIC auto payload_type_details(const rosidl_message_type_support_t* type_support) -> ::iox2::TypeDetail;
 
 } // namespace rmw::iox2
 

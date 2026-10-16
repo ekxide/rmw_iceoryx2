@@ -116,6 +116,18 @@ public:
     /// @return Reference to the QoS
     auto qos() const -> const rmw_qos_profile_t&;
 
+    /// @brief Check if the request type is received as it lies in memory instead of serialized
+    /// @return True if the request type is self-contained
+    auto is_request_self_contained() const -> bool;
+
+    /// @brief Check if the response type is sent as it lies in memory instead of serialized
+    /// @return True if the response type is self-contained
+    auto is_response_self_contained() const -> bool;
+
+    /// @brief Get the size of the response type in memory
+    /// @return The size in bytes
+    auto unserialized_response_size() const -> uint64_t;
+
     /// @brief Get the listener woken up when the other side of the service sends
     /// @return Reference to the listener
     auto listener() -> IceoryxListener&;
@@ -166,6 +178,9 @@ private:
     const rosidl_service_type_support_t* const m_typesupport;
     const std::string m_service_name;
     const rmw_qos_profile_t m_qos;
+    const bool m_is_request_self_contained;
+    const uint64_t m_unserialized_response_size;
+    const bool m_is_response_self_contained;
 
     std::mutex m_mutex;
     ::iox2::bb::Optional<IceoryxServer> m_iox2_server;

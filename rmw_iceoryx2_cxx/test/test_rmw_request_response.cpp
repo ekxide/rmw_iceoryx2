@@ -20,11 +20,14 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/srv/basic_types.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/srv/self_contained.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/srv/self_contained_request.hpp"
 #include "rosidl_typesupport_cpp/service_type_support.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <thread>
 
 namespace
@@ -64,6 +67,38 @@ protected:
         auto result = rmw_wait(nullptr, nullptr, services, clients, nullptr, wait_set, &timeout);
         EXPECT_TRUE(result == RMW_RET_OK || result == RMW_RET_TIMEOUT);
         EXPECT_RMW_OK(rmw_destroy_wait_set(wait_set));
+    }
+
+    static auto open_native_self_contained_service(iox2::Node<iox2::ServiceType::Ipc>& native_node,
+                                                   const std::string& topic) {
+        using Server = ::rmw::iox2::Server;
+        using rmw_iceoryx2_cxx_test_msgs::srv::SelfContained;
+
+        const auto* type_support = rosidl_typesupport_cpp::get_service_type_support_handle<SelfContained>();
+        const auto request_type_name = ::rmw::iox2::message_type_name(type_support->request_typesupport);
+        const auto response_type_name = ::rmw::iox2::message_type_name(type_support->response_typesupport);
+        auto builder =
+            native_node
+                .service_builder(iox2::ServiceName::create(::rmw::iox2::names::service(topic.c_str()).c_str()).value())
+                .request_response<Server::Payload, Server::Payload>()
+                .request_user_header<Server::UserHeader>()
+                .response_user_header<Server::UserHeader>();
+        iox2::set_request_payload_type_details(builder,
+                                               iox2::TypeDetail(iox2::TypeVariant::FixedSize,
+                                                                request_type_name.c_str(),
+                                                                sizeof(SelfContained::Request),
+                                                                ::rmw::iox2::SELF_CONTAINED_PAYLOAD_ALIGNMENT));
+        iox2::set_response_payload_type_details(builder,
+                                                iox2::TypeDetail(iox2::TypeVariant::FixedSize,
+                                                                 response_type_name.c_str(),
+                                                                 sizeof(SelfContained::Response),
+                                                                 ::rmw::iox2::SELF_CONTAINED_PAYLOAD_ALIGNMENT));
+        return builder.resume_build()
+            .max_active_requests_per_client(::rmw::iox2::DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT)
+            .max_response_buffer_size(::rmw::iox2::MAX_RESPONSES_PER_REQUEST)
+            .request_payload_alignment(::rmw::iox2::SELF_CONTAINED_PAYLOAD_ALIGNMENT)
+            .response_payload_alignment(::rmw::iox2::SELF_CONTAINED_PAYLOAD_ALIGNMENT)
+            .open();
     }
 
     static BasicTypes::Request make_request(int32_t value) {
@@ -548,6 +583,153 @@ TEST_F(RmwRequestResponseTest, requests_and_responses_wake_up_waiting_threads) {
 
     EXPECT_EQ(completed, ROUND_TRIPS);
     EXPECT_EQ(responded, ROUND_TRIPS);
+}
+
+TEST_F(RmwRequestResponseTest, a_self_contained_request_and_response_keep_their_values) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::SelfContained;
+
+    auto* service = create_service<SelfContained>(create_test_topic());
+    auto* client = create_client<SelfContained>(create_test_topic());
+    RMW_ASSERT_NE(service, nullptr);
+    RMW_ASSERT_NE(client, nullptr);
+
+    SelfContained::Request request;
+    request.basic_types_value.int32_value = 42;
+    request.basic_types_value.float64_value = 1.5;
+    request.last = 7;
+    int64_t sequence_id = 0;
+    ASSERT_RMW_OK(rmw_send_request(client, &request, &sequence_id));
+
+    SelfContained::Request received_request;
+    rmw_service_info_t request_header{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take_request(service, &request_header, &received_request, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received_request, request);
+
+    SelfContained::Response response;
+    response.basic_types_value.uint64_value = 43;
+    ASSERT_RMW_OK(rmw_send_response(service, &request_header.request_id, &response));
+
+    SelfContained::Response received_response;
+    rmw_service_info_t response_header{};
+    ASSERT_RMW_OK(rmw_take_response(client, &response_header, &received_response, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received_response, response);
+    EXPECT_EQ(response_header.request_id.sequence_number, sequence_id);
+}
+
+TEST_F(RmwRequestResponseTest, a_self_contained_request_gets_a_serialized_response) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::SelfContainedRequest;
+
+    auto* service = create_service<SelfContainedRequest>(create_test_topic());
+    auto* client = create_client<SelfContainedRequest>(create_test_topic());
+    RMW_ASSERT_NE(service, nullptr);
+    RMW_ASSERT_NE(client, nullptr);
+
+    SelfContainedRequest::Request request;
+    request.basic_types_value.int16_value = -3;
+    int64_t sequence_id = 0;
+    ASSERT_RMW_OK(rmw_send_request(client, &request, &sequence_id));
+
+    SelfContainedRequest::Request received_request;
+    rmw_service_info_t request_header{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take_request(service, &request_header, &received_request, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received_request, request);
+
+    SelfContainedRequest::Response response;
+    response.string_value = "response";
+    ASSERT_RMW_OK(rmw_send_response(service, &request_header.request_id, &response));
+
+    SelfContainedRequest::Response received_response;
+    rmw_service_info_t response_header{};
+    ASSERT_RMW_OK(rmw_take_response(client, &response_header, &received_response, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received_response, response);
+}
+
+TEST_F(RmwRequestResponseTest, an_iceoryx2_client_exchanges_self_contained_requests_and_responses_as_structs) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::SelfContained;
+
+    const auto topic = create_test_topic();
+    auto* service = create_service<SelfContained>(topic);
+    RMW_ASSERT_NE(service, nullptr);
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service = open_native_self_contained_service(native_node, topic);
+    ASSERT_TRUE(native_service.has_value()) << iox2::bb::into<const char*>(native_service.error());
+    auto native_client = native_service->client_builder().create();
+    ASSERT_TRUE(native_client.has_value());
+
+    SelfContained::Request sent_request;
+    sent_request.basic_types_value.int32_value = 42;
+    sent_request.last = 7;
+    auto request = native_client->loan_slice_uninit(::rmw::iox2::SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT);
+    ASSERT_TRUE(request.has_value());
+    std::memcpy(static_cast<void*>(request->payload_mut().data()), &sent_request, sizeof(sent_request));
+    auto pending_response = iox2::send(iox2::assume_init(std::move(request.value())));
+    ASSERT_TRUE(pending_response.has_value());
+
+    SelfContained::Request received_request;
+    rmw_service_info_t header{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take_request(service, &header, &received_request, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received_request, sent_request);
+
+    SelfContained::Response sent_response;
+    sent_response.basic_types_value.uint64_value = 43;
+    ASSERT_RMW_OK(rmw_send_response(service, &header.request_id, &sent_response));
+
+    auto response = pending_response->receive();
+    ASSERT_TRUE(response.has_value());
+    ASSERT_TRUE(response->has_value());
+    ASSERT_EQ(response->value().payload().number_of_bytes(), sizeof(SelfContained::Response));
+    SelfContained::Response received_response;
+    std::memcpy(static_cast<void*>(&received_response), response->value().payload().data(), sizeof(received_response));
+    EXPECT_EQ(received_response, sent_response);
+}
+
+TEST_F(RmwRequestResponseTest, an_iceoryx2_server_exchanges_self_contained_requests_and_responses_as_structs) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::SelfContained;
+
+    const auto topic = create_test_topic();
+    auto* client = create_client<SelfContained>(topic);
+    RMW_ASSERT_NE(client, nullptr);
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto native_service = open_native_self_contained_service(native_node, topic);
+    ASSERT_TRUE(native_service.has_value()) << iox2::bb::into<const char*>(native_service.error());
+    auto native_server = native_service->server_builder().create();
+    ASSERT_TRUE(native_server.has_value());
+
+    SelfContained::Request sent_request;
+    sent_request.basic_types_value.int32_value = 42;
+    sent_request.last = 7;
+    int64_t sequence_id = 0;
+    ASSERT_RMW_OK(rmw_send_request(client, &sent_request, &sequence_id));
+
+    auto request = native_server->receive();
+    ASSERT_TRUE(request.has_value());
+    ASSERT_TRUE(request->has_value());
+    ASSERT_EQ(request->value().payload().number_of_bytes(), sizeof(SelfContained::Request));
+    SelfContained::Request received_request;
+    std::memcpy(static_cast<void*>(&received_request), request->value().payload().data(), sizeof(received_request));
+    EXPECT_EQ(received_request, sent_request);
+
+    SelfContained::Response sent_response;
+    sent_response.basic_types_value.uint64_value = 43;
+    auto response = request->value().loan_slice_uninit(::rmw::iox2::SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT);
+    ASSERT_TRUE(response.has_value());
+    std::memcpy(static_cast<void*>(response->payload_mut().data()), &sent_response, sizeof(sent_response));
+    ASSERT_TRUE(iox2::send(iox2::assume_init(std::move(response.value()))).has_value());
+
+    SelfContained::Response received_response;
+    rmw_service_info_t header{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take_response(client, &header, &received_response, &taken));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(received_response, sent_response);
 }
 
 } // namespace

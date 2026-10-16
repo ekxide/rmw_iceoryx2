@@ -75,6 +75,7 @@ add_library(${PROJECT_NAME} SHARED
   src/impl/runtime/graph_change_handler.cpp
   src/impl/runtime/guard_condition.cpp
   src/impl/runtime/node.cpp
+  src/impl/runtime/payload_layout.cpp
   src/impl/runtime/publisher.cpp
   src/impl/runtime/server.cpp
   src/impl/runtime/subscriber.cpp

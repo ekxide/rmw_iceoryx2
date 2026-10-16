@@ -11,7 +11,6 @@
 
 #include "iox2/bb/into.hpp"
 #include "iox2/message_type_details.hpp"
-#include "iox2/type_variant.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
@@ -64,18 +63,7 @@ auto open_or_create_topic(Node& node,
     const auto& options = node.context().options();
     const uint64_t max_depth = options.max_depth_per_topic.value_or(DEFAULT_MAX_DEPTH_PER_TOPIC);
 
-    const bool is_self_contained = ::rmw::iox2::is_self_contained(type_support);
-    const auto payload_type_name = ::rmw::iox2::message_type_name(type_support);
-    const auto payload_type_details = is_self_contained ? ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,
-                                                                             payload_type_name.c_str(),
-                                                                             ::rmw::iox2::message_size(type_support),
-                                                                             SELF_CONTAINED_PAYLOAD_ALIGNMENT)
-                                                        : ::iox2::TypeDetail(::iox2::TypeVariant::Dynamic,
-                                                                             payload_type_name.c_str(),
-                                                                             SERIALIZED_PAYLOAD_ELEMENT_SIZE,
-                                                                             SERIALIZED_PAYLOAD_ALIGNMENT);
-    const uint64_t payload_alignment =
-        is_self_contained ? SELF_CONTAINED_PAYLOAD_ALIGNMENT : SERIALIZED_PAYLOAD_ALIGNMENT;
+    const auto payload_type_details = ::rmw::iox2::payload_type_details(type_support);
 
     for (uint32_t attempt = 1U;; ++attempt) {
         auto existing_qos = existing_topic_qos(node.iox2(), service_name);
@@ -119,7 +107,6 @@ auto open_or_create_topic(Node& node,
         auto open_builder = service_builder();
         auto opened = open_builder.resume_build()
                           .enable_safe_overflow(qos.enable_safe_overflow())
-                          .payload_alignment(payload_alignment)
                           .open_with_attributes(verifier.value());
         if (opened.has_value()) {
             return std::move(opened.value());
@@ -134,7 +121,6 @@ auto open_or_create_topic(Node& node,
                 .history_size(max_depth)
                 .subscriber_max_buffer_size(max_depth)
                 .enable_safe_overflow(qos.enable_safe_overflow())
-                .payload_alignment(payload_alignment)
                 .open_or_create_with_attributes(verifier.value());
 
         if (iox2_pubsub_service.has_value()) {
