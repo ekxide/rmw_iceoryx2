@@ -22,6 +22,7 @@
 #include "rmw/get_topic_names_and_types.h"
 #include "rmw/names_and_types.h"
 #include "rmw/rmw.h"
+#include "rmw/service_endpoint_info_array.h"
 #include "rmw/topic_endpoint_info_array.h"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/graph.hpp"
@@ -32,6 +33,7 @@
 #include "testing/base.hpp"
 
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <thread>
 
@@ -533,6 +535,86 @@ TEST_F(RmwGraphTest, services_and_clients_of_another_node_are_not_listed_by_node
     EXPECT_RMW_OK(rmw_names_and_types_fini(&names_and_types));
 
     EXPECT_RMW_OK(rmw_destroy_node(other_node));
+}
+
+TEST_F(RmwGraphTest, can_get_servers_and_clients_info_by_service) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::BasicTypes;
+
+    const auto service_name = create_test_topic("/service");
+    ASSERT_NE(create_service<BasicTypes>(service_name), nullptr);
+    auto* client = create_client<BasicTypes>(service_name);
+    ASSERT_NE(client, nullptr);
+    rmw_gid_t client_gid{};
+    ASSERT_RMW_OK(rmw_get_gid_for_client(client, &client_gid));
+
+    auto allocator = rcutils_get_default_allocator();
+    auto servers = rmw_get_zero_initialized_service_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_servers_info_by_service(test_node(), &allocator, service_name.c_str(), false, &servers));
+    ASSERT_EQ(servers.size, 1U);
+    const auto& server = servers.info_array[0];
+    EXPECT_EQ(server.endpoint_type, RMW_ENDPOINT_SERVER);
+    EXPECT_STREQ(server.service_type, "rmw_iceoryx2_cxx_test_msgs/srv/BasicTypes");
+    EXPECT_STREQ(server.node_name, test_node()->name);
+    EXPECT_STREQ(server.node_namespace, test_node()->namespace_);
+    ASSERT_EQ(server.endpoint_count, 1U);
+    EXPECT_TRUE(gid_is_nonzero(server.endpoint_gids[0]));
+
+    auto clients = rmw_get_zero_initialized_service_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_clients_info_by_service(test_node(), &allocator, service_name.c_str(), true, &clients));
+    ASSERT_EQ(clients.size, 1U);
+    const auto& client_info = clients.info_array[0];
+    EXPECT_EQ(client_info.endpoint_type, RMW_ENDPOINT_CLIENT);
+    EXPECT_STREQ(client_info.service_type, "rmw_iceoryx2_cxx_test_msgs/srv/BasicTypes");
+    EXPECT_STREQ(client_info.node_name, test_node()->name);
+    ASSERT_EQ(client_info.endpoint_count, 1U);
+    EXPECT_EQ(std::memcmp(client_info.endpoint_gids[0], client_gid.data, RMW_GID_STORAGE_SIZE), 0);
+
+    ASSERT_RMW_OK(rmw_service_endpoint_info_array_fini(&servers, &allocator));
+    ASSERT_RMW_OK(rmw_service_endpoint_info_array_fini(&clients, &allocator));
+}
+
+TEST_F(RmwGraphTest, servers_and_clients_info_name_the_node_of_each_endpoint) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::BasicTypes;
+
+    const auto service_name = create_test_topic("/service");
+    auto* other_node = rmw_create_node(test_context(), "other_node", "/other");
+    ASSERT_NE(other_node, nullptr);
+    auto* server = rmw_create_service(
+        other_node, test_service_type_support<BasicTypes>(), service_name.c_str(), &rmw_qos_profile_services_default);
+    ASSERT_NE(server, nullptr);
+    ASSERT_NE(create_client<BasicTypes>(service_name), nullptr);
+
+    auto allocator = rcutils_get_default_allocator();
+    auto servers = rmw_get_zero_initialized_service_endpoint_info_array();
+    EXPECT_RMW_OK(rmw_get_servers_info_by_service(test_node(), &allocator, service_name.c_str(), false, &servers));
+    ASSERT_EQ(servers.size, 1U);
+    EXPECT_STREQ(servers.info_array[0].node_name, "other_node");
+    EXPECT_STREQ(servers.info_array[0].node_namespace, "/other");
+    auto clients = rmw_get_zero_initialized_service_endpoint_info_array();
+    EXPECT_RMW_OK(rmw_get_clients_info_by_service(test_node(), &allocator, service_name.c_str(), false, &clients));
+    ASSERT_EQ(clients.size, 1U);
+    EXPECT_STREQ(clients.info_array[0].node_name, test_node()->name);
+
+    EXPECT_RMW_OK(rmw_service_endpoint_info_array_fini(&servers, &allocator));
+    EXPECT_RMW_OK(rmw_service_endpoint_info_array_fini(&clients, &allocator));
+    EXPECT_RMW_OK(rmw_destroy_service(other_node, server));
+    EXPECT_RMW_OK(rmw_destroy_node(other_node));
+}
+
+TEST_F(RmwGraphTest, gets_empty_service_endpoint_info_for_unknown_service) {
+    const auto service_name = create_test_topic("/NoServiceEndpointInfo");
+
+    auto allocator = rcutils_get_default_allocator();
+    auto servers = rmw_get_zero_initialized_service_endpoint_info_array();
+    auto clients = rmw_get_zero_initialized_service_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_servers_info_by_service(test_node(), &allocator, service_name.c_str(), false, &servers));
+    ASSERT_RMW_OK(rmw_get_clients_info_by_service(test_node(), &allocator, service_name.c_str(), false, &clients));
+
+    EXPECT_EQ(servers.size, 0U);
+    EXPECT_EQ(clients.size, 0U);
+
+    ASSERT_RMW_OK(rmw_service_endpoint_info_array_fini(&servers, &allocator));
+    ASSERT_RMW_OK(rmw_service_endpoint_info_array_fini(&clients, &allocator));
 }
 
 TEST_F(RmwGraphTest, rejects_non_zero_initialized_names_and_types) {

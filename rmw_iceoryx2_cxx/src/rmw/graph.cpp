@@ -17,6 +17,7 @@
 #include "rmw/get_service_names_and_types.h"
 #include "rmw/get_topic_endpoint_info.h"
 #include "rmw/get_topic_names_and_types.h"
+#include "rmw/qos_profiles.h"
 #include "rmw/ret_types.h"
 #include "rmw/rmw.h"
 #include "rmw/validate_full_topic_name.h"
@@ -167,6 +168,61 @@ auto fill_endpoint_info(rmw_topic_endpoint_info_array_t* array,
             return ret;
         }
         ret = rmw_topic_endpoint_info_set_qos_profile(info, &qos_profile);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+    }
+
+    fini_on_error.cancel();
+    return RMW_RET_OK;
+}
+
+/// @brief Marshal discovered servers or clients into an rmw service endpoint-info array.
+/// @param[out] array Zero-initialized array to populate.
+/// @param[in] endpoints The servers or clients to copy in.
+/// @param[in] endpoint_type Whether these are servers or clients.
+/// @param[in] allocator Allocator used for the array and its strings.
+/// @return RMW_RET_OK on success, otherwise an appropriate error code.
+auto fill_service_endpoint_info(rmw_service_endpoint_info_array_t* array,
+                                const std::vector<::rmw::iox2::ServiceEndpointInfo>& endpoints,
+                                rmw_endpoint_type_t endpoint_type,
+                                rcutils_allocator_t* allocator) -> rmw_ret_t {
+    if (auto ret = rmw_service_endpoint_info_array_init_with_size(array, endpoints.size(), allocator);
+        ret != RMW_RET_OK) {
+        return ret;
+    }
+    auto fini_on_error = rcpputils::make_scope_exit(
+        [array, allocator]() { (void)rmw_service_endpoint_info_array_fini(array, allocator); });
+
+    for (size_t index = 0; index < endpoints.size(); ++index) {
+        const auto& endpoint = endpoints[index];
+        auto* info = &array->info_array[index];
+
+        auto ret = rmw_service_endpoint_info_set_node_name(info, endpoint.node_name.c_str(), allocator);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_service_endpoint_info_set_node_namespace(info, endpoint.node_namespace.c_str(), allocator);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_service_endpoint_info_set_service_type(info, endpoint.service_type.c_str(), allocator);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_service_endpoint_info_set_endpoint_type(info, endpoint_type);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_service_endpoint_info_set_endpoint_count(info, 1);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_service_endpoint_info_set_gids(info, endpoint.gid.data(), 1, endpoint.gid.size(), allocator);
+        if (ret != RMW_RET_OK) {
+            return ret;
+        }
+        ret = rmw_service_endpoint_info_set_qos_profiles(info, &rmw_qos_profile_unknown, 1, allocator);
         if (ret != RMW_RET_OK) {
             return ret;
         }
@@ -637,7 +693,18 @@ rmw_ret_t rmw_get_servers_info_by_service(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_OK;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().servers_info(service_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get servers info");
+        return RMW_RET_ERROR;
+    }
+
+    return fill_service_endpoint_info(servers_info, result.value(), RMW_ENDPOINT_SERVER, allocator);
 }
 
 // Clients ==========================================================================================================
@@ -723,6 +790,17 @@ rmw_ret_t rmw_get_clients_info_by_service(const rmw_node_t* rmw_node,
     }
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_OK;
+    auto graph = graph_of(rmw_node);
+    if (!graph.has_value()) {
+        return RMW_RET_ERROR;
+    }
+
+    auto result = graph.value().clients_info(service_name);
+    if (!result.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to get clients info");
+        return RMW_RET_ERROR;
+    }
+
+    return fill_service_endpoint_info(clients_info, result.value(), RMW_ENDPOINT_CLIENT, allocator);
 }
 }

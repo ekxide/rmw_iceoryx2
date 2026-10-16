@@ -567,6 +567,16 @@ auto Graph::clients_by_node(const std::string& node_name, const std::string& nod
     return service_endpoints_by_node(node_name, node_namespace, EndpointKind::CLIENT);
 }
 
+auto Graph::servers_info(const std::string& service)
+    -> ::iox2::bb::Expected<std::vector<ServiceEndpointInfo>, ErrorType> {
+    return service_endpoints_info(service, EndpointKind::SERVER);
+}
+
+auto Graph::clients_info(const std::string& service)
+    -> ::iox2::bb::Expected<std::vector<ServiceEndpointInfo>, ErrorType> {
+    return service_endpoints_info(service, EndpointKind::CLIENT);
+}
+
 auto Graph::count_service_endpoints(const std::string& service, EndpointKind kind)
     -> ::iox2::bb::Expected<size_t, ErrorType> {
     using ::iox2::bb::err;
@@ -642,6 +652,51 @@ auto Graph::service_endpoints_by_node(const std::string& node_name,
         if (found) {
             result.push_back(service);
         }
+    }
+
+    return result;
+}
+
+auto Graph::service_endpoints_info(const std::string& service, EndpointKind kind)
+    -> ::iox2::bb::Expected<std::vector<ServiceEndpointInfo>, ErrorType> {
+    using ::iox2::CallbackProgression;
+    using ::iox2::bb::err;
+
+    auto& node = m_node.get();
+
+    auto opened = open_request_response_service(node, service);
+    if (!opened.has_value()) {
+        return err(opened.error());
+    }
+    if (!opened.value().has_value()) {
+        return std::vector<ServiceEndpointInfo>{};
+    }
+    auto& port_factory = opened.value().value();
+    const auto service_type =
+        service_type_of(port_factory.static_config().request_message_type_details().payload().type_name());
+
+    auto lookup = build_node_id_lookup(node);
+    if (!lookup.has_value()) {
+        return err(lookup.error());
+    }
+    const auto& nodes = lookup.value();
+
+    std::vector<ServiceEndpointInfo> result{};
+    auto add = [&](const ::iox2::UniqueNodeId& node_id, const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes) {
+        auto owner = node_of(nodes, node_id);
+        result.push_back(ServiceEndpointInfo{
+            std::move(owner.node_name), std::move(owner.node_namespace), service_type, gid_of(gid_bytes)});
+    };
+    if (kind == EndpointKind::SERVER) {
+        port_factory.dynamic_config().list_servers([&add](auto view) {
+            add(view.node_id(), view.server_id().bytes());
+            return CallbackProgression::Continue;
+        });
+    } else {
+        port_factory.dynamic_config().list_clients([&add](auto view) {
+            add(view.node_id(), view.client_id().bytes());
+            return CallbackProgression::Continue;
+        });
     }
 
     return result;

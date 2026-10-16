@@ -76,6 +76,15 @@ struct EndpointInfo
     std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH> gid;
 };
 
+/// @brief A discovered endpoint (server or client) of a service.
+struct ServiceEndpointInfo
+{
+    std::string node_name;
+    std::string node_namespace;
+    std::string service_type;
+    std::array<uint8_t, ::iox2::UNIQUE_PORT_ID_LENGTH> gid;
+};
+
 /// @brief Read-only view over the iceoryx2 communication graph.
 /// @details Provides discovery of nodes, topics, endpoints and their types and
 ///          QoS by introspecting the iceoryx2 service registry.
@@ -183,6 +192,18 @@ public:
     auto clients_by_node(const std::string& node_name, const std::string& node_namespace)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
 
+    /// @brief Describe the servers of a service.
+    /// @param[in] service The ROS service name.
+    /// @return One `ServiceEndpointInfo` per server (empty if no service exists for
+    ///         the name), or an error if an existing service cannot be opened.
+    auto servers_info(const std::string& service) -> ::iox2::bb::Expected<std::vector<ServiceEndpointInfo>, ErrorType>;
+
+    /// @brief Describe the clients of a service.
+    /// @param[in] service The ROS service name.
+    /// @return One `ServiceEndpointInfo` per client (empty if no service exists for
+    ///         the name), or an error if an existing service cannot be opened.
+    auto clients_info(const std::string& service) -> ::iox2::bb::Expected<std::vector<ServiceEndpointInfo>, ErrorType>;
+
 private:
     enum class EndpointKind : uint8_t { PUBLISHER, SUBSCRIBER, SERVER, CLIENT };
 
@@ -211,6 +232,10 @@ private:
     /// Shared implementation of `servers_by_node`/`clients_by_node`.
     auto service_endpoints_by_node(const std::string& node_name, const std::string& node_namespace, EndpointKind kind)
         -> ::iox2::bb::Expected<std::vector<TopicInfo>, ErrorType>;
+
+    /// Shared implementation of `servers_info`/`clients_info`.
+    auto service_endpoints_info(const std::string& service, EndpointKind kind)
+        -> ::iox2::bb::Expected<std::vector<ServiceEndpointInfo>, ErrorType>;
 
     // `reference_wrapper` so the class remains move-constructible. Cannot be
     // null by construction.
