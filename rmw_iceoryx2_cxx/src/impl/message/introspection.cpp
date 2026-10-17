@@ -178,7 +178,7 @@ auto serialized_message_size(const void* ros_message, const rosidl_message_type_
     }
     RMW_IOX2_ENSURE_VALID_TYPESUPPORT(type_support, 0);
     auto callbacks = static_cast<const message_type_support_callbacks_t*>(handle->data);
-    return 4 + callbacks->get_serialized_size(ros_message); // 4 bytes for CDR header
+    return CDR_ENCAPSULATION_SIZE + callbacks->get_serialized_size(ros_message);
 }
 
 } // namespace rmw::iox2
