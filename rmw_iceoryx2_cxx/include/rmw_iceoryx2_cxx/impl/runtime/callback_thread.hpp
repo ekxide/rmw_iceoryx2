@@ -28,7 +28,7 @@
 namespace rmw::iox2
 {
 
-/// @brief Calls the new data callbacks of the entities of a context from one thread, started by the first callback
+/// @brief Calls the new data callbacks of the entities of a context from one thread
 class RMW_PUBLIC CallbackThread
 {
 public:
@@ -41,6 +41,10 @@ public:
     auto operator=(const CallbackThread&) -> CallbackThread& = delete;
     auto operator=(CallbackThread&&) -> CallbackThread& = delete;
     ~CallbackThread();
+
+    /// @brief Starts the thread, which then waits for callbacks to call
+    /// @return Expected containing void if successful, error otherwise
+    auto start() -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Calls the callback with the number of notifications the listener receives, first with those it
     ///        already received
@@ -66,7 +70,6 @@ private:
         ::iox2::bb::Optional<Guard> guard;
     };
 
-    auto start() -> ::iox2::bb::Expected<void, ErrorType>;
     void apply_changes(std::unique_lock<std::mutex>& lock);
     void run();
     auto on_event(const AttachmentId& id) -> ::iox2::CallbackProgression;

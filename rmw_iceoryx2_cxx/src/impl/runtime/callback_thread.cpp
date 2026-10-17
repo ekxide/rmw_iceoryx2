@@ -50,11 +50,6 @@ auto CallbackThread::set_callback(Listener& listener, rmw_event_callback_t callb
         return {};
     }
 
-    if (!m_thread.joinable()) {
-        if (auto started = start(); !started.has_value()) {
-            return started;
-        }
-    }
     auto added = m_callbacks.emplace(&listener, Callback{callback, user_data, ::iox2::bb::NULLOPT}).first;
     call(listener, added->second);
     apply_changes(lock);
