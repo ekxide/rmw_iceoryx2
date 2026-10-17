@@ -99,7 +99,6 @@ public:
            const rmw_qos_profile_t& qos);
     Server(Server&&) = delete;
     auto operator=(Server&&) -> Server& = delete;
-    ~Server();
 
     /// @brief Get the name of the ROS service
     /// @return The service name as string
@@ -121,7 +120,8 @@ public:
     /// @return Reference to the listener
     auto listener() -> IceoryxListener&;
 
-    /// @brief Calls the callback with the number of new requests, first with those already received
+    /// @brief Sets the callback that is called with the number of new requests
+    /// @details A new callback is called right away with the requests already received
     /// @param[in] callback The callback, nullptr removes the callback
     /// @param[in] user_data Passed to the callback
     /// @return Expected containing void if successful, error otherwise
@@ -171,6 +171,8 @@ private:
     ::iox2::bb::Optional<IceoryxServer> m_iox2_server;
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
+    std::mutex m_callback_mutex;
+    ::iox2::bb::Optional<CallbackThread::Registration> m_callback;
     std::map<RequestId, IceoryxActiveRequest> m_active_requests;
     SampleRegistry<LoanedResponse> m_responses;
 };

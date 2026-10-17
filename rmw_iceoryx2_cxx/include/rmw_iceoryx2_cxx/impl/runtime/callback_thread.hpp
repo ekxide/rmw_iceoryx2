@@ -19,8 +19,11 @@
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 
+#include <atomic>
 #include <condition_variable>
+#include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -29,11 +32,32 @@ namespace rmw::iox2
 {
 
 /// @brief Calls the new data callbacks of the entities of a context from one thread
-class RMW_PUBLIC CallbackThread
+class RMW_PUBLIC CallbackThread : public std::enable_shared_from_this<CallbackThread>
 {
 public:
     using ErrorType = CallbackThreadError;
     using Listener = Iceoryx2::InterProcess::Listener;
+    using CallbackId = uint64_t;
+
+    /// @brief A callback of the thread, removed when the registration is destroyed
+    class RMW_PUBLIC Registration
+    {
+    public:
+        Registration(const Registration&) = delete;
+        Registration(Registration&& other) noexcept;
+        auto operator=(const Registration&) -> Registration& = delete;
+        auto operator=(Registration&& other) noexcept -> Registration&;
+        /// @brief Removes the callback, it is neither running nor called after this returns
+        ~Registration();
+
+    private:
+        friend class CallbackThread;
+        explicit Registration(std::shared_ptr<CallbackThread> thread);
+
+        static inline std::atomic<CallbackId> s_next_id{0};
+        std::shared_ptr<CallbackThread> m_thread;
+        CallbackId m_id;
+    };
 
     CallbackThread() = default;
     CallbackThread(const CallbackThread&) = delete;
@@ -46,18 +70,14 @@ public:
     /// @return Expected containing void if successful, error otherwise
     auto start() -> ::iox2::bb::Expected<void, ErrorType>;
 
-    /// @brief Calls the callback with the number of notifications the listener receives, first with those it
-    ///        already received
-    /// @param[in] listener The listener of the entity
-    /// @param[in] callback The callback, nullptr removes the callback of the listener
+    /// @brief Adds a callback that is called with the number of notifications the listener receives
+    /// @details The callback is called right away with the notifications the listener already received
+    /// @param[in] listener The listener of the entity, which must outlive the registration
+    /// @param[in] callback The callback
     /// @param[in] user_data Passed to the callback
-    /// @return Expected containing void if successful, error otherwise
-    auto set_callback(Listener& listener, rmw_event_callback_t callback, const void* user_data)
-        -> ::iox2::bb::Expected<void, ErrorType>;
-
-    /// @brief Removes the callback of the listener, it is neither running nor called after this returns
-    /// @param[in] listener The listener of the entity
-    void remove_callback(Listener& listener);
+    /// @return Expected containing the registration of the callback if successful, error otherwise
+    auto add(Listener& listener, rmw_event_callback_t callback, const void* user_data)
+        -> ::iox2::bb::Expected<Registration, ErrorType>;
 
 private:
     using Guard = Iceoryx2::WaitSet::Guard;
@@ -65,17 +85,19 @@ private:
 
     struct Callback
     {
+        std::reference_wrapper<Listener> listener;
         rmw_event_callback_t callback;
         const void* user_data;
         ::iox2::bb::Optional<Guard> guard;
     };
 
-    void apply_changes(std::unique_lock<std::mutex>& lock);
+    void remove(CallbackId id);
+    void synchronize(std::unique_lock<std::mutex>& lock);
     void run();
     auto on_event(const AttachmentId& id) -> ::iox2::CallbackProgression;
     void attach_new_callbacks();
-    auto attach(Listener* listener, Callback& callback) -> bool;
-    static void call(Listener& listener, const Callback& callback);
+    auto attach(Callback& callback) -> bool;
+    static void call(const Callback& callback);
 
     std::mutex m_mutex;
     std::condition_variable m_changes_applied;
@@ -85,8 +107,7 @@ private:
     ::iox2::bb::Optional<Iceoryx2::WaitSet::Handle> m_waitset;
     ::iox2::bb::Optional<Guard> m_wake_guard;
     ::iox2::bb::Optional<AttachmentId> m_wake_id;
-    std::map<Listener*, Callback> m_callbacks;
-    std::map<AttachmentId, Listener*> m_listeners;
+    std::map<CallbackId, Callback> m_callbacks;
     std::vector<Guard> m_removed_guards;
     std::thread m_thread;
 };

@@ -93,7 +93,6 @@ public:
                bool ignore_local_publications = false);
     Subscriber(Subscriber&&) = delete;
     auto operator=(Subscriber&&) -> Subscriber& = delete;
-    ~Subscriber();
 
     /// @brief Get the events of this subscriber, which listen to the graph from the first call
     /// @return The events or the error of creating them
@@ -123,7 +122,8 @@ public:
     /// @return Reference to the listener
     auto listener() -> IceoryxListener&;
 
-    /// @brief Calls the callback with the number of new messages, first with those already received
+    /// @brief Sets the callback that is called with the number of new messages
+    /// @details A new callback is called right away with the messages already received
     /// @param[in] callback The callback, nullptr removes the callback
     /// @param[in] user_data Passed to the callback
     /// @return Expected containing void if successful, error otherwise
@@ -165,6 +165,8 @@ private:
     ::iox2::bb::Optional<IceoryxService> m_iox2_service;
     ::iox2::bb::Optional<IceoryxSubscriber> m_iox2_subscriber;
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
+    std::mutex m_callback_mutex;
+    ::iox2::bb::Optional<CallbackThread::Registration> m_callback;
     std::mutex m_mutex;
     IceoryxSampleRegistry m_registry;
     ::iox2::bb::Optional<::rmw_iceoryx2_interoperability::ContextId> m_context_id;
