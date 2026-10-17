@@ -25,6 +25,30 @@
 namespace rmw::iox2
 {
 
+namespace
+{
+
+auto open_graph_service(Iceoryx2& iox2)
+    -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, GuardConditionError> {
+    using ::iox2::bb::err;
+
+    auto graph_service_name = Iceoryx2::ServiceName::create(names::graph().c_str());
+    if (!graph_service_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service_name.error()));
+        return err(GuardConditionError::SERVICE_NAME_CREATION_FAILURE);
+    }
+
+    auto graph_service = iox2.open_or_create_event_service(
+        graph_service_name.value(), GRAPH_MAX_GUARD_CONDITIONS, GRAPH_MAX_GUARD_CONDITIONS, GRAPH_MAX_GUARD_CONDITIONS);
+    if (!graph_service.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service.error()));
+        return err(GuardConditionError::SERVICE_CREATION_FAILURE);
+    }
+    return std::move(graph_service.value());
+}
+
+} // namespace
+
 UserGuardCondition::UserGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error) {
     std::array<int, 2> pipe_ends{};
     if (::pipe(pipe_ends.data()) != 0) {
@@ -93,18 +117,9 @@ auto UserGuardCondition::file_descriptor() const -> ::iox2::FileDescriptorView {
 }
 
 GraphGuardCondition::GraphGuardCondition(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Iceoryx2& iox2) {
-    auto graph_service_name = Iceoryx2::ServiceName::create(names::graph().c_str());
-    if (!graph_service_name.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service_name.error()));
-        error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
-        return;
-    }
-
-    auto graph_service = iox2.open_or_create_event_service(
-        graph_service_name.value(), GRAPH_MAX_GUARD_CONDITIONS, GRAPH_MAX_GUARD_CONDITIONS, GRAPH_MAX_GUARD_CONDITIONS);
+    auto graph_service = open_graph_service(iox2);
     if (!graph_service.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service.error()));
-        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        error.emplace(graph_service.error());
         return;
     }
 
@@ -143,6 +158,32 @@ auto GraphGuardCondition::drain() -> bool {
 }
 
 auto GraphGuardCondition::file_descriptor() const -> ::iox2::FileDescriptorView {
+    return m_iox2_listener->file_descriptor();
+}
+
+GraphListener::GraphListener(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Iceoryx2& iox2) {
+    auto graph_service = open_graph_service(iox2);
+    if (!graph_service.has_value()) {
+        error.emplace(graph_service.error());
+        return;
+    }
+
+    auto iox2_listener = graph_service->listener_builder().create();
+    if (!iox2_listener.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
+        error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
+        return;
+    }
+    m_iox2_listener.emplace(std::move(iox2_listener.value()));
+}
+
+auto GraphListener::drain() -> bool {
+    bool triggered = false;
+    (void)m_iox2_listener->try_wait([&triggered](auto) { triggered = true; });
+    return triggered;
+}
+
+auto GraphListener::file_descriptor() const -> ::iox2::FileDescriptorView {
     return m_iox2_listener->file_descriptor();
 }
 

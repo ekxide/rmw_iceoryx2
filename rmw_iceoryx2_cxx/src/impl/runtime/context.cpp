@@ -23,6 +23,7 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
                                        const rmw_init_options_impl_s& options)
     : m_id{id}
     , m_options{options} {
+    using ::rmw::iox2::create;
     using ::rmw::iox2::create_in_place;
     using ::rmw::iox2::GraphGuardCondition;
     namespace names = rmw::iox2::names;
@@ -45,6 +46,22 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
         error.emplace(ErrorType::CALLBACK_THREAD_CREATION_FAILURE);
         return;
     }
+
+    auto graph_listener = create<::rmw::iox2::GraphListener>(m_iox2.value());
+    if (!graph_listener.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to create the graph listener of the graph change handler");
+        error.emplace(ErrorType::GRAPH_CHANGE_HANDLER_CREATION_FAILURE);
+        return;
+    }
+    m_graph_change_handler = std::make_shared<::rmw::iox2::GraphChangeHandler>(std::move(graph_listener.value()));
+    auto graph_change_callback_registration = m_callback_thread->add(
+        m_graph_change_handler->file_descriptor(), [handler = m_graph_change_handler] { handler->run_callbacks(); });
+    if (!graph_change_callback_registration.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to add the graph change handler to the callback thread");
+        error.emplace(ErrorType::GRAPH_CHANGE_HANDLER_CREATION_FAILURE);
+        return;
+    }
+    m_graph_change_callback_registration.emplace(std::move(graph_change_callback_registration.value()));
 }
 
 rmw_context_impl_s::rmw_context_impl_s(rmw_context_impl_s&& other) noexcept
@@ -52,7 +69,9 @@ rmw_context_impl_s::rmw_context_impl_s(rmw_context_impl_s&& other) noexcept
     , m_iox2{std::move(other.m_iox2)}
     , m_graph_guard_condition{std::move(other.m_graph_guard_condition)}
     , m_options{std::move(other.m_options)}
-    , m_callback_thread{std::move(other.m_callback_thread)} {
+    , m_callback_thread{std::move(other.m_callback_thread)}
+    , m_graph_change_handler{std::move(other.m_graph_change_handler)}
+    , m_graph_change_callback_registration{std::move(other.m_graph_change_callback_registration)} {
 }
 
 auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_context_impl_s& {
@@ -62,6 +81,8 @@ auto rmw_context_impl_s::operator=(rmw_context_impl_s&& other) noexcept -> rmw_c
         m_graph_guard_condition = std::move(other.m_graph_guard_condition);
         m_options = std::move(other.m_options);
         m_callback_thread = std::move(other.m_callback_thread);
+        m_graph_change_handler = std::move(other.m_graph_change_handler);
+        m_graph_change_callback_registration = std::move(other.m_graph_change_callback_registration);
     }
     return *this;
 }
@@ -90,4 +111,8 @@ auto rmw_context_impl_s::notify_graph_change() -> void {
 
 auto rmw_context_impl_s::callback_thread() const -> const std::shared_ptr<::rmw::iox2::CallbackThread>& {
     return m_callback_thread;
+}
+
+auto rmw_context_impl_s::graph_change_handler() const -> const std::shared_ptr<::rmw::iox2::GraphChangeHandler>& {
+    return m_graph_change_handler;
 }

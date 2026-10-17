@@ -739,6 +739,35 @@ TEST_F(RmwPublishSubscribeTest, take_with_info_publication_sequence_number_incre
 // Concurrent calls
 // ---------------------------------------------------------------------------
 
+TEST_F(RmwPublishSubscribeTest, a_late_transient_local_subscription_receives_the_history_of_a_quiet_publisher) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr int64_t PUBLISHED_VALUE = 4711;
+
+    auto qos = rmw_qos_profile_default;
+    qos.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+    auto* publisher = create_publisher<Defaults>(create_test_topic(), qos);
+    ASSERT_NE(publisher, nullptr);
+    Defaults input{};
+    input.int64_value = PUBLISHED_VALUE;
+    ASSERT_RMW_OK(rmw_publish(publisher, &input, nullptr));
+
+    auto* subscription = create_subscriber<Defaults>(create_test_topic(), qos);
+    ASSERT_NE(subscription, nullptr);
+
+    auto* wait_set = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(wait_set, nullptr);
+    std::array<void*, 1> ready{subscription->data};
+    rmw_subscriptions_t subscriptions{ready.size(), ready.data()};
+    ASSERT_RMW_OK(rmw_wait(&subscriptions, nullptr, nullptr, nullptr, nullptr, wait_set, nullptr));
+    ASSERT_RMW_OK(rmw_destroy_wait_set(wait_set));
+
+    Defaults output{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take(subscription, &output, &taken, nullptr));
+    ASSERT_TRUE(taken);
+    EXPECT_EQ(output.int64_value, PUBLISHED_VALUE);
+}
+
 TEST_F(RmwPublishSubscribeTest, concurrent_loans_of_a_publisher_are_all_returned) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
 

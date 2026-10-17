@@ -16,6 +16,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/callback_thread.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/graph_change_handler.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 
 #include <memory>
@@ -128,6 +129,10 @@ public:
     /// @return The callback thread, shared with the entities so that it outlives a shut down context
     auto callback_thread() const -> const std::shared_ptr<::rmw::iox2::CallbackThread>&;
 
+    /// @brief Get the graph change handler of this context, which runs the registered callbacks on graph changes
+    /// @return The handler, shared with the registrations so that it outlives a shut down context
+    auto graph_change_handler() const -> const std::shared_ptr<::rmw::iox2::GraphChangeHandler>&;
+
 private:
     // m_id is logically const after construction. The `const` qualifier is omitted
     // only because the explicit move-assignment operator needs to overwrite it.
@@ -137,6 +142,8 @@ private:
     ::iox2::bb::Optional<::rmw::iox2::GraphGuardCondition> m_graph_guard_condition;
     rmw_init_options_impl_s m_options;
     std::shared_ptr<::rmw::iox2::CallbackThread> m_callback_thread{std::make_shared<::rmw::iox2::CallbackThread>()};
+    std::shared_ptr<::rmw::iox2::GraphChangeHandler> m_graph_change_handler;
+    ::iox2::bb::Optional<::rmw::iox2::CallbackThread::Registration> m_graph_change_callback_registration;
 };
 }
 
