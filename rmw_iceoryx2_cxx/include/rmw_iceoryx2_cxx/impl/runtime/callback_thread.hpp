@@ -13,6 +13,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/callback_progression.hpp"
+#include "iox2/file_descriptor.hpp"
 #include "rmw/event_callback_type.h"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
@@ -20,7 +21,10 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 
 #include <condition_variable>
+#include <cstdint>
+#include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -28,12 +32,32 @@
 namespace rmw::iox2
 {
 
-/// @brief Calls the new data callbacks of the entities of a context from one thread, started by the first callback
-class RMW_PUBLIC CallbackThread
+/// @brief Calls the callbacks of the entities of a context from one thread
+class RMW_PUBLIC CallbackThread : public std::enable_shared_from_this<CallbackThread>
 {
 public:
     using ErrorType = CallbackThreadError;
     using Listener = Iceoryx2::InterProcess::Listener;
+    using CountEvents = std::function<uint64_t()>;
+
+    /// @brief A callback of the thread, removed when the registration is destroyed
+    class RMW_PUBLIC Registration
+    {
+    public:
+        Registration(const Registration&) = delete;
+        Registration(Registration&& other) noexcept;
+        auto operator=(const Registration&) -> Registration& = delete;
+        auto operator=(Registration&& other) noexcept -> Registration&;
+        /// @brief Removes the callback, it is neither running nor called after this returns
+        ~Registration();
+
+    private:
+        friend class CallbackThread;
+        Registration(std::shared_ptr<CallbackThread> thread, uint64_t id);
+
+        std::shared_ptr<CallbackThread> m_thread;
+        uint64_t m_id;
+    };
 
     CallbackThread() = default;
     CallbackThread(const CallbackThread&) = delete;
@@ -42,18 +66,31 @@ public:
     auto operator=(CallbackThread&&) -> CallbackThread& = delete;
     ~CallbackThread();
 
-    /// @brief Calls the callback with the number of notifications the listener receives, first with those it
-    ///        already received
-    /// @param[in] listener The listener of the entity
-    /// @param[in] callback The callback, nullptr removes the callback of the listener
-    /// @param[in] user_data Passed to the callback
+    /// @brief Starts the thread, which then waits for callbacks to call
     /// @return Expected containing void if successful, error otherwise
-    auto set_callback(Listener& listener, rmw_event_callback_t callback, const void* user_data)
-        -> ::iox2::bb::Expected<void, ErrorType>;
+    auto start() -> ::iox2::bb::Expected<void, ErrorType>;
 
-    /// @brief Removes the callback of the listener, it is neither running nor called after this returns
-    /// @param[in] listener The listener of the entity
-    void remove_callback(Listener& listener);
+    /// @brief Adds a callback that is called with the number of notifications the listener receives
+    /// @details The callback is called right away with the notifications the listener already received
+    /// @param[in] listener The listener of the entity, which must outlive the registration
+    /// @param[in] callback The callback
+    /// @param[in] user_data Passed to the callback
+    /// @return Expected containing the registration of the callback if successful, error otherwise
+    auto add(Listener& listener, rmw_event_callback_t callback, const void* user_data)
+        -> ::iox2::bb::Expected<Registration, ErrorType>;
+
+    /// @brief Adds a callback that is called with the number of events count_events returns whenever the file
+    ///        descriptor is readable
+    /// @details The callback is called right away with the events that already happened
+    /// @param[in] wake_up The file descriptor that is readable when events might have happened
+    /// @param[in] count_events Returns the number of events since its last call
+    /// @param[in] callback The callback
+    /// @param[in] user_data Passed to the callback
+    /// @return Expected containing the registration of the callback if successful, error otherwise
+    auto add(::iox2::FileDescriptorView wake_up,
+             CountEvents count_events,
+             rmw_event_callback_t callback,
+             const void* user_data) -> ::iox2::bb::Expected<Registration, ErrorType>;
 
 private:
     using Guard = Iceoryx2::WaitSet::Guard;
@@ -61,18 +98,20 @@ private:
 
     struct Callback
     {
+        ::iox2::FileDescriptorView wake_up;
+        CountEvents count_events;
         rmw_event_callback_t callback;
         const void* user_data;
         ::iox2::bb::Optional<Guard> guard;
     };
 
-    auto start() -> ::iox2::bb::Expected<void, ErrorType>;
+    void remove(uint64_t id);
     void apply_changes(std::unique_lock<std::mutex>& lock);
     void run();
     auto on_event(const AttachmentId& id) -> ::iox2::CallbackProgression;
     void attach_new_callbacks();
-    auto attach(Listener* listener, Callback& callback) -> bool;
-    static void call(Listener& listener, const Callback& callback);
+    auto attach(uint64_t id, Callback& callback) -> bool;
+    static void call(const Callback& callback);
 
     std::mutex m_mutex;
     std::condition_variable m_changes_applied;
@@ -82,8 +121,9 @@ private:
     ::iox2::bb::Optional<Iceoryx2::WaitSet::Handle> m_waitset;
     ::iox2::bb::Optional<Guard> m_wake_guard;
     ::iox2::bb::Optional<AttachmentId> m_wake_id;
-    std::map<Listener*, Callback> m_callbacks;
-    std::map<AttachmentId, Listener*> m_listeners;
+    uint64_t m_next_id{0};
+    std::map<uint64_t, Callback> m_callbacks;
+    std::map<AttachmentId, uint64_t> m_ids;
     std::vector<Guard> m_removed_guards;
     std::thread m_thread;
 };

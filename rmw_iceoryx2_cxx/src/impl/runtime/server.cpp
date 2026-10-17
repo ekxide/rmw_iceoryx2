@@ -123,19 +123,24 @@ Server::Server(CreationLock,
     m_iox2_listener.emplace(std::move(iox2_listener.value()));
 }
 
-Server::~Server() {
-    if (m_iox2_listener.has_value()) {
-        m_callback_thread->remove_callback(m_iox2_listener.value());
-    }
-}
-
 auto Server::listener() -> IceoryxListener& {
     return m_iox2_listener.value();
 }
 
 auto Server::set_callback(rmw_event_callback_t callback, const void* user_data)
     -> ::iox2::bb::Expected<void, CallbackThread::ErrorType> {
-    return m_callback_thread->set_callback(m_iox2_listener.value(), callback, user_data);
+    using ::iox2::bb::err;
+
+    m_callback.reset();
+    if (callback == nullptr) {
+        return {};
+    }
+    auto added = m_callback_thread->add(m_iox2_listener.value(), callback, user_data);
+    if (!added.has_value()) {
+        return err(added.error());
+    }
+    m_callback.emplace(std::move(added.value()));
+    return {};
 }
 
 auto Server::service() const -> const std::string& {

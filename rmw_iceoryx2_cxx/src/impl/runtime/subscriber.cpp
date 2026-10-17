@@ -37,7 +37,7 @@ Subscriber::Subscriber(CreationLock,
     , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::topic(topic)}
     , m_qos{qos}
-    , m_events{node.iox2(), [this] {
+    , m_events{node.iox2(), node.context().callback_thread(), [this] {
                    std::set<Events::Gid> gids;
                    m_iox2_service->dynamic_config().list_publishers([&gids](auto view) {
                        gids.insert(Events::gid_of(view.publisher_id().bytes()));
@@ -200,19 +200,24 @@ auto Subscriber::has_samples() const -> bool {
     return result.has_value() && result.value();
 }
 
-Subscriber::~Subscriber() {
-    if (m_iox2_listener.has_value()) {
-        m_callback_thread->remove_callback(m_iox2_listener.value());
-    }
-}
-
 auto Subscriber::listener() -> IceoryxListener& {
     return m_iox2_listener.value();
 }
 
 auto Subscriber::set_callback(rmw_event_callback_t callback, const void* user_data)
     -> ::iox2::bb::Expected<void, CallbackThread::ErrorType> {
-    return m_callback_thread->set_callback(m_iox2_listener.value(), callback, user_data);
+    using ::iox2::bb::err;
+
+    m_callback.reset();
+    if (callback == nullptr) {
+        return {};
+    }
+    auto added = m_callback_thread->add(m_iox2_listener.value(), callback, user_data);
+    if (!added.has_value()) {
+        return err(added.error());
+    }
+    m_callback.emplace(std::move(added.value()));
+    return {};
 }
 
 auto Subscriber::qos() const -> const Qos& {
