@@ -50,11 +50,6 @@ auto CallbackThread::set_callback(Listener& listener, rmw_event_callback_t callb
         return {};
     }
 
-    if (!m_thread.joinable()) {
-        if (auto started = start(); !started.has_value()) {
-            return started;
-        }
-    }
     auto added = m_callbacks.emplace(&listener, Callback{callback, user_data, ::iox2::bb::NULLOPT}).first;
     call(listener, added->second);
     apply_changes(lock);
@@ -87,6 +82,9 @@ void CallbackThread::remove_callback(Listener& listener) {
 auto CallbackThread::start() -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
+    if (m_thread.joinable()) {
+        return {};
+    }
     if (!create_in_place(m_wake).has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create the wake-up of the callback thread");
         return err(ErrorType::WAKE_UP_FAILURE);

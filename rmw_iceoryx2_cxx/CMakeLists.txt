@@ -163,6 +163,7 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_rmw_iceoryx2_cxx
     test/testing/base.cpp
+    test/test_impl_callback_thread.cpp
     test/test_impl_context.cpp
     test/test_impl_guard_condition.cpp
     test/test_impl_message_introspection.cpp
