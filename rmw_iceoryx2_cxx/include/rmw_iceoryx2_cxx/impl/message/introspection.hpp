@@ -36,8 +36,10 @@ RMW_PUBLIC auto message_type_name(const rosidl_message_type_support_t* type_supp
 RMW_PUBLIC auto message_type_hash(const rosidl_message_type_support_t* type_support)
     -> ::iox2::bb::Optional<rosidl_type_hash_t>;
 
-/// @brief The per-instance serialized size in bytes, including the 4-byte
-///        CDR encapsulation header.
+/// @brief The size of the encapsulation header in front of every CDR payload.
+constexpr size_t CDR_ENCAPSULATION_SIZE = 4;
+
+/// @brief The per-instance serialized size in bytes, including the CDR encapsulation header.
 RMW_PUBLIC auto serialized_message_size(const void* ros_message, const rosidl_message_type_support_t* type_support)
     -> size_t;
 

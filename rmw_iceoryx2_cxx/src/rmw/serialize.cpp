@@ -13,10 +13,11 @@
 #include "rmw/serialized_message.h"
 #include "rmw_iceoryx2_cxx/impl/common/ensure.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/typesupport.hpp"
 #include "rosidl_typesupport_fastrtps_cpp/identifier.hpp"
 
-const char* const rmw_iox2_serialization_format = "iceoryx2";
+const char* const rmw_iox2_serialization_format = "cdr";
 
 namespace
 {
@@ -64,7 +65,7 @@ rmw_ret_t rmw_serialize(const void* ros_message,
     }
 
     // Prepare the buffer
-    const auto serialized_size = callbacks->get_serialized_size(ros_message);
+    const auto serialized_size = ::rmw::iox2::CDR_ENCAPSULATION_SIZE + callbacks->get_serialized_size(ros_message);
     if (serialized_message->buffer_capacity < serialized_size) {
         if (rmw_serialized_message_resize(serialized_message, serialized_size) != RMW_RET_OK) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to resize serialized message");
@@ -78,6 +79,7 @@ rmw_ret_t rmw_serialize(const void* ros_message,
 
     // Serialize ros message into target buffer
     try {
+        serializer.serialize_encapsulation();
         if (!callbacks->cdr_serialize(ros_message, serializer)) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize");
             return RMW_RET_ERROR;
@@ -115,6 +117,7 @@ rmw_ret_t rmw_deserialize(const rmw_serialized_message_t* serialized_message,
 
     // Deserialize ros message into target buffer
     try {
+        deserializer.read_encapsulation();
         if (!callbacks->cdr_deserialize(deserializer, ros_message)) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize");
             return RMW_RET_ERROR;
