@@ -88,7 +88,6 @@ public:
            const rmw_qos_profile_t& qos);
     Client(Client&&) = delete;
     auto operator=(Client&&) -> Client& = delete;
-    ~Client();
 
     /// @brief Get the unique identifier of this client
     /// @return The unique id or empty optional if failing to retrieve it from iceoryx2
@@ -134,7 +133,8 @@ public:
     /// @return Reference to the listener
     auto listener() -> IceoryxListener&;
 
-    /// @brief Calls the callback with the number of new responses, first with those already received
+    /// @brief Sets the callback that is called with the number of new responses
+    /// @details A new callback is called right away with the responses already received
     /// @param[in] callback The callback, nullptr removes the callback
     /// @param[in] user_data Passed to the callback
     /// @return Expected containing void if successful, error otherwise
@@ -166,6 +166,8 @@ private:
     ::iox2::bb::Optional<IceoryxClient> m_iox2_client;
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
+    std::mutex m_callback_mutex;
+    ::iox2::bb::Optional<CallbackThread::Registration> m_callback;
     std::mutex m_mutex;
     SampleRegistry<IceoryxRequest> m_requests;
     std::map<uint64_t, IceoryxPendingResponse> m_pending_responses;

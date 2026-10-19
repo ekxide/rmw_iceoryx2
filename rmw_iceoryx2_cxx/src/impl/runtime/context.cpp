@@ -39,6 +39,12 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
         error.emplace(ErrorType::GRAPH_GUARD_CONDITION_CREATION_FAILURE);
         return;
     }
+
+    if (!m_callback_thread->start().has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to start the callback thread of the context");
+        error.emplace(ErrorType::CALLBACK_THREAD_CREATION_FAILURE);
+        return;
+    }
 }
 
 rmw_context_impl_s::rmw_context_impl_s(rmw_context_impl_s&& other) noexcept

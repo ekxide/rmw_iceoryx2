@@ -21,6 +21,33 @@
 namespace rmw::iox2
 {
 
+CallbackThread::Registration::Registration(std::shared_ptr<CallbackThread> thread)
+    : m_thread{std::move(thread)}
+    , m_id{s_next_id++} {
+}
+
+CallbackThread::Registration::Registration(Registration&& other) noexcept
+    : m_thread{std::move(other.m_thread)}
+    , m_id{other.m_id} {
+}
+
+auto CallbackThread::Registration::operator=(Registration&& other) noexcept -> Registration& {
+    if (this != &other) {
+        if (m_thread) {
+            m_thread->remove(m_id);
+        }
+        m_thread = std::move(other.m_thread);
+        m_id = other.m_id;
+    }
+    return *this;
+}
+
+CallbackThread::Registration::~Registration() {
+    if (m_thread) {
+        m_thread->remove(m_id);
+    }
+}
+
 CallbackThread::~CallbackThread() {
     if (!m_thread.joinable()) {
         return;
@@ -33,60 +60,66 @@ CallbackThread::~CallbackThread() {
     m_thread.join();
 }
 
-auto CallbackThread::set_callback(Listener& listener, rmw_event_callback_t callback, const void* user_data)
-    -> ::iox2::bb::Expected<void, ErrorType> {
+auto CallbackThread::add(Listener& listener, rmw_event_callback_t callback, const void* user_data)
+    -> ::iox2::bb::Expected<Registration, ErrorType> {
+    auto count_notifications = [&listener]() -> uint64_t {
+        uint64_t count = 0;
+        if (auto result = listener.try_wait([&count](auto activation) { count += activation.count(); });
+            !result.has_value()) {
+            RMW_IOX2_LOG_ERROR("failed to retrieve events from listener");
+        }
+        return count;
+    };
+    return add(listener.file_descriptor(), count_notifications, callback, user_data);
+}
+
+auto CallbackThread::add(::iox2::FileDescriptorView file_descriptor,
+                         CountEvents count_events,
+                         rmw_event_callback_t callback,
+                         const void* user_data) -> ::iox2::bb::Expected<Registration, ErrorType> {
     using ::iox2::bb::err;
 
-    if (callback == nullptr) {
-        remove_callback(listener);
-        return {};
-    }
-
+    Registration registration{shared_from_this()};
     std::unique_lock<std::mutex> lock{m_mutex};
-    if (auto existing = m_callbacks.find(&listener); existing != m_callbacks.end()) {
-        existing->second.callback = callback;
-        existing->second.user_data = user_data;
-        call(listener, existing->second);
-        return {};
-    }
-
-    if (!m_thread.joinable()) {
-        if (auto started = start(); !started.has_value()) {
-            return started;
-        }
-    }
-    auto added = m_callbacks.emplace(&listener, Callback{callback, user_data, ::iox2::bb::NULLOPT}).first;
-    call(listener, added->second);
-    apply_changes(lock);
+    auto& added_callback =
+        m_callbacks
+            .emplace(registration.m_id,
+                     Callback{file_descriptor, std::move(count_events), callback, user_data, ::iox2::bb::NULLOPT})
+            .first->second;
+    call(added_callback);
+    synchronize(lock);
 
     if (m_stop) {
         RMW_IOX2_CHAIN_ERROR_MSG("the callback thread stopped");
         return err(ErrorType::STOPPED);
     }
-    if (m_callbacks.count(&listener) == 0) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to wait on the listener of the callback");
+    if (m_callbacks.count(registration.m_id) == 0) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to wait on the file descriptor of the callback");
         return err(ErrorType::ATTACHMENT_FAILURE);
     }
-    return {};
+    return std::move(registration);
 }
 
-void CallbackThread::remove_callback(Listener& listener) {
+void CallbackThread::remove(CallbackId id) {
     std::unique_lock<std::mutex> lock{m_mutex};
-    auto removed = m_callbacks.find(&listener);
+    auto removed = m_callbacks.find(id);
     if (removed == m_callbacks.end()) {
         return;
     }
-    if (removed->second.guard.has_value()) {
-        m_listeners.erase(AttachmentId::from_guard(removed->second.guard.value()));
-        m_removed_guards.push_back(std::move(removed->second.guard.value()));
+    auto& removed_callback = removed->second;
+    if (removed_callback.guard.has_value()) {
+        m_removed_guards.push_back(std::move(removed_callback.guard.value()));
     }
     m_callbacks.erase(removed);
-    apply_changes(lock);
+    synchronize(lock);
 }
 
 auto CallbackThread::start() -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
+    if (m_thread.joinable()) {
+        return {};
+    }
     if (!create_in_place(m_wake).has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create the wake-up of the callback thread");
         return err(ErrorType::WAKE_UP_FAILURE);
@@ -111,7 +144,7 @@ auto CallbackThread::start() -> ::iox2::bb::Expected<void, ErrorType> {
     return {};
 }
 
-void CallbackThread::apply_changes(std::unique_lock<std::mutex>& lock) {
+void CallbackThread::synchronize(std::unique_lock<std::mutex>& lock) {
     m_changed = true;
     (void)m_wake->trigger();
     m_changes_applied.wait(lock, [this] { return !m_changed || m_stop; });
@@ -145,15 +178,19 @@ auto CallbackThread::on_event(const AttachmentId& id) -> ::iox2::CallbackProgres
         return CallbackProgression::Continue;
     }
 
-    if (auto listener = m_listeners.find(id); listener != m_listeners.end()) {
-        call(*listener->second, m_callbacks.at(listener->second));
+    for (auto& entry : m_callbacks) {
+        auto& callback = entry.second;
+        if (callback.guard.has_value() && id.has_event_from(callback.guard.value())) {
+            call(callback);
+            break;
+        }
     }
     return CallbackProgression::Continue;
 }
 
 void CallbackThread::attach_new_callbacks() {
     for (auto entry = m_callbacks.begin(); entry != m_callbacks.end();) {
-        if (entry->second.guard.has_value() || attach(entry->first, entry->second)) {
+        if (entry->second.guard.has_value() || attach(entry->second)) {
             ++entry;
         } else {
             entry = m_callbacks.erase(entry);
@@ -161,25 +198,18 @@ void CallbackThread::attach_new_callbacks() {
     }
 }
 
-auto CallbackThread::attach(Listener* listener, Callback& callback) -> bool {
-    auto guard = m_waitset->attach_notification(listener->file_descriptor());
+auto CallbackThread::attach(Callback& callback) -> bool {
+    auto guard = m_waitset->attach_notification(callback.file_descriptor);
     if (!guard.has_value()) {
         RMW_IOX2_LOG_ERROR("failed to attach a callback: %s", ::iox2::bb::into<const char*>(guard.error()));
         return false;
     }
-    m_listeners.emplace(AttachmentId::from_guard(guard.value()), listener);
     callback.guard.emplace(std::move(guard.value()));
     return true;
 }
 
-void CallbackThread::call(Listener& listener, const Callback& callback) {
-    uint64_t count = 0;
-    if (auto result = listener.try_wait([&count](auto activation) { count += activation.count(); });
-        !result.has_value()) {
-        RMW_IOX2_LOG_ERROR("failed to retrieve events from listener");
-        return;
-    }
-    if (count > 0) {
+void CallbackThread::call(const Callback& callback) {
+    if (auto count = callback.count_events(); count > 0) {
         callback.callback(callback.user_data, count);
     }
 }

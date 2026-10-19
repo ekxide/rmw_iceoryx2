@@ -119,10 +119,22 @@ rmw_ret_t rmw_event_fini(rmw_event_t* rmw_event) {
 
 rmw_ret_t rmw_event_set_callback(rmw_event_t* rmw_event, rmw_event_callback_t callback, const void* user_data) {
     // Invariants ----------------------------------------------------------------------------------
-    RMW_IOX2_ENSURE_NOT_NULL(user_data, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_NOT_NULL(rmw_event, RMW_RET_INVALID_ARGUMENT);
+    RMW_IOX2_ENSURE_IMPLEMENTATION(rmw_event->implementation_identifier, RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
 
     // Implementation -------------------------------------------------------------------------------
-    return RMW_RET_UNSUPPORTED;
+    using ::rmw::iox2::Events;
+    using ::rmw::iox2::unsafe_cast;
+
+    auto events = unsafe_cast<Events*>(rmw_event->data);
+    if (!events.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to retrieve the events");
+        return RMW_RET_ERROR;
+    }
+    if (!events.value()->set_callback(rmw_event->event_type, callback, user_data).has_value()) {
+        return RMW_RET_ERROR;
+    }
+    return RMW_RET_OK;
 }
 
 bool rmw_event_type_is_supported(rmw_event_type_t rmw_event_type) {

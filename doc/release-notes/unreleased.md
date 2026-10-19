@@ -15,6 +15,7 @@
 * Add support for services and clients [#3](https://github.com/ekxide/rmw_iceoryx2/issues/3)
 * Report the servers and clients of a service with their node, type and gid [#3](https://github.com/ekxide/rmw_iceoryx2/issues/3)
 * Implement the matched events of publishers and subscriptions [#4](https://github.com/ekxide/rmw_iceoryx2/issues/4)
+* Call the callbacks of the matched events [#4](https://github.com/ekxide/rmw_iceoryx2/issues/4)
 * Add support for QoS [#5](https://github.com/ekxide/rmw_iceoryx2/issues/2)
 * Implement graph API for publish-subscribe topics [#6](https://github.com/ekxide/rmw_iceoryx2/issues/6)
 * Trigger graph guard conditions when the graph changes [#6](https://github.com/ekxide/rmw_iceoryx2/issues/6)

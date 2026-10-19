@@ -16,7 +16,9 @@
 #include "testing/base.hpp"
 
 #include <atomic>
+#include <condition_variable>
 #include <cstddef>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -25,6 +27,22 @@ namespace
 
 using namespace rmw::iox2::testing;
 using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+struct Calls
+{
+    std::mutex mutex;
+    std::condition_variable called;
+    size_t calls{0};
+    size_t events{0};
+};
+
+void count_calls(const void* user_data, size_t number_of_events) {
+    auto* calls = static_cast<Calls*>(const_cast<void*>(user_data));
+    std::lock_guard<std::mutex> lock{calls->mutex};
+    ++calls->calls;
+    calls->events += number_of_events;
+    calls->called.notify_all();
+}
 
 class RmwEventTest : public TestBase
 {
@@ -69,6 +87,11 @@ protected:
         EXPECT_TRUE(result == RMW_RET_OK || result == RMW_RET_TIMEOUT);
         EXPECT_RMW_OK(rmw_destroy_wait_set(wait_set));
         return events[0] != nullptr;
+    }
+
+    static void wait_for_calls(Calls& calls, size_t number_of_calls) {
+        std::unique_lock<std::mutex> lock{calls.mutex};
+        calls.called.wait(lock, [&] { return calls.calls >= number_of_calls; });
     }
 };
 
@@ -214,6 +237,87 @@ TEST_F(RmwEventTest, concurrent_takes_of_a_matched_event_count_every_subscriptio
     for (auto* subscription : subscriptions) {
         EXPECT_RMW_OK(rmw_destroy_subscription(test_node(), subscription));
     }
+    ASSERT_RMW_OK(rmw_event_fini(&event));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
+}
+
+TEST_F(RmwEventTest, the_matched_callback_is_called_once_for_every_change) {
+    constexpr size_t CHANGES_AFTER_MATCH = 1;
+    constexpr size_t CHANGES_AFTER_UNMATCH = 2;
+
+    auto* publisher = create_publisher();
+    ASSERT_NE(publisher, nullptr);
+    auto event = rmw_get_zero_initialized_event();
+    ASSERT_RMW_OK(rmw_publisher_event_init(&event, publisher, RMW_EVENT_PUBLICATION_MATCHED));
+    Calls calls;
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, count_calls, &calls));
+
+    auto* subscription = create_subscription();
+    ASSERT_NE(subscription, nullptr);
+    wait_for_calls(calls, CHANGES_AFTER_MATCH);
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription));
+    wait_for_calls(calls, CHANGES_AFTER_UNMATCH);
+    {
+        std::lock_guard<std::mutex> lock{calls.mutex};
+        EXPECT_EQ(calls.calls, CHANGES_AFTER_UNMATCH);
+        EXPECT_EQ(calls.events, CHANGES_AFTER_UNMATCH);
+    }
+
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, nullptr, nullptr));
+    ASSERT_RMW_OK(rmw_event_fini(&event));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
+}
+
+TEST_F(RmwEventTest, a_new_matched_callback_is_not_called_with_the_changes_of_the_previous_one) {
+    constexpr size_t CHANGES_AFTER_MATCH = 1;
+
+    auto* publisher = create_publisher();
+    ASSERT_NE(publisher, nullptr);
+    auto event = rmw_get_zero_initialized_event();
+    ASSERT_RMW_OK(rmw_publisher_event_init(&event, publisher, RMW_EVENT_PUBLICATION_MATCHED));
+    Calls previous_calls;
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, count_calls, &previous_calls));
+    auto* subscription = create_subscription();
+    ASSERT_NE(subscription, nullptr);
+    wait_for_calls(previous_calls, CHANGES_AFTER_MATCH);
+
+    Calls new_calls;
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, count_calls, &new_calls));
+    {
+        std::lock_guard<std::mutex> lock{new_calls.mutex};
+        EXPECT_EQ(new_calls.calls, 0U);
+    }
+
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, nullptr, nullptr));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), subscription));
+    ASSERT_RMW_OK(rmw_event_fini(&event));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
+}
+
+TEST_F(RmwEventTest, the_matched_callback_reports_the_changes_since_the_last_take) {
+    constexpr size_t CALLS_FOR_EARLIER_CHANGES = 1;
+    constexpr size_t MATCHED_SUBSCRIPTIONS = 2;
+
+    auto* publisher = create_publisher();
+    ASSERT_NE(publisher, nullptr);
+    auto event = rmw_get_zero_initialized_event();
+    ASSERT_RMW_OK(rmw_publisher_event_init(&event, publisher, RMW_EVENT_PUBLICATION_MATCHED));
+    auto* first = create_subscription();
+    auto* second = create_subscription();
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+
+    Calls calls;
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, count_calls, &calls));
+    {
+        std::lock_guard<std::mutex> lock{calls.mutex};
+        EXPECT_EQ(calls.calls, CALLS_FOR_EARLIER_CHANGES);
+        EXPECT_EQ(calls.events, MATCHED_SUBSCRIPTIONS);
+    }
+
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, nullptr, nullptr));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), second));
+    ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), first));
     ASSERT_RMW_OK(rmw_event_fini(&event));
     ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
 }
