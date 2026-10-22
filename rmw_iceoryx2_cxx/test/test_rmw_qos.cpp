@@ -14,6 +14,7 @@
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
+#include <cstdlib>
 #include <string>
 
 namespace
@@ -28,7 +29,12 @@ using namespace rmw::iox2::testing;
 class RmwQosCheckCompatibleTest : public TestBase
 {
 protected:
+    void SetUp() override {
+        unset_environment("RMW_IOX2_QOS_MATCHING");
+    }
+
     void TearDown() override {
+        restore_environment();
         print_rmw_errors();
     }
 };
@@ -52,7 +58,8 @@ TEST_F(RmwQosCheckCompatibleTest, accepts_identical_concrete_profiles) {
     EXPECT_EQ(compatibility, RMW_QOS_COMPATIBILITY_OK);
 }
 
-TEST_F(RmwQosCheckCompatibleTest, rejects_reliability_mismatch) {
+TEST_F(RmwQosCheckCompatibleTest, rejects_reliability_mismatch_in_strict_mode) {
+    setenv("RMW_IOX2_QOS_MATCHING", "strict", 1);
     auto pub_profile = rmw_qos_profile_default;
     pub_profile.reliability = RMW_QOS_POLICY_RELIABILITY_RELIABLE;
     auto sub_profile = rmw_qos_profile_default;
@@ -66,7 +73,8 @@ TEST_F(RmwQosCheckCompatibleTest, rejects_reliability_mismatch) {
     EXPECT_NE(std::string{reason}.find("reliability"), std::string::npos);
 }
 
-TEST_F(RmwQosCheckCompatibleTest, rejects_durability_mismatch) {
+TEST_F(RmwQosCheckCompatibleTest, rejects_durability_mismatch_in_strict_mode) {
+    setenv("RMW_IOX2_QOS_MATCHING", "strict", 1);
     auto pub_profile = rmw_qos_profile_default;
     pub_profile.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
     auto sub_profile = rmw_qos_profile_default;
@@ -80,7 +88,8 @@ TEST_F(RmwQosCheckCompatibleTest, rejects_durability_mismatch) {
     EXPECT_NE(std::string{reason}.find("durability"), std::string::npos);
 }
 
-TEST_F(RmwQosCheckCompatibleTest, rejects_depth_mismatch) {
+TEST_F(RmwQosCheckCompatibleTest, rejects_depth_mismatch_in_strict_mode) {
+    setenv("RMW_IOX2_QOS_MATCHING", "strict", 1);
     auto pub_profile = rmw_qos_profile_default;
     pub_profile.depth = 10;
     auto sub_profile = rmw_qos_profile_default;
@@ -92,6 +101,31 @@ TEST_F(RmwQosCheckCompatibleTest, rejects_depth_mismatch) {
     EXPECT_RMW_OK(rmw_qos_profile_check_compatible(pub_profile, sub_profile, &compatibility, reason, sizeof(reason)));
     EXPECT_EQ(compatibility, RMW_QOS_COMPATIBILITY_ERROR);
     EXPECT_NE(std::string{reason}.find("depth"), std::string::npos);
+}
+
+TEST_F(RmwQosCheckCompatibleTest, accepts_different_reliability_durability_and_depth) {
+    auto pub_profile = rmw_qos_profile_default;
+    pub_profile.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+    pub_profile.depth = 10;
+    auto sub_profile = rmw_qos_profile_default;
+    sub_profile.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    sub_profile.depth = 20;
+
+    rmw_qos_compatibility_type_t compatibility = RMW_QOS_COMPATIBILITY_ERROR;
+    char reason[256] = {'x'};
+
+    EXPECT_RMW_OK(rmw_qos_profile_check_compatible(pub_profile, sub_profile, &compatibility, reason, sizeof(reason)));
+    EXPECT_EQ(compatibility, RMW_QOS_COMPATIBILITY_OK);
+    EXPECT_STREQ(reason, "");
+}
+
+TEST_F(RmwQosCheckCompatibleTest, fails_on_an_invalid_matching_mode) {
+    setenv("RMW_IOX2_QOS_MATCHING", "invalid", 1);
+    rmw_qos_compatibility_type_t compatibility = RMW_QOS_COMPATIBILITY_OK;
+
+    EXPECT_RMW_ERR(
+        RMW_RET_INVALID_ARGUMENT,
+        rmw_qos_profile_check_compatible(rmw_qos_profile_default, rmw_qos_profile_default, &compatibility, nullptr, 0));
 }
 
 TEST_F(RmwQosCheckCompatibleTest, warns_on_keep_all_history) {

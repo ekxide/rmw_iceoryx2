@@ -15,6 +15,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/callback_thread.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/graph_change_handler.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
@@ -30,14 +31,6 @@ template <>
 struct Error<rmw_context_impl_s>
 {
     using Type = ContextError;
-};
-
-/// Controls how `rmw_create_*` reconciles requested QoS with an existing
-/// iceoryx2 service.
-enum class QosMatchingMode : uint8_t {
-    ROS,      /// require only the message type, every endpoint keeps its own QoS (default)
-    STRICT,   /// require attribute equality
-    ADOPTIVE, /// substitute caller QoS with existing service attributes
 };
 
 /// Defaults applied unless overriden by environment variable.

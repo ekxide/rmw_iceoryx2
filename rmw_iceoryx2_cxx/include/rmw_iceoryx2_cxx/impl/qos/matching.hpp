@@ -10,6 +10,7 @@
 #ifndef RMW_IOX2_QOS_MATCHING_HPP_
 #define RMW_IOX2_QOS_MATCHING_HPP_
 
+#include "rmw/ret_types.h"
 #include "rmw/types.h"
 #include "rmw/visibility_control.h"
 
@@ -29,6 +30,18 @@ namespace rmw::iox2
 /// Selects which default profile is used when resolving `*_SYSTEM_DEFAULT`
 /// for `rmw_qos_profile_t` inputs.
 enum class ProfileKind : uint8_t { PUBLISH_SUBSCRIBE, SERVICE };
+
+/// Controls how `rmw_create_*` reconciles requested QoS with an existing
+/// iceoryx2 service.
+enum class QosMatchingMode : uint8_t {
+    ROS,      /// require only the message type, every endpoint keeps its own QoS (default)
+    STRICT,   /// require attribute equality
+    ADOPTIVE, /// substitute caller QoS with existing service attributes
+};
+
+/// Reads `RMW_IOX2_QOS_MATCHING`. Empty or unset leaves `out` unchanged.
+/// Any value other than `ros` / `strict` / `adoptive` is reported via the error chain.
+auto parse_qos_matching_env(QosMatchingMode& out) -> rmw_ret_t;
 
 } // namespace rmw::iox2
 
