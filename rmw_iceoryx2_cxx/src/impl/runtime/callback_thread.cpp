@@ -77,14 +77,21 @@ auto CallbackThread::add(::iox2::FileDescriptorView file_descriptor,
                          CountEvents count_events,
                          rmw_event_callback_t callback,
                          const void* user_data) -> ::iox2::bb::Expected<Registration, ErrorType> {
+    return add(file_descriptor, [count_events = std::move(count_events), callback, user_data] {
+        if (auto count = count_events(); count > 0) {
+            callback(user_data, count);
+        }
+    });
+}
+
+auto CallbackThread::add(::iox2::FileDescriptorView file_descriptor, OnWakeUp on_wake_up)
+    -> ::iox2::bb::Expected<Registration, ErrorType> {
     using ::iox2::bb::err;
 
     Registration registration{shared_from_this()};
     std::unique_lock<std::mutex> lock{m_mutex};
     auto& added_callback =
-        m_callbacks
-            .emplace(registration.m_id,
-                     Callback{file_descriptor, std::move(count_events), callback, user_data, ::iox2::bb::NULLOPT})
+        m_callbacks.emplace(registration.m_id, Callback{file_descriptor, std::move(on_wake_up), ::iox2::bb::NULLOPT})
             .first->second;
     call(added_callback);
     synchronize(lock);
@@ -209,9 +216,7 @@ auto CallbackThread::attach(Callback& callback) -> bool {
 }
 
 void CallbackThread::call(const Callback& callback) {
-    if (auto count = callback.count_events(); count > 0) {
-        callback.callback(callback.user_data, count);
-    }
+    callback.on_wake_up();
 }
 
 } // namespace rmw::iox2

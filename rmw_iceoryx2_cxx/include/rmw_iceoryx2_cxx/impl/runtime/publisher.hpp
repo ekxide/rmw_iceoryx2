@@ -21,6 +21,7 @@
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/events.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/graph_change_handler.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/node.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/sample_registry.hpp"
 #include "rosidl_typesupport_cpp/message_type_support.hpp"
@@ -133,6 +134,9 @@ public:
     /// @return Expected containing void or error if publish failed
     auto publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
 
+    /// @brief Sends the history to the subscriptions that joined since the publisher last connected and wakes them
+    void update_connections();
+
 private:
     /// @brief Populate the user-header message info (source timestamp, sequence number) before sending.
     auto populate_message_info(UserHeader& header) -> void;
@@ -157,6 +161,7 @@ private:
     uint64_t m_publication_sequence_number{0};
     ::rmw_iceoryx2_interoperability::ContextId m_context_id{};
     Events m_events;
+    ::iox2::bb::Optional<GraphChangeHandler::Registration> m_graph_change_registration;
 };
 
 } // namespace rmw::iox2

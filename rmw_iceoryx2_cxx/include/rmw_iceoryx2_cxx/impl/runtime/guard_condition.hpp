@@ -29,6 +29,7 @@ class Node;
 class GuardCondition;
 class UserGuardCondition;
 class GraphGuardCondition;
+class GraphListener;
 
 template <>
 struct Error<GuardCondition>
@@ -44,6 +45,12 @@ struct Error<UserGuardCondition>
 
 template <>
 struct Error<GraphGuardCondition>
+{
+    using Type = GuardConditionError;
+};
+
+template <>
+struct Error<GraphListener>
 {
     using Type = GuardConditionError;
 };
@@ -127,6 +134,32 @@ public:
 
 private:
     ::iox2::bb::Optional<IceoryxNotifier> m_iox2_notifier;
+    ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
+};
+
+/// @brief Listens to every change to the graph in any process, without a notifier of its own
+class RMW_PUBLIC GraphListener
+{
+    using IceoryxListener = Iceoryx2::InterProcess::Listener;
+
+public:
+    using ErrorType = Error<GraphListener>::Type;
+
+    /// @brief Creates a new graph listener
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] iox2 The iceoryx2 handle that joins the graph event service
+    GraphListener(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Iceoryx2& iox2);
+
+    /// @brief Takes the pending graph changes
+    /// @return True if the graph changed since the last call
+    auto drain() -> bool;
+
+    /// @brief Get the file descriptor that is readable when the graph changed
+    /// @return The file descriptor of the listener
+    auto file_descriptor() const -> ::iox2::FileDescriptorView;
+
+private:
     ::iox2::bb::Optional<IceoryxListener> m_iox2_listener;
 };
 

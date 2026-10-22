@@ -165,8 +165,29 @@ Publisher::Publisher(CreationLock,
 
     const auto context_id = node.context().iox2().ipc().id();
     m_context_id = {context_id.value_high(), context_id.value_low()};
+
+    if (m_qos.durability() == Qos::Durability::TRANSIENT_LOCAL) {
+        m_graph_change_registration.emplace(
+            node.context().graph_change_handler()->register_callback([this] { update_connections(); }));
+    }
 }
 
+
+void Publisher::update_connections() {
+    std::lock_guard<std::mutex> lock{m_mutex};
+    if (m_publication_sequence_number == 0) {
+        return;
+    }
+    if (auto result = m_iox2_publisher->update_connections(); !result.has_value()) {
+        RMW_IOX2_LOG_WARN("failed to send the history of '%s' to new subscriptions: %s",
+                          m_topic.c_str(),
+                          ::iox2::bb::into<const char*>(result.error()));
+        return;
+    }
+    if (auto result = m_iox2_notifier->notify(); !result.has_value()) {
+        log_notify_error(result.error(), "history of", m_topic);
+    }
+}
 
 auto Publisher::events() -> ::iox2::bb::Expected<Events*, Events::ErrorType> {
     if (auto listening = m_events.listen(); !listening.has_value()) {

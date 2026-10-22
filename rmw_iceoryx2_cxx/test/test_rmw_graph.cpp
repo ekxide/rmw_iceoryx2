@@ -938,7 +938,7 @@ TEST_F(RmwGraphServiceTest, contexts_join_a_graph_service_created_by_another_ice
             .event()
             .max_nodes(3)
             .max_notifiers(2)
-            .max_listeners(2)
+            .max_listeners(3)
             .create();
     ASSERT_TRUE(native_service.has_value());
 

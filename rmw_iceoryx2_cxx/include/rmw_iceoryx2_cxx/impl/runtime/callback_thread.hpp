@@ -40,6 +40,7 @@ public:
     using ErrorType = CallbackThreadError;
     using Listener = Iceoryx2::InterProcess::Listener;
     using CountEvents = std::function<uint64_t()>;
+    using OnWakeUp = std::function<void()>;
     using CallbackId = uint64_t;
 
     /// @brief A callback of the thread, removed when the registration is destroyed
@@ -95,6 +96,14 @@ public:
              rmw_event_callback_t callback,
              const void* user_data) -> ::iox2::bb::Expected<Registration, ErrorType>;
 
+    /// @brief Adds a function that is called whenever the file descriptor is readable
+    /// @details The function is called right away once, for what happened before it was added
+    /// @param[in] file_descriptor The file descriptor that is readable when the function has something to do
+    /// @param[in] on_wake_up The function
+    /// @return Expected containing the registration of the function if successful, error otherwise
+    auto add(::iox2::FileDescriptorView file_descriptor, OnWakeUp on_wake_up)
+        -> ::iox2::bb::Expected<Registration, ErrorType>;
+
 private:
     using Guard = Iceoryx2::WaitSet::Guard;
     using AttachmentId = Iceoryx2::WaitSet::AttachmentId;
@@ -102,9 +111,7 @@ private:
     struct Callback
     {
         ::iox2::FileDescriptorView file_descriptor;
-        CountEvents count_events;
-        rmw_event_callback_t callback;
-        const void* user_data;
+        OnWakeUp on_wake_up;
         ::iox2::bb::Optional<Guard> guard;
     };
 
