@@ -135,12 +135,6 @@ public:
 
     // Convert to iceoryx2 terminology----------------------------------
 
-    auto history_size() const noexcept -> uint64_t {
-        return m_depth;
-    }
-    auto subscriber_max_buffer_size() const noexcept -> uint64_t {
-        return m_depth;
-    }
     /// DDS KEEP_LAST history is drop-oldest under backpressure for both
     /// reliabilities (a full history replaces its oldest sample, even if
     /// unacknowledged), which is exactly iceoryx2's safe overflow. Only

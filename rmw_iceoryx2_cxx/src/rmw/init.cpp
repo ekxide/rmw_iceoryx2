@@ -105,6 +105,10 @@ rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_alloca
     if (auto result = parse_size_env("RMW_IOX2_MAX_NODES_PER_SERVICE", max_nodes_per_service); result != RMW_RET_OK) {
         return result;
     }
+    ::iox2::bb::Optional<size_t> max_depth_per_topic;
+    if (auto result = parse_size_env("RMW_IOX2_MAX_DEPTH_PER_TOPIC", max_depth_per_topic); result != RMW_RET_OK) {
+        return result;
+    }
 
     auto impl_ptr = allocate<rmw_init_options_impl_s>();
     if (!impl_ptr.has_value()) {
@@ -121,6 +125,7 @@ rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_alloca
     impl_ptr.value()->max_publishers_per_topic = max_publishers_per_topic;
     impl_ptr.value()->max_subscribers_per_topic = max_subscribers_per_topic;
     impl_ptr.value()->max_nodes_per_service = max_nodes_per_service;
+    impl_ptr.value()->max_depth_per_topic = max_depth_per_topic;
 
     init_options->implementation_identifier = rmw_get_implementation_identifier();
     init_options->allocator = allocator;

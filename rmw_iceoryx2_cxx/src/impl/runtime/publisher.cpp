@@ -57,6 +57,7 @@ Publisher::Publisher(CreationLock,
     }
 
     const auto& options = node.context().options();
+    const uint64_t max_depth = options.max_depth_per_topic.value_or(DEFAULT_MAX_DEPTH_PER_TOPIC);
 
     // Adopt QoS settings from existing service in adoptive matching mode.
     // If the service does not exist, use QoS provided by caller.
@@ -108,8 +109,8 @@ Publisher::Publisher(CreationLock,
             .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
             .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
-            .history_size(m_qos.history_size())
-            .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
+            .history_size(max_depth)
+            .subscriber_max_buffer_size(max_depth)
             .enable_safe_overflow(m_qos.enable_safe_overflow())
             .payload_alignment(payload_alignment)
             .open_or_create_with_attributes(verifier.value());

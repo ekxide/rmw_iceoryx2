@@ -13,6 +13,9 @@ environment variables you can use to tune behavior at process start.
 - **Mismatching QoS is a hard error by default.** A second endpoint with
   different QoS settings fails to create with a descriptive error
   message naming the policy that differs.
+- **Every topic is sized for the same maximum depth.** Subscriptions with
+  a larger `depth` are capped to `RMW_IOX2_MAX_DEPTH_PER_TOPIC` with a
+  warning.
 - **Some QoS policies are not honored.** iceoryx2 is a shared-memory
   middleware focused on intra-host communication. Policies that imply
   cross-host coordination are recorded but not enforced. Recorded
@@ -27,7 +30,7 @@ The defaults are designed with the goal that well-behaved applications using
 | Policy | Supported | Notes |
 |---|---|---|
 | `history` | `KEEP_LAST` only | `KEEP_ALL` is rejected at endpoint creation — iceoryx2's per-subscriber queues are fixed-size at service creation, so the unbounded queueing `KEEP_ALL` implies is not available. Use `KEEP_LAST` with a sufficient `depth`. |
-| `depth` | yes | Drives the underlying buffer size. |
+| `depth` | yes | Buffer size of each subscription, up to `RMW_IOX2_MAX_DEPTH_PER_TOPIC`. |
 | `reliability` | yes | `RELIABLE` and `BEST_EFFORT` are both honored. |
 | `durability` | yes | `VOLATILE` and `TRANSIENT_LOCAL` are both honored. |
 | `liveliness` | `AUTOMATIC` only | `MANUAL_BY_TOPIC` is accepted but not enforced. A warning is logged. |
@@ -99,6 +102,7 @@ effect.
 | `RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC` | `32` | Upper bound on concurrent publishers per topic. |
 | `RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC` | `32` | Upper bound on concurrent subscribers per topic. |
 | `RMW_IOX2_MAX_NODES_PER_SERVICE` | `32` | Upper bound on distinct processes participating in a topic. |
+| `RMW_IOX2_MAX_DEPTH_PER_TOPIC` | `32` | Upper bound on the `depth` of subscriptions and the history kept for transient local subscriptions, per topic. |
 
 > [!IMPORTANT]
 > The `MAX_*` settings size the service's per-port tracking slots in

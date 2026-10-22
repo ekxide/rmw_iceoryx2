@@ -960,6 +960,86 @@ TEST_F(RmwPublishSubscribeTest, a_message_is_published_when_waking_up_the_subscr
 }
 
 // ---------------------------------------------------------------------------
+// Topic sizing
+// ---------------------------------------------------------------------------
+
+class RmwPublishSubscribeQosEnvTest : public TestBase
+{
+protected:
+    void SetUp() override {
+        unset_environment("RMW_IOX2_QOS_MATCHING");
+        unset_environment("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC");
+        unset_environment("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC");
+        unset_environment("RMW_IOX2_MAX_NODES_PER_SERVICE");
+        unset_environment("RMW_IOX2_MAX_DEPTH_PER_TOPIC");
+    }
+
+    void TearDown() override {
+        if (m_initialized) {
+            cleanup();
+        }
+        restore_environment();
+        print_rmw_errors();
+    }
+
+    void initialize_with_env() {
+        initialize();
+        m_initialized = true;
+    }
+
+private:
+    bool m_initialized{false};
+};
+
+TEST_F(RmwPublishSubscribeTest, volatile_subscription_gets_no_history) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+    auto* publisher = create_default_publisher<Defaults>(topic);
+    ASSERT_NE(publisher, nullptr);
+    const Defaults message{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+
+    auto* subscription = create_default_subscriber<Defaults>(topic);
+    ASSERT_NE(subscription, nullptr);
+    ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    int received_count = 0;
+    bool taken{true};
+    while (taken) {
+        Defaults received{};
+        ASSERT_RMW_OK(rmw_take(subscription, &received, &taken, nullptr));
+        received_count += taken;
+    }
+    EXPECT_EQ(received_count, 1);
+}
+
+TEST_F(RmwPublishSubscribeQosEnvTest, depth_above_the_maximum_is_capped) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    setenv("RMW_IOX2_MAX_DEPTH_PER_TOPIC", "5", 1);
+    initialize_with_env();
+
+    auto topic = create_test_topic();
+    auto* publisher = create_default_publisher<Defaults>(topic);
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(topic);
+    ASSERT_NE(subscription, nullptr);
+
+    const Defaults message{};
+    for (int i = 0; i < 10; ++i) {
+        ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    }
+    int received_count = 0;
+    bool taken{true};
+    while (taken) {
+        Defaults received{};
+        ASSERT_RMW_OK(rmw_take(subscription, &received, &taken, nullptr));
+        received_count += taken;
+    }
+    EXPECT_EQ(received_count, 5);
+}
+
+// ---------------------------------------------------------------------------
 // Strict matching
 // ---------------------------------------------------------------------------
 
@@ -1057,33 +1137,6 @@ TEST_F(RmwPublishSubscribeTest, reports_depth_mismatch_when_subscriber_joins) {
 // ---------------------------------------------------------------------------
 // Adoptive matching
 // ---------------------------------------------------------------------------
-
-class RmwPublishSubscribeQosEnvTest : public TestBase
-{
-protected:
-    void SetUp() override {
-        unset_environment("RMW_IOX2_QOS_MATCHING");
-        unset_environment("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC");
-        unset_environment("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC");
-        unset_environment("RMW_IOX2_MAX_NODES_PER_SERVICE");
-    }
-
-    void TearDown() override {
-        if (m_initialized) {
-            cleanup();
-        }
-        restore_environment();
-        print_rmw_errors();
-    }
-
-    void initialize_with_env() {
-        initialize();
-        m_initialized = true;
-    }
-
-private:
-    bool m_initialized{false};
-};
 
 TEST_F(RmwPublishSubscribeQosEnvTest, adoptive_subscriber_inherits_publisher_reliability) {
     using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;

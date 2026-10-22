@@ -57,6 +57,7 @@ protected:
         unset_environment("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC");
         unset_environment("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC");
         unset_environment("RMW_IOX2_MAX_NODES_PER_SERVICE");
+        unset_environment("RMW_IOX2_MAX_DEPTH_PER_TOPIC");
     }
 
     void TearDown() override {
@@ -72,6 +73,7 @@ TEST_F(RmwInitOptionsTest, uses_defaults_when_env_unset) {
     setenv("RMW_IOX2_MAX_NODES_PER_SERVICE", "", 1);
     setenv("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC", "", 1);
     setenv("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC", "", 1);
+    setenv("RMW_IOX2_MAX_DEPTH_PER_TOPIC", "", 1);
 
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
     ASSERT_RMW_OK(rmw_init_options_init(&init_options, test_allocator()));
@@ -81,6 +83,7 @@ TEST_F(RmwInitOptionsTest, uses_defaults_when_env_unset) {
     EXPECT_FALSE(init_options.impl->max_publishers_per_topic.has_value());
     EXPECT_FALSE(init_options.impl->max_subscribers_per_topic.has_value());
     EXPECT_FALSE(init_options.impl->max_nodes_per_service.has_value());
+    EXPECT_FALSE(init_options.impl->max_depth_per_topic.has_value());
 
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
@@ -130,6 +133,16 @@ TEST_F(RmwInitOptionsTest, properly_sets_max_nodes_per_service) {
     ASSERT_RMW_OK(rmw_init_options_init(&init_options, test_allocator()));
     ASSERT_TRUE(init_options.impl->max_nodes_per_service.has_value());
     EXPECT_EQ(init_options.impl->max_nodes_per_service.value(), 16U);
+    EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
+}
+
+TEST_F(RmwInitOptionsTest, properly_sets_max_depth_per_topic) {
+    setenv("RMW_IOX2_MAX_DEPTH_PER_TOPIC", "1000", 1);
+
+    rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&init_options, test_allocator()));
+    ASSERT_TRUE(init_options.impl->max_depth_per_topic.has_value());
+    EXPECT_EQ(init_options.impl->max_depth_per_topic.value(), 1000U);
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 

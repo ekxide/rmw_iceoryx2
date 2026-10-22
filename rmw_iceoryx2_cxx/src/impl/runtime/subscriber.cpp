@@ -15,11 +15,13 @@
 #include "iox2/type_variant.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 
+#include <algorithm>
 #include <set>
 
 namespace rmw::iox2
@@ -54,6 +56,7 @@ Subscriber::Subscriber(CreationLock,
     }
 
     const auto& options = node.context().options();
+    const uint64_t max_depth = options.max_depth_per_topic.value_or(DEFAULT_MAX_DEPTH_PER_TOPIC);
 
     // Adopt QoS settings from existing service in adoptive matching mode.
     // If the service does not exist, use QoS provided by caller.
@@ -106,8 +109,8 @@ Subscriber::Subscriber(CreationLock,
             .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
             .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
-            .history_size(m_qos.history_size())
-            .subscriber_max_buffer_size(m_qos.subscriber_max_buffer_size())
+            .history_size(max_depth)
+            .subscriber_max_buffer_size(max_depth)
             .enable_safe_overflow(m_qos.enable_safe_overflow())
             .payload_alignment(payload_alignment)
             .open_or_create_with_attributes(verifier.value());
@@ -123,8 +126,18 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
-    auto iox2_subscriber =
-        iox2_pubsub_service.value().subscriber_builder().buffer_size(m_qos.subscriber_max_buffer_size()).create();
+    if (m_qos.depth() > max_depth) {
+        RMW_IOX2_LOG_WARN("QoS depth %llu on topic '%s' exceeds RMW_IOX2_MAX_DEPTH_PER_TOPIC, using %llu",
+                          static_cast<unsigned long long>(m_qos.depth()),
+                          m_topic.c_str(),
+                          static_cast<unsigned long long>(max_depth));
+    }
+    const uint64_t depth = std::min(m_qos.depth(), max_depth);
+    auto iox2_subscriber = iox2_pubsub_service.value()
+                               .subscriber_builder()
+                               .buffer_size(depth)
+                               .history_request(m_qos.durability() == Qos::Durability::TRANSIENT_LOCAL ? depth : 0)
+                               .create();
 
     if (!iox2_subscriber.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_subscriber.error()));
