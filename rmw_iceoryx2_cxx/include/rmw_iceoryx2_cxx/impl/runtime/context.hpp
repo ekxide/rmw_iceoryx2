@@ -35,7 +35,8 @@ struct Error<rmw_context_impl_s>
 /// Controls how `rmw_create_*` reconciles requested QoS with an existing
 /// iceoryx2 service.
 enum class QosMatchingMode : uint8_t {
-    STRICT,   /// require attribute equality (default)
+    ROS,      /// require only the message type, every endpoint keeps its own QoS (default)
+    STRICT,   /// require attribute equality
     ADOPTIVE, /// substitute caller QoS with existing service attributes
 };
 
@@ -63,7 +64,7 @@ class RMW_PUBLIC rmw_init_options_impl_s
 {
 public:
     /// QoS reconciliation policy
-    ::rmw::iox2::QosMatchingMode qos_matching_mode{::rmw::iox2::QosMatchingMode::STRICT};
+    ::rmw::iox2::QosMatchingMode qos_matching_mode{::rmw::iox2::QosMatchingMode::ROS};
 
     /// Upper bound on publishers per service. Configured via
     /// `RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC`. Falls back to

@@ -6,13 +6,9 @@ environment variables you can use to tune behavior at process start.
 
 ## Overview
 
-- **First endpoint to a topic locks in its QoS.** Whether it's a publisher
-  or a subscriber, the first one to come up establishes the QoS for that
-  topic. All endpoints that join later must agree, as per `iceoryx2`
-  constraints.
-- **Mismatching QoS is a hard error by default.** A second endpoint with
-  different QoS settings fails to create with a descriptive error
-  message naming the policy that differs.
+- **Every endpoint keeps its own QoS by default.** Endpoints with
+  different QoS share a topic, only the message type has to match. Each
+  subscription buffers up to its own `depth`.
 - **Every topic is sized for the same maximum depth.** Subscriptions with
   a larger `depth` are capped to `RMW_IOX2_MAX_DEPTH_PER_TOPIC` with a
   warning.
@@ -59,27 +55,24 @@ that already has endpoints with different QoS. Set via the
 
 | Value | Behavior |
 |---|---|
-| `strict` (default) | The new endpoint's QoS must match the existing endpoints' QoS exactly. Mismatch causes endpoint creation to fail. |
+| `ros` (default) | The new endpoint keeps its own QoS and joins as long as the message type matches. |
+| `strict` | The new endpoint's QoS must match the existing endpoints' QoS exactly. Mismatch causes endpoint creation to fail. |
 | `adoptive` | The new endpoint substitutes its own QoS with that of the existing endpoints and joins successfully. If no endpoints exist yet, the new endpoint creates the topic with its own QoS (same as `strict`). |
 
 ```sh
-# Production / default — fail fast on configuration drift
-unset RMW_IOX2_QOS_MATCHING
+# Fail fast on configuration drift
+RMW_IOX2_QOS_MATCHING=strict ros2 run my_pkg my_node
 
 # Introspection tooling — auto-match whatever's already there
 RMW_IOX2_QOS_MATCHING=adoptive ros2 topic echo /my_topic
 ```
 
-`adoptive` is intended for CLI and debugging tooling such as
-`ros2 topic echo`, `ros2 topic pub`, and `rqt_graph`. These tools use
-`rmw_qos_profile_default` (which is `RELIABLE`), so they fail to attach
-to publishers using e.g. `rmw_qos_profile_sensor_data` (which is
-`BEST_EFFORT`) under the default `strict` matching. Setting
-`RMW_IOX2_QOS_MATCHING=adoptive` in the tool's environment lets the tool
-inherit the publisher's actual QoS instead.
+`adoptive` lets a tool such as `ros2 topic echo` inherit the actual QoS
+of the publishers on a topic instead of using its own.
 
-`ros2 topic info -v <topic>` shows the actual QoS in use on a topic; it
-can be used to introspect what an existing endpoint resolved.
+`ros2 topic info -v <topic>` shows the QoS the topic was created with for
+every endpoint, so in `ros` mode it can differ from the QoS an endpoint
+uses.
 
 > [!NOTE]
 > `RMW_IOX2_QOS_MATCHING` is process-scoped: the mode applies to every
@@ -98,7 +91,7 @@ effect.
 
 | Variable | Default | Effect |
 |---|---|---|
-| `RMW_IOX2_QOS_MATCHING` | `strict` | `strict` or `adoptive`. See above. |
+| `RMW_IOX2_QOS_MATCHING` | `ros` | `ros`, `strict` or `adoptive`. See above. |
 | `RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC` | `32` | Upper bound on concurrent publishers per topic. |
 | `RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC` | `32` | Upper bound on concurrent subscribers per topic. |
 | `RMW_IOX2_MAX_NODES_PER_SERVICE` | `32` | Upper bound on distinct processes participating in a topic. |
@@ -124,8 +117,8 @@ effect.
 
 ### `QoS mismatch on '<topic>': <key> [attribute=<existing>, requested=<requested>]`
 
-A new endpoint tried to join a topic that already exists, but its QoS
-differs. The message names every policy that differs, with the value
+In `strict` matching mode, a new endpoint tried to join a topic that
+already exists, but its QoS differs. The message names every policy that differs, with the value
 already on the service and the value requested by the new endpoint. To
 resolve:
 

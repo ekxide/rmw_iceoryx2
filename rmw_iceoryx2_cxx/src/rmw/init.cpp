@@ -50,13 +50,17 @@ auto parse_size_env(const char* name, ::iox2::bb::Optional<size_t>& out) -> rmw_
 }
 
 /// Reads `RMW_IOX2_QOS_MATCHING`. Empty or unset leaves `out` unchanged.
-/// Any value other than `strict` / `adoptive` is reported via the error chain.
+/// Any value other than `ros` / `strict` / `adoptive` is reported via the error chain.
 auto parse_qos_matching_env(::rmw::iox2::QosMatchingMode& out) -> rmw_ret_t {
     const char* raw = std::getenv("RMW_IOX2_QOS_MATCHING");
     if (raw == nullptr || raw[0] == '\0') {
         return RMW_RET_OK;
     }
 
+    if (std::strcmp(raw, "ros") == 0) {
+        out = ::rmw::iox2::QosMatchingMode::ROS;
+        return RMW_RET_OK;
+    }
     if (std::strcmp(raw, "strict") == 0) {
         out = ::rmw::iox2::QosMatchingMode::STRICT;
         return RMW_RET_OK;
@@ -66,7 +70,7 @@ auto parse_qos_matching_env(::rmw::iox2::QosMatchingMode& out) -> rmw_ret_t {
         return RMW_RET_OK;
     }
     RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
-        "RMW_IOX2_QOS_MATCHING has invalid value '%s'; expected 'strict' or 'adoptive'", raw);
+        "RMW_IOX2_QOS_MATCHING has invalid value '%s'; expected 'ros', 'strict' or 'adoptive'", raw);
 
     return RMW_RET_INVALID_ARGUMENT;
 }
@@ -87,7 +91,7 @@ rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_alloca
     using rmw::iox2::construct;
     using rmw::iox2::deallocate;
 
-    auto qos_matching_mode = ::rmw::iox2::QosMatchingMode::STRICT;
+    auto qos_matching_mode = ::rmw::iox2::QosMatchingMode::ROS;
     if (auto result = parse_qos_matching_env(qos_matching_mode); result != RMW_RET_OK) {
         return result;
     }

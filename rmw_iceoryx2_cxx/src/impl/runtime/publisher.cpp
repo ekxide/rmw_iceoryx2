@@ -12,16 +12,14 @@
 #include "iox2/bb/into.hpp"
 #include "iox2/bb/slice.hpp"
 #include "iox2/callback_progression.hpp"
-#include "iox2/message_type_details.hpp"
-#include "iox2/type_variant.hpp"
 #include "rcutils/time.h"
-#include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/topic.hpp"
 
 #include <cstring>
 #include <set>
@@ -57,70 +55,12 @@ Publisher::Publisher(CreationLock,
     }
 
     const auto& options = node.context().options();
-    const uint64_t max_depth = options.max_depth_per_topic.value_or(DEFAULT_MAX_DEPTH_PER_TOPIC);
-
-    // Adopt QoS settings from existing service in adoptive matching mode.
-    // If the service does not exist, use QoS provided by caller.
-    if (options.qos_matching_mode == QosMatchingMode::ADOPTIVE) {
-        if (auto existing = node.iox2().lookup_service<Iceoryx2::ServiceType::Ipc>(
-                m_service_name, Iceoryx2::MessagingPattern::PublishSubscribe);
-            existing.has_value()) {
-            auto adopted_qos =
-                TryConvert<Qos>::from(existing.value().static_details.attributes(), ProfileKind::PUBLISH_SUBSCRIBE);
-            if (!adopted_qos.has_value()) {
-                RMW_IOX2_CHAIN_ERROR_MSG("failed to decode attributes of existing service for adoption");
-                error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
-                return;
-            }
-            m_qos = std::move(adopted_qos.value());
-        }
-    }
-
-    // The type hash is stored alongside QoS so graph introspection can report it.
-    auto verifier = TryConvert<::iox2::AttributeVerifier>::from(m_qos, ::rmw::iox2::message_type_hash(m_typesupport));
-    if (!verifier.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to build service attribute verifier");
-        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
-        return;
-    }
-
-    const auto payload_type_name = ::rmw::iox2::message_type_name(m_typesupport);
-    const auto payload_type_details = m_is_self_contained ? ::iox2::TypeDetail(::iox2::TypeVariant::FixedSize,
-                                                                               payload_type_name.c_str(),
-                                                                               m_unserialized_size,
-                                                                               SELF_CONTAINED_PAYLOAD_ALIGNMENT)
-                                                          : ::iox2::TypeDetail(::iox2::TypeVariant::Dynamic,
-                                                                               payload_type_name.c_str(),
-                                                                               SERIALIZED_PAYLOAD_ELEMENT_SIZE,
-                                                                               SERIALIZED_PAYLOAD_ALIGNMENT);
-    const uint64_t payload_alignment =
-        m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ALIGNMENT : SERIALIZED_PAYLOAD_ALIGNMENT;
-
-    auto service_builder = node.iox2()
-                               .ipc()
-                               .service_builder(iox2_service_name.value())
-                               .publish_subscribe<Payload>()
-                               .user_header<UserHeader>();
-
-    ::iox2::set_payload_type_details(service_builder, payload_type_details);
-
-    auto iox2_pubsub_service =
-        service_builder.resume_build()
-            .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
-            .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
-            .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
-            .history_size(max_depth)
-            .subscriber_max_buffer_size(max_depth)
-            .enable_safe_overflow(m_qos.enable_safe_overflow())
-            .payload_alignment(payload_alignment)
-            .open_or_create_with_attributes(verifier.value());
-
+    auto iox2_pubsub_service = open_or_create_topic(node, m_service_name, m_typesupport, m_qos);
     if (!iox2_pubsub_service.has_value()) {
-        if (iox2_pubsub_service.error() == ::iox2::PublishSubscribeOpenOrCreateError::OpenIncompatibleAttributes) {
+        if (iox2_pubsub_service.error() == TopicError::QOS_INCOMPATIBLE) {
             // Caller (the rmw C API layer) formats the per-key diff.
             error.emplace(ErrorType::QOS_INCOMPATIBLE);
         } else {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
             error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         }
         return;

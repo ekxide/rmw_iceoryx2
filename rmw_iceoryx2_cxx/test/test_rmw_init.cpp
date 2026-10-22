@@ -79,7 +79,7 @@ TEST_F(RmwInitOptionsTest, uses_defaults_when_env_unset) {
     ASSERT_RMW_OK(rmw_init_options_init(&init_options, test_allocator()));
     ASSERT_NE(init_options.impl, nullptr);
 
-    EXPECT_EQ(init_options.impl->qos_matching_mode, ::rmw::iox2::QosMatchingMode::STRICT);
+    EXPECT_EQ(init_options.impl->qos_matching_mode, ::rmw::iox2::QosMatchingMode::ROS);
     EXPECT_FALSE(init_options.impl->max_publishers_per_topic.has_value());
     EXPECT_FALSE(init_options.impl->max_subscribers_per_topic.has_value());
     EXPECT_FALSE(init_options.impl->max_nodes_per_service.has_value());
