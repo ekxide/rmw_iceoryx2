@@ -52,8 +52,6 @@ Subscriber::Subscriber(CreationLock,
     }
 
     const auto& options = node.context().options();
-    const uint64_t max_depth = options.max_depth_per_topic.value_or(DEFAULT_MAX_DEPTH_PER_TOPIC);
-
     auto iox2_pubsub_service = open_or_create_topic(node, m_service_name, m_typesupport, m_qos);
     if (!iox2_pubsub_service.has_value()) {
         if (iox2_pubsub_service.error() == TopicError::QOS_INCOMPATIBLE) {
@@ -64,12 +62,13 @@ Subscriber::Subscriber(CreationLock,
         }
         return;
     }
+    const uint64_t max_depth = iox2_pubsub_service->static_config().subscriber_max_buffer_size();
 
     uint64_t depth = max_depth;
     switch (m_qos.history()) {
     case Qos::History::KEEP_LAST:
         if (m_qos.depth() > max_depth) {
-            RMW_IOX2_LOG_WARN("QoS depth %llu on topic '%s' exceeds RMW_IOX2_MAX_DEPTH_PER_TOPIC, using %llu",
+            RMW_IOX2_LOG_WARN("QoS depth %llu on topic '%s' exceeds the maximum depth of the topic, using %llu",
                               static_cast<unsigned long long>(m_qos.depth()),
                               m_topic.c_str(),
                               static_cast<unsigned long long>(max_depth));

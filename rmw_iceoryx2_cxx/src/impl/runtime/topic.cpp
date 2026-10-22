@@ -106,16 +106,28 @@ auto open_or_create_topic(Node& node,
             return err(TopicError::SERVICE_CREATION_FAILURE);
         }
 
-        auto service_builder = node.iox2()
-                                   .ipc()
-                                   .service_builder(iox2_service_name.value())
-                                   .publish_subscribe<TopicPayload>()
-                                   .user_header<TopicUserHeader>();
+        auto service_builder = [&]() {
+            auto builder = node.iox2()
+                               .ipc()
+                               .service_builder(iox2_service_name.value())
+                               .publish_subscribe<TopicPayload>()
+                               .user_header<TopicUserHeader>();
+            ::iox2::set_payload_type_details(builder, payload_type_details);
+            return builder;
+        };
 
-        ::iox2::set_payload_type_details(service_builder, payload_type_details);
+        auto open_builder = service_builder();
+        auto opened = open_builder.resume_build()
+                          .enable_safe_overflow(qos.enable_safe_overflow())
+                          .payload_alignment(payload_alignment)
+                          .open_with_attributes(verifier.value());
+        if (opened.has_value()) {
+            return std::move(opened.value());
+        }
 
+        auto create_builder = service_builder();
         auto iox2_pubsub_service =
-            service_builder.resume_build()
+            create_builder.resume_build()
                 .max_publishers(options.max_publishers_per_topic.value_or(DEFAULT_MAX_PUBLISHERS_PER_TOPIC))
                 .max_subscribers(options.max_subscribers_per_topic.value_or(DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC))
                 .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
