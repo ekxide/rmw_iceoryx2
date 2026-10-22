@@ -65,13 +65,20 @@ Subscriber::Subscriber(CreationLock,
         return;
     }
 
-    if (m_qos.depth() > max_depth) {
-        RMW_IOX2_LOG_WARN("QoS depth %llu on topic '%s' exceeds RMW_IOX2_MAX_DEPTH_PER_TOPIC, using %llu",
-                          static_cast<unsigned long long>(m_qos.depth()),
-                          m_topic.c_str(),
-                          static_cast<unsigned long long>(max_depth));
+    uint64_t depth = max_depth;
+    switch (m_qos.history()) {
+    case Qos::History::KEEP_LAST:
+        if (m_qos.depth() > max_depth) {
+            RMW_IOX2_LOG_WARN("QoS depth %llu on topic '%s' exceeds RMW_IOX2_MAX_DEPTH_PER_TOPIC, using %llu",
+                              static_cast<unsigned long long>(m_qos.depth()),
+                              m_topic.c_str(),
+                              static_cast<unsigned long long>(max_depth));
+        }
+        depth = std::min(m_qos.depth(), max_depth);
+        break;
+    case Qos::History::KEEP_ALL:
+        break;
     }
-    const uint64_t depth = std::min(m_qos.depth(), max_depth);
     auto iox2_subscriber = iox2_pubsub_service.value()
                                .subscriber_builder()
                                .buffer_size(depth)

@@ -23,7 +23,7 @@ namespace rmw::iox2
 class RMW_PUBLIC Qos
 {
 public:
-    enum class History : uint8_t { KEEP_LAST };
+    enum class History : uint8_t { KEEP_LAST, KEEP_ALL };
     enum class Reliability : uint8_t { RELIABLE, BEST_EFFORT };
     enum class Durability : uint8_t { VOLATILE, TRANSIENT_LOCAL };
     enum class Liveliness : uint8_t { AUTOMATIC, MANUAL_BY_TOPIC };
@@ -137,11 +137,11 @@ public:
 
     /// DDS KEEP_LAST history is drop-oldest under backpressure for both
     /// reliabilities (a full history replaces its oldest sample, even if
-    /// unacknowledged), which is exactly iceoryx2's safe overflow. Only
-    /// KEEP_ALL would require overflow to be disabled, and this rmw does not
-    /// support KEEP_ALL.
+    /// unacknowledged), which is exactly iceoryx2's safe overflow. KEEP_ALL
+    /// is served as KEEP_LAST with the maximum depth, since iceoryx2 needs the
+    /// same overflow behaviour for every endpoint of a service.
     auto enable_safe_overflow() const noexcept -> bool {
-        return m_history == History::KEEP_LAST;
+        return true;
     }
     /// rclcpp expects publish() to never block the calling thread, so the
     /// iceoryx2 default (RetryUntilDelivered, which blocks until the

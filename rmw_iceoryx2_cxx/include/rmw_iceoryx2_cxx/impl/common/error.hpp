@@ -94,7 +94,6 @@ enum class WaitSetError : uint8_t {
 };
 enum class QosError : uint8_t {
     UNKNOWN_POLICY,
-    UNSUPPORTED_HISTORY_POLICY,
     ATTRIBUTE_DEFINITION_FAILURE,
     ATTRIBUTE_DECODING_FAILURE,
 };

@@ -25,7 +25,7 @@ The defaults are designed with the goal that well-behaved applications using
 
 | Policy | Supported | Notes |
 |---|---|---|
-| `history` | `KEEP_LAST` only | `KEEP_ALL` is rejected at endpoint creation — iceoryx2's per-subscriber queues are fixed-size at service creation, so the unbounded queueing `KEEP_ALL` implies is not available. Use `KEEP_LAST` with a sufficient `depth`. |
+| `history` | yes | `KEEP_ALL` is served as `KEEP_LAST` with `RMW_IOX2_MAX_DEPTH_PER_TOPIC` and a warning, since iceoryx2 needs the same overflow behaviour for every endpoint of a topic. |
 | `depth` | yes | Buffer size of each subscription, up to `RMW_IOX2_MAX_DEPTH_PER_TOPIC`. |
 | `reliability` | yes | `RELIABLE` and `BEST_EFFORT` are both honored. |
 | `durability` | yes | `VOLATILE` and `TRANSIENT_LOCAL` are both honored. |

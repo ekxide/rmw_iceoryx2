@@ -94,7 +94,7 @@ TEST_F(RmwQosCheckCompatibleTest, rejects_depth_mismatch) {
     EXPECT_NE(std::string{reason}.find("depth"), std::string::npos);
 }
 
-TEST_F(RmwQosCheckCompatibleTest, rejects_keep_all_history) {
+TEST_F(RmwQosCheckCompatibleTest, warns_on_keep_all_history) {
     auto profile = rmw_qos_profile_default;
     profile.history = RMW_QOS_POLICY_HISTORY_KEEP_ALL;
 
@@ -102,7 +102,7 @@ TEST_F(RmwQosCheckCompatibleTest, rejects_keep_all_history) {
     char reason[256] = {0};
 
     EXPECT_RMW_OK(rmw_qos_profile_check_compatible(profile, profile, &compatibility, reason, sizeof(reason)));
-    EXPECT_EQ(compatibility, RMW_QOS_COMPATIBILITY_ERROR);
+    EXPECT_EQ(compatibility, RMW_QOS_COMPATIBILITY_WARNING);
     EXPECT_NE(std::string{reason}.find("KEEP_ALL"), std::string::npos);
 }
 

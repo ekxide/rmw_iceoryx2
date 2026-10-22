@@ -35,11 +35,18 @@ namespace rmw::iox2::attributes
 /// policy and, for `keep_last`, the queue depth.
 struct History
 {
+    struct Value
+    {
+        Qos::History kind;
+        uint64_t depth;
+    };
+
     static constexpr char KEY[] = "ros.qos.history";
     static constexpr char VALUE_KEEP_LAST[] = "keep_last";
+    static constexpr char VALUE_KEEP_ALL[] = "keep_all";
 
     RMW_PUBLIC static auto encode(const Qos& qos, char* buf, size_t len) -> void;
-    RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<uint64_t>;
+    RMW_PUBLIC static auto decode(const char* str) -> ::iox2::bb::Optional<Value>;
 };
 
 /// Descriptor for the `ros.qos.reliability` attribute carrying the delivery
