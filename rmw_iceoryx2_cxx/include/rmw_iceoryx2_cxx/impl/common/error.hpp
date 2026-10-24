@@ -98,6 +98,7 @@ enum class QosError : uint8_t {
     ATTRIBUTE_DEFINITION_FAILURE,
     ATTRIBUTE_DECODING_FAILURE,
 };
+enum class TopicError : uint8_t { SERVICE_CREATION_FAILURE, QOS_INCOMPATIBLE };
 enum class GraphError : uint8_t {
     LISTING_FAILURE,
     SERVICE_NAME_CREATION_FAILURE,

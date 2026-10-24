@@ -78,6 +78,7 @@ add_library(${PROJECT_NAME} SHARED
   src/impl/runtime/publisher.cpp
   src/impl/runtime/server.cpp
   src/impl/runtime/subscriber.cpp
+  src/impl/runtime/topic.cpp
   src/impl/runtime/waitset.cpp
 
   src/rmw/client.cpp
