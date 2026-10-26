@@ -76,13 +76,28 @@ TEST_F(QosTest, resolve_rejects_unknown_liveliness) {
     EXPECT_EQ(result.error(), QosError::UNKNOWN_POLICY);
 }
 
-TEST_F(QosTest, resolve_rejects_keep_all) {
+TEST_F(QosTest, resolve_keeps_keep_all_with_safe_overflow) {
     auto profile = rmw_qos_profile_default;
     profile.history = RMW_QOS_POLICY_HISTORY_KEEP_ALL;
     auto result = TryConvert<Qos>::from(profile, ProfileKind::PUBLISH_SUBSCRIBE);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), QosError::UNSUPPORTED_HISTORY_POLICY);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().history(), Qos::History::KEEP_ALL);
+    EXPECT_TRUE(result.value().enable_safe_overflow());
+}
+
+TEST_F(QosTest, keep_all_history_attribute_round_trips) {
+    auto profile = rmw_qos_profile_default;
+    profile.history = RMW_QOS_POLICY_HISTORY_KEEP_ALL;
+    auto qos = TryConvert<Qos>::from(profile, ProfileKind::PUBLISH_SUBSCRIBE);
+    ASSERT_TRUE(qos.has_value());
+
+    char encoded[256];
+    attributes::History::encode(qos.value(), encoded, sizeof(encoded));
+    EXPECT_STREQ(encoded, "keep_all");
+    auto decoded = attributes::History::decode(encoded);
+    ASSERT_TRUE(decoded.has_value());
+    EXPECT_EQ(decoded.value().kind, Qos::History::KEEP_ALL);
 }
 
 // ----------------------------------------------------------------------------

@@ -29,6 +29,11 @@ auto is_default_duration(Qos::Duration duration) -> bool {
 } // namespace
 
 auto log_unsupported_policies(const Qos& qos, const char* topic) noexcept -> void {
+    if (qos.history() == Qos::History::KEEP_ALL) {
+        RMW_IOX2_LOG_WARN(
+            "QoS policy 'history' (=keep_all) on topic '%s' is served as keep_last with RMW_IOX2_MAX_DEPTH_PER_TOPIC",
+            topic);
+    }
     if (!is_default_duration(qos.deadline())) {
         RMW_IOX2_LOG_WARN("QoS policy 'deadline' (=%llu:%llu) on topic '%s' is not honored by the iceoryx2 transport",
                           static_cast<unsigned long long>(qos.deadline().sec),

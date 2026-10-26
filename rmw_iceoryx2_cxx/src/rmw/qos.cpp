@@ -93,7 +93,7 @@ auto durations_equal(rmw_time_t lhs, rmw_time_t rhs) -> bool {
 
 void check_history(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
     if (pub.history == RMW_QOS_POLICY_HISTORY_KEEP_ALL || sub.history == RMW_QOS_POLICY_HISTORY_KEEP_ALL) {
-        diagnostics.push_error("history KEEP_ALL is not supported by the iceoryx2 transport");
+        diagnostics.push_warning("history KEEP_ALL is served as KEEP_LAST with the maximum depth");
         return;
     }
     if (matching::is_unknown(pub.history) || matching::is_unknown(sub.history)) {

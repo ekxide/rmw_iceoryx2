@@ -1039,6 +1039,76 @@ TEST_F(RmwPublishSubscribeQosEnvTest, depth_above_the_maximum_is_capped) {
     EXPECT_EQ(received_count, 5);
 }
 
+TEST_F(RmwPublishSubscribeQosEnvTest, keep_all_subscription_buffers_the_maximum_depth) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr int MAX_DEPTH = 5;
+    constexpr int PUBLISHED_COUNT = 2 * MAX_DEPTH;
+
+    setenv("RMW_IOX2_MAX_DEPTH_PER_TOPIC", std::to_string(MAX_DEPTH).c_str(), 1);
+    initialize_with_env();
+
+    auto topic = create_test_topic();
+    auto* publisher = create_default_publisher<Defaults>(topic);
+    ASSERT_NE(publisher, nullptr);
+    auto sub_profile = rmw_qos_profile_default;
+    sub_profile.history = RMW_QOS_POLICY_HISTORY_KEEP_ALL;
+    auto* subscription = create_subscriber<Defaults>(topic, sub_profile);
+    ASSERT_NE(subscription, nullptr);
+
+    const Defaults message{};
+    for (int i = 0; i < PUBLISHED_COUNT; ++i) {
+        ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    }
+    int received_count = 0;
+    bool taken{true};
+    while (taken) {
+        Defaults received{};
+        ASSERT_RMW_OK(rmw_take(subscription, &received, &taken, nullptr));
+        received_count += taken;
+    }
+    EXPECT_EQ(received_count, MAX_DEPTH);
+}
+
+TEST_F(RmwPublishSubscribeQosEnvTest, late_keep_all_transient_local_subscription_receives_the_maximum_history) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr int MAX_DEPTH = 5;
+    constexpr int PUBLISHED_COUNT = 2 * MAX_DEPTH;
+
+    setenv("RMW_IOX2_MAX_DEPTH_PER_TOPIC", std::to_string(MAX_DEPTH).c_str(), 1);
+    initialize_with_env();
+
+    auto topic = create_test_topic();
+    auto pub_profile = rmw_qos_profile_default;
+    pub_profile.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+    auto* publisher = create_publisher<Defaults>(topic, pub_profile);
+    ASSERT_NE(publisher, nullptr);
+    const Defaults message{};
+    for (int i = 0; i < PUBLISHED_COUNT; ++i) {
+        ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    }
+
+    auto sub_profile = pub_profile;
+    sub_profile.history = RMW_QOS_POLICY_HISTORY_KEEP_ALL;
+    auto* subscription = create_subscriber<Defaults>(topic, sub_profile);
+    ASSERT_NE(subscription, nullptr);
+
+    auto* wait_set = rmw_create_wait_set(test_context(), 1);
+    ASSERT_NE(wait_set, nullptr);
+    std::array<void*, 1> ready{subscription->data};
+    rmw_subscriptions_t subscriptions{ready.size(), ready.data()};
+    ASSERT_RMW_OK(rmw_wait(&subscriptions, nullptr, nullptr, nullptr, nullptr, wait_set, nullptr));
+    ASSERT_RMW_OK(rmw_destroy_wait_set(wait_set));
+
+    int received_count = 0;
+    bool taken{true};
+    while (taken) {
+        Defaults received{};
+        ASSERT_RMW_OK(rmw_take(subscription, &received, &taken, nullptr));
+        received_count += taken;
+    }
+    EXPECT_EQ(received_count, MAX_DEPTH);
+}
+
 // ---------------------------------------------------------------------------
 // ROS matching
 // ---------------------------------------------------------------------------

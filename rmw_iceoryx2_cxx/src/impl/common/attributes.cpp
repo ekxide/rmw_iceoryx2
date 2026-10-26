@@ -67,12 +67,19 @@ auto strip_prefix(const char* str, const char* prefix) -> const char* {
 } // namespace
 
 auto History::encode(const Qos& qos, char* buf, size_t len) -> void {
-    // Qos guarantees KEEP_LAST.
+    if (qos.history() == Qos::History::KEEP_ALL) {
+        // NOLINTNEXTLINE(cert-err33-c) source is a fixed short string constant, destination is 256 bytes
+        std::snprintf(buf, len, "%s", VALUE_KEEP_ALL);
+        return;
+    }
     // NOLINTNEXTLINE(cert-err33-c) buffer statically sized for max output (caller passes a 256-byte buffer)
     std::snprintf(buf, len, "%s:%llu", VALUE_KEEP_LAST, static_cast<unsigned long long>(qos.depth()));
 }
 
-auto History::decode(const char* str) -> ::iox2::bb::Optional<uint64_t> {
+auto History::decode(const char* str) -> ::iox2::bb::Optional<History::Value> {
+    if (std::strcmp(str, VALUE_KEEP_ALL) == 0) {
+        return History::Value{Qos::History::KEEP_ALL, 0};
+    }
     const char* rest = strip_prefix(str, VALUE_KEEP_LAST);
     if (rest == nullptr) {
         return NULLOPT;
@@ -84,7 +91,7 @@ auto History::decode(const char* str) -> ::iox2::bb::Optional<uint64_t> {
     if (result.ec != std::errc{} || result.ptr != end) {
         return NULLOPT;
     }
-    return depth;
+    return History::Value{Qos::History::KEEP_LAST, depth};
 }
 
 auto Reliability::encode(const Qos& qos, char* buf, size_t len) -> void {
@@ -332,7 +339,8 @@ auto set_qos_attributes(Target& target, const Qos& qos) -> bool {
 
 auto Convert<rmw_qos_profile_t>::from(const Qos& qos) noexcept -> rmw_qos_profile_t {
     rmw_qos_profile_t out{};
-    out.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
+    out.history =
+        qos.history() == Qos::History::KEEP_ALL ? RMW_QOS_POLICY_HISTORY_KEEP_ALL : RMW_QOS_POLICY_HISTORY_KEEP_LAST;
     out.depth = qos.depth();
     out.reliability = qos.reliability() == Qos::Reliability::RELIABLE ? RMW_QOS_POLICY_RELIABILITY_RELIABLE
                                                                       : RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
@@ -361,14 +369,10 @@ auto TryConvert<Qos>::from(const rmw_qos_profile_t& profile, ProfileKind kind) -
         return err(QosError::UNKNOWN_POLICY);
     }
 
-    if (profile.history == RMW_QOS_POLICY_HISTORY_KEEP_ALL) {
-        RMW_IOX2_CHAIN_ERROR_MSG("KEEP_ALL not supported; use KEEP_LAST with sufficient depth");
-        return err(QosError::UNSUPPORTED_HISTORY_POLICY);
-    }
-
-    // History only resolves to KEEP_LAST (KEEP_ALL is rejected above).
     return Qos::Builder{}
-        .set_history(Qos::History::KEEP_LAST, matching::resolve_depth(profile.depth))
+        .set_history(matching::resolve(profile.history) == RMW_QOS_POLICY_HISTORY_KEEP_ALL ? Qos::History::KEEP_ALL
+                                                                                           : Qos::History::KEEP_LAST,
+                     matching::resolve_depth(profile.depth))
         .set_reliability(matching::resolve(profile.reliability) == RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT
                              ? Qos::Reliability::BEST_EFFORT
                              : Qos::Reliability::RELIABLE)
@@ -395,14 +399,14 @@ auto TryConvert<Qos>::from(AttributeSetView attribute_set, ProfileKind kind) -> 
         return err(QosError::ATTRIBUTE_DECODING_FAILURE);
     };
 
-    Optional<uint64_t> depth;
+    Optional<attributes::History::Value> history;
     attributes::visit_attribute_value(attribute_set, attributes::History::KEY, [&](const char* value) {
-        depth = attributes::History::decode(value);
+        history = attributes::History::decode(value);
     });
-    if (!depth.has_value()) {
+    if (!history.has_value()) {
         return fail(attributes::History::KEY);
     }
-    builder.set_history(Qos::History::KEEP_LAST, depth.value());
+    builder.set_history(history.value().kind, history.value().depth);
 
     Optional<Qos::Reliability> reliability;
     attributes::visit_attribute_value(attribute_set, attributes::Reliability::KEY, [&](const char* value) {

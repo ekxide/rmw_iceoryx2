@@ -140,11 +140,15 @@ TEST_F(RmwPublisherTest, properly_reports_liveliness_manual_by_topic) {
     EXPECT_EQ(actual.liveliness_lease_duration.nsec, 0U);
 }
 
-TEST_F(RmwPublisherTest, rejects_keep_all_history) {
+TEST_F(RmwPublisherTest, reports_keep_all_history) {
     auto profile = rmw_qos_profile_default;
     profile.history = RMW_QOS_POLICY_HISTORY_KEEP_ALL;
 
-    EXPECT_EQ(create_publisher<Defaults>(create_test_topic(), profile), nullptr);
+    auto* endpoint = create_publisher<Defaults>(create_test_topic(), profile);
+    ASSERT_NE(endpoint, nullptr);
+    rmw_qos_profile_t actual = {};
+    ASSERT_RMW_OK(rmw_publisher_get_actual_qos(endpoint, &actual));
+    EXPECT_EQ(actual.history, RMW_QOS_POLICY_HISTORY_KEEP_ALL);
 }
 
 TEST_F(RmwPublisherTest, counts_matched_subscriptions) {
