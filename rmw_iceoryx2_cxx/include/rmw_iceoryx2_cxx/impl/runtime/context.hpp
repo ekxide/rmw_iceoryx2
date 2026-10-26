@@ -35,7 +35,8 @@ struct Error<rmw_context_impl_s>
 /// Controls how `rmw_create_*` reconciles requested QoS with an existing
 /// iceoryx2 service.
 enum class QosMatchingMode : uint8_t {
-    STRICT,   /// require attribute equality (default)
+    ROS,      /// require only the message type, every endpoint keeps its own QoS (default)
+    STRICT,   /// require attribute equality
     ADOPTIVE, /// substitute caller QoS with existing service attributes
 };
 
@@ -49,6 +50,7 @@ constexpr size_t DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT = 4U;
 constexpr size_t MAX_RESPONSES_PER_REQUEST = 1U;
 constexpr size_t DEFAULT_MAX_SERVERS_AND_CLIENTS_PER_SERVICE =
     DEFAULT_MAX_SERVERS_PER_SERVICE + DEFAULT_MAX_CLIENTS_PER_SERVICE;
+constexpr size_t DEFAULT_MAX_DEPTH_PER_TOPIC = 32U;
 
 /// Limits of the graph event service, used only when a context creates it.
 constexpr size_t GRAPH_MAX_GUARD_CONDITIONS = 1024U;
@@ -62,7 +64,7 @@ class RMW_PUBLIC rmw_init_options_impl_s
 {
 public:
     /// QoS reconciliation policy
-    ::rmw::iox2::QosMatchingMode qos_matching_mode{::rmw::iox2::QosMatchingMode::STRICT};
+    ::rmw::iox2::QosMatchingMode qos_matching_mode{::rmw::iox2::QosMatchingMode::ROS};
 
     /// Upper bound on publishers per service. Configured via
     /// `RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC`. Falls back to
@@ -78,6 +80,11 @@ public:
     /// `RMW_IOX2_MAX_NODES_PER_SERVICE`. Falls back to
     /// `DEFAULT_MAX_NODES_PER_SERVICE` when empty.
     ::iox2::bb::Optional<size_t> max_nodes_per_service;
+
+    /// Upper bound on the depth of subscriptions and the history of publishers per service.
+    /// Configured via `RMW_IOX2_MAX_DEPTH_PER_TOPIC`. Falls back to
+    /// `DEFAULT_MAX_DEPTH_PER_TOPIC` when empty.
+    ::iox2::bb::Optional<size_t> max_depth_per_topic;
 };
 
 /// @brief Implementation of the RMW context for iceoryx2
