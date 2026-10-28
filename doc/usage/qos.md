@@ -104,14 +104,11 @@ effect.
 > They are *not* part of the topic's QoS, and they do not size message
 > payload memory (which is driven by `depth` and message size).
 >
-> The first endpoint on a topic fixes the slot count; endpoints joining
-> later may request the same value or lower, but never higher — the
-> slot tables cannot grow at runtime.
->
-> When a late joiner requests a higher cap than the service was sized
-> for, endpoint creation fails. The variable must be raised in **all**
-> processes — bumping it in one process does not enlarge a service that
-> another process already created with the lower value.
+> The first endpoint on a topic fixes the slot counts and the depth.
+> Endpoints joining later use the values the topic was created with,
+> since the slot tables cannot grow at runtime. Raising a variable in
+> one process does not enlarge a topic that another process already
+> created with a lower value.
 
 ## Common errors
 
@@ -136,14 +133,8 @@ the 33rd publisher on a service created with the default cap of 32.
 iceoryx2 pre-allocates the slot table at service creation and cannot
 grow it at runtime.
 
-`ExceedsMaxSupportedPublishers` is emitted when the cap is reached
-under matching settings; `OpenDoesNotSupportRequestedAmountOfPublishers`
-is emitted when this endpoint requested a *higher* cap than the
-existing service was sized for.
-
-Raise the limit at the offending process's init time. Note that **every
-process on the topic must use the same limits or lower** — the first
-process to create the service fixes the upper bound:
+Raise the limit in every process that may create the topic, since the
+first process to create it fixes the upper bound:
 
 ```sh
 RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC=128 ros2 launch my_pkg my_launch.py

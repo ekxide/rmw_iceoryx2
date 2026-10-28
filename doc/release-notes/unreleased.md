@@ -55,6 +55,7 @@
 * Request the history only for transient local subscriptions [#118](https://github.com/ekxide/rmw_iceoryx2/issues/118)
 * Let publishers and subscriptions with different QoS share a topic [#118](https://github.com/ekxide/rmw_iceoryx2/issues/118)
 * Serve KEEP_ALL history as KEEP_LAST with the maximum depth [#118](https://github.com/ekxide/rmw_iceoryx2/issues/118)
+* Open an existing topic with the limits it was created with [#118](https://github.com/ekxide/rmw_iceoryx2/issues/118)
 * Serialize messages as standard CDR with the encapsulation header and report the `cdr` serialization format [#119](https://github.com/ekxide/rmw_iceoryx2/issues/119)
 
 ### Refactoring

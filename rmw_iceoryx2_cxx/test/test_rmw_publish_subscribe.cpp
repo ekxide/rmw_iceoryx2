@@ -1109,6 +1109,64 @@ TEST_F(RmwPublishSubscribeQosEnvTest, late_keep_all_transient_local_subscription
     EXPECT_EQ(received_count, MAX_DEPTH);
 }
 
+TEST_F(RmwPublishSubscribeQosEnvTest, endpoints_join_a_topic_created_with_smaller_limits) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr int MAX_PUBLISHERS = 2;
+    constexpr int MAX_SUBSCRIBERS = 1;
+    constexpr int MAX_NODES = 2;
+    constexpr int MAX_DEPTH = 5;
+    constexpr int PUBLISHED_COUNT = 2 * MAX_DEPTH;
+
+    setenv("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC", std::to_string(MAX_PUBLISHERS).c_str(), 1);
+    setenv("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC", std::to_string(MAX_SUBSCRIBERS).c_str(), 1);
+    setenv("RMW_IOX2_MAX_NODES_PER_SERVICE", std::to_string(MAX_NODES).c_str(), 1);
+    setenv("RMW_IOX2_MAX_DEPTH_PER_TOPIC", std::to_string(MAX_DEPTH).c_str(), 1);
+    initialize_with_env();
+    auto topic = create_test_topic();
+    auto* publisher = create_default_publisher<Defaults>(topic);
+    ASSERT_NE(publisher, nullptr);
+
+    unsetenv("RMW_IOX2_MAX_PUBLISHERS_PER_TOPIC");
+    unsetenv("RMW_IOX2_MAX_SUBSCRIBERS_PER_TOPIC");
+    unsetenv("RMW_IOX2_MAX_NODES_PER_SERVICE");
+    unsetenv("RMW_IOX2_MAX_DEPTH_PER_TOPIC");
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    options.instance_id = test_id();
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    auto* node = rmw_create_node(&context, "JoiningNode", "/RmwTest");
+    ASSERT_NE(node, nullptr);
+    const auto publisher_options = rmw_get_default_publisher_options();
+    auto* joining_publisher = rmw_create_publisher(
+        node, test_type_support<Defaults>(), topic.c_str(), &rmw_qos_profile_default, &publisher_options);
+    ASSERT_NE(joining_publisher, nullptr);
+    const auto subscription_options = rmw_get_default_subscription_options();
+    auto* subscription = rmw_create_subscription(
+        node, test_type_support<Defaults>(), topic.c_str(), &rmw_qos_profile_default, &subscription_options);
+    ASSERT_NE(subscription, nullptr);
+
+    const Defaults message{};
+    for (int i = 0; i < PUBLISHED_COUNT; ++i) {
+        ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    }
+    int received_count = 0;
+    bool taken{true};
+    while (taken) {
+        Defaults received{};
+        ASSERT_RMW_OK(rmw_take(subscription, &received, &taken, nullptr));
+        received_count += taken;
+    }
+    EXPECT_EQ(received_count, MAX_DEPTH);
+
+    EXPECT_RMW_OK(rmw_destroy_subscription(node, subscription));
+    EXPECT_RMW_OK(rmw_destroy_publisher(node, joining_publisher));
+    EXPECT_RMW_OK(rmw_destroy_node(node));
+    EXPECT_RMW_OK(rmw_shutdown(&context));
+    EXPECT_RMW_OK(rmw_context_fini(&context));
+    EXPECT_RMW_OK(rmw_init_options_fini(&options));
+}
+
 // ---------------------------------------------------------------------------
 // ROS matching
 // ---------------------------------------------------------------------------
