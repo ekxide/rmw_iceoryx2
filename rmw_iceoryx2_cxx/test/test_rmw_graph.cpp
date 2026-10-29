@@ -42,6 +42,8 @@ namespace
 
 using namespace rmw::iox2::testing;
 
+constexpr size_t OTHER_DOMAIN_ID = 7;
+
 struct FailingAllocatorState
 {
     size_t remaining;
@@ -430,6 +432,122 @@ TEST_F(RmwGraphTest, can_get_topic_names_and_types) {
     EXPECT_STREQ(first_type_of_topic(topic_names_and_types, test_topic_c.c_str()), expected_type);
 
     ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+}
+
+TEST_F(RmwGraphTest, nodes_and_topics_of_another_domain_are_not_listed) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    ASSERT_NE(create_default_node("DomainZero"), nullptr);
+    auto domain_zero_topic = create_test_topic("/DomainZeroTopic");
+    ASSERT_NE(create_default_publisher<Defaults>(domain_zero_topic), nullptr);
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    options.domain_id = OTHER_DOMAIN_ID;
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    EXPECT_EQ(context.actual_domain_id, OTHER_DOMAIN_ID);
+    auto* other_domain_node = rmw_create_node(&context, "OtherDomain", "/Sensors");
+    ASSERT_NE(other_domain_node, nullptr);
+    auto topic = create_test_topic("/OtherDomainTopic");
+    auto publisher_options = rmw_get_default_publisher_options();
+    auto* publisher = rmw_create_publisher(
+        other_domain_node, test_type_support<Defaults>(), topic.c_str(), &rmw_qos_profile_default, &publisher_options);
+    ASSERT_NE(publisher, nullptr);
+
+    rcutils_string_array_t names = rcutils_get_zero_initialized_string_array();
+    rcutils_string_array_t namespaces = rcutils_get_zero_initialized_string_array();
+    EXPECT_RMW_OK(rmw_get_node_names(test_node(), &names, &namespaces));
+    EXPECT_FALSE(contains_node_name_and_namespace("OtherDomain", "/Sensors", names, namespaces));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+
+    auto allocator = rcutils_get_default_allocator();
+    auto topic_names_and_types = rmw_get_zero_initialized_names_and_types();
+    ASSERT_RMW_OK(rmw_get_topic_names_and_types(test_node(), &allocator, false, &topic_names_and_types));
+    EXPECT_FALSE(rcutils_string_array_contains(&topic_names_and_types.names, topic.c_str()));
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+
+    EXPECT_RMW_OK(rmw_get_node_names(other_domain_node, &names, &namespaces));
+    EXPECT_TRUE(contains_node_name_and_namespace("OtherDomain", "/Sensors", names, namespaces));
+    EXPECT_FALSE(contains_node_name_and_namespace("DomainZero", "/RmwTest", names, namespaces));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&names));
+    ASSERT_RMW_OK(rcutils_string_array_fini(&namespaces));
+
+    ASSERT_RMW_OK(rmw_get_topic_names_and_types(other_domain_node, &allocator, false, &topic_names_and_types));
+    EXPECT_TRUE(rcutils_string_array_contains(&topic_names_and_types.names, topic.c_str()));
+    EXPECT_FALSE(rcutils_string_array_contains(&topic_names_and_types.names, domain_zero_topic.c_str()));
+    ASSERT_RMW_OK(rmw_names_and_types_fini(&topic_names_and_types));
+
+    ASSERT_RMW_OK(rmw_destroy_publisher(other_domain_node, publisher));
+    ASSERT_RMW_OK(rmw_destroy_node(other_domain_node));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
+}
+
+TEST_F(RmwGraphTest, messages_do_not_cross_domains) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    auto topic = create_test_topic();
+    auto* subscription = create_default_subscriber<Defaults>(topic);
+    ASSERT_NE(subscription, nullptr);
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    options.domain_id = OTHER_DOMAIN_ID;
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    auto* other_domain_node = rmw_create_node(&context, "OtherDomain", "/Sensors");
+    ASSERT_NE(other_domain_node, nullptr);
+    auto publisher_options = rmw_get_default_publisher_options();
+    auto* publisher = rmw_create_publisher(
+        other_domain_node, test_type_support<Defaults>(), topic.c_str(), &rmw_qos_profile_default, &publisher_options);
+    ASSERT_NE(publisher, nullptr);
+
+    const Defaults message{};
+    ASSERT_RMW_OK(rmw_publish(publisher, &message, nullptr));
+    Defaults received{};
+    bool taken{true};
+    ASSERT_RMW_OK(rmw_take(subscription, &received, &taken, nullptr));
+    EXPECT_FALSE(taken);
+
+    ASSERT_RMW_OK(rmw_destroy_publisher(other_domain_node, publisher));
+    ASSERT_RMW_OK(rmw_destroy_node(other_domain_node));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
+}
+
+TEST_F(RmwGraphTest, services_do_not_cross_domains) {
+    using rmw_iceoryx2_cxx_test_msgs::srv::BasicTypes;
+
+    const auto service_name = create_test_topic("/service");
+    auto* client = create_client<BasicTypes>(service_name);
+    ASSERT_NE(client, nullptr);
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    options.domain_id = OTHER_DOMAIN_ID;
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    auto* other_domain_node = rmw_create_node(&context, "OtherDomain", "/Sensors");
+    ASSERT_NE(other_domain_node, nullptr);
+    auto* server = rmw_create_service(other_domain_node,
+                                      test_service_type_support<BasicTypes>(),
+                                      service_name.c_str(),
+                                      &rmw_qos_profile_services_default);
+    ASSERT_NE(server, nullptr);
+
+    bool is_available{true};
+    ASSERT_RMW_OK(rmw_service_server_is_available(test_node(), client, &is_available));
+    EXPECT_FALSE(is_available);
+
+    ASSERT_RMW_OK(rmw_destroy_service(other_domain_node, server));
+    ASSERT_RMW_OK(rmw_destroy_node(other_domain_node));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
 }
 
 TEST_F(RmwGraphTest, accepts_zero_initialized_names_and_types) {
