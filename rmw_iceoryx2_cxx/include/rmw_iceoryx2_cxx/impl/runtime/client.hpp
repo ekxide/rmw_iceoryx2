@@ -113,6 +113,18 @@ public:
     /// @return True if at least one server exists
     auto is_server_available() const -> bool;
 
+    /// @brief Check if the request type is sent as it lies in memory instead of serialized
+    /// @return True if the request type is self-contained
+    auto is_request_self_contained() const -> bool;
+
+    /// @brief Get the size of the request type in memory
+    /// @return The size in bytes
+    auto unserialized_request_size() const -> uint64_t;
+
+    /// @brief Check if the response type is received as it lies in memory instead of serialized
+    /// @return True if the response type is self-contained
+    auto is_response_self_contained() const -> bool;
+
     /// @brief Loan memory for a request
     /// @param[in] number_of_bytes Required buffer size in bytes
     /// @return Expected containing pointer to loaned memory or error
@@ -160,6 +172,9 @@ private:
     const rosidl_service_type_support_t* const m_typesupport;
     const std::string m_service_name;
     const rmw_qos_profile_t m_qos;
+    const uint64_t m_unserialized_request_size;
+    const bool m_is_request_self_contained;
+    const bool m_is_response_self_contained;
 
     ::iox2::bb::Optional<IdType> m_iox2_unique_id;
     ::iox2::bb::Optional<IceoryxService> m_iox2_service;

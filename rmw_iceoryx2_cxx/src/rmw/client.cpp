@@ -21,6 +21,8 @@
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/rmw/node.hpp"
 
+#include <cstring>
+
 extern "C" {
 
 rmw_client_t* rmw_create_client(const rmw_node_t* rmw_node,
@@ -145,20 +147,26 @@ rmw_ret_t rmw_send_request(const rmw_client_t* rmw_client, const void* ros_reque
     }
 
     auto type_support = client_impl.value()->typesupport()->request_typesupport;
-    auto serialized_size = serialized_message_size(ros_request, type_support);
+    auto self_contained = client_impl.value()->is_request_self_contained();
+    auto payload_size = self_contained ? client_impl.value()->unserialized_request_size()
+                                       : serialized_message_size(ros_request, type_support);
 
-    auto loan = client_impl.value()->loan_request(serialized_size);
+    auto loan = client_impl.value()->loan_request(payload_size);
     if (!loan.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to loan bytes required for serialization");
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to loan bytes required for the request");
         return RMW_RET_ERROR;
     }
 
-    auto serialized_message = rmw_serialized_message_t{
-        reinterpret_cast<uint8_t*>(loan.value()), serialized_size, serialized_size, rcutils_get_default_allocator()};
-    if (auto result = rmw_serialize(ros_request, type_support, &serialized_message); result != RMW_RET_OK) {
-        (void)client_impl.value()->return_request_loan(loan.value());
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
-        return RMW_RET_ERROR;
+    if (self_contained) {
+        std::memcpy(loan.value(), ros_request, payload_size);
+    } else {
+        auto serialized_message = rmw_serialized_message_t{
+            reinterpret_cast<uint8_t*>(loan.value()), payload_size, payload_size, rcutils_get_default_allocator()};
+        if (auto result = rmw_serialize(ros_request, type_support, &serialized_message); result != RMW_RET_OK) {
+            (void)client_impl.value()->return_request_loan(loan.value());
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
+            return RMW_RET_ERROR;
+        }
     }
 
     auto sequence_number = client_impl.value()->send_request(loan.value());
@@ -202,10 +210,15 @@ rmw_take_response(const rmw_client_t* rmw_client, rmw_service_info_t* request_he
     }
 
     auto& loan = response.value().value();
-    auto serialized_message = rmw_serialized_message_t{
-        loan.bytes, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
-    auto deserialized =
-        rmw_deserialize(&serialized_message, client_impl.value()->typesupport()->response_typesupport, ros_response);
+    rmw_ret_t deserialized = RMW_RET_OK;
+    if (client_impl.value()->is_response_self_contained()) {
+        std::memcpy(ros_response, loan.bytes, loan.number_of_bytes);
+    } else {
+        auto serialized_message = rmw_serialized_message_t{
+            loan.bytes, loan.number_of_bytes, loan.number_of_bytes, rcutils_get_default_allocator()};
+        deserialized = rmw_deserialize(
+            &serialized_message, client_impl.value()->typesupport()->response_typesupport, ros_response);
+    }
     (void)client_impl.value()->return_response_loan(loan.bytes);
     if (deserialized != RMW_RET_OK) {
         *taken = false;

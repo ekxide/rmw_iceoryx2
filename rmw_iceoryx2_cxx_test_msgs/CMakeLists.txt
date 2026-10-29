@@ -23,6 +23,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   ${test_interface_files_MSG_FILES}
   ${test_interface_files_SRV_FILES}
   "msg/Padded.msg"
+  "srv/SelfContained.srv"
+  "srv/SelfContainedRequest.srv"
   DEPENDENCIES test_interface_files
 )
 

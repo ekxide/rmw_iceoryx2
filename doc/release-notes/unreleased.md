@@ -23,6 +23,7 @@
 * Add middleware overhead benchmarking application [#44](https://github.com/ekxide/rmw_iceoryx2/issues/44)
 * Implement the missing publish-subscribe functions [#69](https://github.com/ekxide/rmw_iceoryx2/issues/69)
 * Add benchmarks for the cost of rmw operations [#86](https://github.com/ekxide/rmw_iceoryx2/issues/86)
+* Store self-contained requests and responses in shared memory without serializing them [#95](https://github.com/ekxide/rmw_iceoryx2/issues/95)
 * Implement the new message, request and response callbacks used by events executors [#106](https://github.com/ekxide/rmw_iceoryx2/issues/106)
 
 ### Bugfixes

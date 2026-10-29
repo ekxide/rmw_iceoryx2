@@ -10,7 +10,6 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
 
 #include "iox2/bb/into.hpp"
-#include "iox2/type_variant.hpp"
 #include "rcutils/time.h"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
@@ -34,7 +33,10 @@ Server::Server(CreationLock,
     , m_service{service}
     , m_typesupport{type_support}
     , m_service_name{::rmw::iox2::names::service(service)}
-    , m_qos{qos} {
+    , m_qos{qos}
+    , m_is_request_self_contained{::rmw::iox2::is_self_contained(type_support->request_typesupport)}
+    , m_unserialized_response_size{::rmw::iox2::message_size(type_support->response_typesupport)}
+    , m_is_response_self_contained{::rmw::iox2::is_self_contained(type_support->response_typesupport)} {
     auto iox2_service_name = Iceoryx2::ServiceName::create(m_service_name.c_str());
     if (!iox2_service_name.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service_name.error()));
@@ -43,8 +45,6 @@ Server::Server(CreationLock,
     }
 
     const auto& options = node.context().options();
-    const auto request_type_name = ::rmw::iox2::message_type_name(m_typesupport->request_typesupport);
-    const auto response_type_name = ::rmw::iox2::message_type_name(m_typesupport->response_typesupport);
 
     auto service_builder = node.iox2()
                                .ipc()
@@ -54,15 +54,9 @@ Server::Server(CreationLock,
                                .response_user_header<UserHeader>();
 
     ::iox2::set_request_payload_type_details(service_builder,
-                                             ::iox2::TypeDetail(::iox2::TypeVariant::Dynamic,
-                                                                request_type_name.c_str(),
-                                                                SERIALIZED_PAYLOAD_ELEMENT_SIZE,
-                                                                SERIALIZED_PAYLOAD_ALIGNMENT));
+                                             ::rmw::iox2::payload_type_details(m_typesupport->request_typesupport));
     ::iox2::set_response_payload_type_details(service_builder,
-                                              ::iox2::TypeDetail(::iox2::TypeVariant::Dynamic,
-                                                                 response_type_name.c_str(),
-                                                                 SERIALIZED_PAYLOAD_ELEMENT_SIZE,
-                                                                 SERIALIZED_PAYLOAD_ALIGNMENT));
+                                              ::rmw::iox2::payload_type_details(m_typesupport->response_typesupport));
 
     auto iox2_service = service_builder.resume_build()
                             .max_servers(DEFAULT_MAX_SERVERS_PER_SERVICE)
@@ -70,8 +64,6 @@ Server::Server(CreationLock,
                             .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
                             .max_active_requests_per_client(DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT)
                             .max_response_buffer_size(MAX_RESPONSES_PER_REQUEST)
-                            .request_payload_alignment(SERIALIZED_PAYLOAD_ALIGNMENT)
-                            .response_payload_alignment(SERIALIZED_PAYLOAD_ALIGNMENT)
                             .open_or_create();
 
     if (!iox2_service.has_value()) {
@@ -82,7 +74,8 @@ Server::Server(CreationLock,
 
     auto iox2_server = iox2_service.value()
                            .server_builder()
-                           .initial_max_slice_len(::rmw::iox2::message_size(m_typesupport->response_typesupport))
+                           .initial_max_slice_len(m_is_response_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT
+                                                                               : m_unserialized_response_size)
                            .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
                            .backpressure_strategy(::iox2::BackpressureStrategy::DiscardData)
                            .create();
@@ -160,6 +153,18 @@ auto Server::qos() const -> const rmw_qos_profile_t& {
     return m_qos;
 }
 
+auto Server::is_request_self_contained() const -> bool {
+    return m_is_request_self_contained;
+}
+
+auto Server::is_response_self_contained() const -> bool {
+    return m_is_response_self_contained;
+}
+
+auto Server::unserialized_response_size() const -> uint64_t {
+    return m_unserialized_response_size;
+}
+
 auto Server::has_requests() -> bool {
     std::lock_guard<std::mutex> lock{m_mutex};
 
@@ -235,7 +240,9 @@ auto Server::loan_response(const ClientId& client_id, uint64_t sequence_number, 
         return Optional<void*>{::iox2::bb::NULLOPT};
     }
 
-    auto response = active_request->second.loan_slice_uninit(number_of_bytes);
+    const uint64_t number_of_elements =
+        m_is_response_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
+    auto response = active_request->second.loan_slice_uninit(number_of_elements);
     if (!response.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(response.error()));
         return err(ErrorType::LOAN_FAILURE);
