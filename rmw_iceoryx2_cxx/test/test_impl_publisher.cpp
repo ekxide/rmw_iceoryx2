@@ -51,7 +51,7 @@ TEST_F(PublisherTest, construction) {
 
     rmw_init_options_impl_s options;
     ::iox2::bb::Optional<Context> context_storage;
-    ASSERT_TRUE(create_in_place(context_storage, test_id(), options).has_value())
+    ASSERT_TRUE(create_in_place(context_storage, test_id(), 0, options).has_value())
         << "failed to create context for publisher creation";
     auto& context = context_storage.value();
 

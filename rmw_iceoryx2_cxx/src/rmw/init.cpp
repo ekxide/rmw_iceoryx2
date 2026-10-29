@@ -109,6 +109,7 @@ rmw_ret_t rmw_init_options_init(rmw_init_options_t* init_options, rcutils_alloca
     init_options->implementation_identifier = rmw_get_implementation_identifier();
     init_options->allocator = allocator;
     init_options->instance_id = 0;
+    init_options->domain_id = RMW_DEFAULT_DOMAIN_ID;
     init_options->enclave = rcutils_strdup(DEFAULT_ENCLAVE, allocator);
     init_options->impl = impl_ptr.value();
 
@@ -202,7 +203,9 @@ rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* co
         return RMW_RET_ERROR;
     }
 
-    if (!create_in_place<rmw_context_impl_s>(ptr.value(), rmw_init_options->instance_id, *rmw_init_options->impl)
+    const size_t domain_id = rmw_init_options->domain_id == RMW_DEFAULT_DOMAIN_ID ? 0U : rmw_init_options->domain_id;
+    if (!create_in_place<rmw_context_impl_s>(
+             ptr.value(), rmw_init_options->instance_id, domain_id, *rmw_init_options->impl)
              .has_value()) {
         destruct<rmw_context_impl_s>(ptr.value());
         deallocate(ptr.value());
@@ -210,6 +213,7 @@ rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* co
         return RMW_RET_ERROR;
     }
     context->instance_id = rmw_init_options->instance_id;
+    context->actual_domain_id = domain_id;
     context->implementation_identifier = rmw_get_implementation_identifier();
     context->options.allocator = rmw_init_options->allocator;
     context->options.enclave = rcutils_strdup(rmw_init_options->enclave, rmw_init_options->allocator);

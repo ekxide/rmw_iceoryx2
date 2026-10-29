@@ -27,7 +27,8 @@ Node::Node(CreationLock,
     using ::rmw::iox2::create_in_place;
     namespace names = rmw::iox2::names;
 
-    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::node(context.id(), name, node_namespace, enclave));
+    if (auto result = create_in_place<Iceoryx2>(
+            m_iox2, names::node(context.id(), name, node_namespace, enclave), context.iox2().ipc().config().to_owned());
         !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create Handle");
         error.emplace(ErrorType::HANDLE_CREATION_FAILURE);

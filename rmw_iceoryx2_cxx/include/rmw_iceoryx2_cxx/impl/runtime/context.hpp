@@ -95,11 +95,13 @@ public:
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] id ID to use for this context
+    /// @param[in] domain_id ROS domain of this context
     /// @param[in] options Snapshot of init-time options that downstream
     ///                    builders (Node, Publisher, Subscriber) consume
     rmw_context_impl_s(CreationLock lock,
                        ::iox2::bb::Optional<ErrorType>& error,
                        const uint32_t id,
+                       const size_t domain_id,
                        const rmw_init_options_impl_s& options);
 
     // Move ops are required because `iox2::bb::Optional::emplace` uses
