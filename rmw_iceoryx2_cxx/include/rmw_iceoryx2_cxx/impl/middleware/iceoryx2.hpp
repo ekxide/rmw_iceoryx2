@@ -162,7 +162,11 @@ public:
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] instance_name Unique name of the instance, used for book-keeping in iceoryx2
-    Iceoryx2(CreationLock, ::iox2::bb::Optional<ErrorType>& error, const std::string& instance_name);
+    /// @param[in] config iceoryx2 configuration of the instance
+    Iceoryx2(CreationLock,
+             ::iox2::bb::Optional<ErrorType>& error,
+             const std::string& instance_name,
+             const Config& config);
 
     /// @brief Access factory methods for creation of entities communicating locally.
     /// @return Factory to create IPC entities bound to the lifetime of this instance
