@@ -39,8 +39,17 @@ class DiagnosticList
     static constexpr size_t MAX_DIAGNOSTICS = 9;
 
 public:
+    explicit DiagnosticList(bool report_mismatches)
+        : m_report_mismatches{report_mismatches} {
+    }
+
     void push_error(const char* text) {
         push(Diagnostic::Kind::ERROR, text);
+    }
+    void push_mismatch(const char* text) {
+        if (m_report_mismatches) {
+            push(Diagnostic::Kind::ERROR, text);
+        }
     }
     void push_warning(const char* text) {
         push(Diagnostic::Kind::WARNING, text);
@@ -83,6 +92,7 @@ private:
 
     Diagnostic m_entries[MAX_DIAGNOSTICS];
     size_t m_count{0};
+    bool m_report_mismatches;
 };
 
 // Compatibility checks ----------------------------------------------
@@ -101,13 +111,13 @@ void check_history(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, D
         return;
     }
     if (matching::resolve(pub.history) != matching::resolve(sub.history)) {
-        diagnostics.push_error("history policy differs between publisher and subscription");
+        diagnostics.push_mismatch("history policy differs between publisher and subscription");
     }
 }
 
 void check_depth(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
     if (matching::resolve_depth(pub.depth) != matching::resolve_depth(sub.depth)) {
-        diagnostics.push_error("depth differs between publisher and subscription");
+        diagnostics.push_mismatch("depth differs between publisher and subscription");
     }
 }
 
@@ -117,7 +127,7 @@ void check_reliability(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& su
         return;
     }
     if (matching::resolve(pub.reliability) != matching::resolve(sub.reliability)) {
-        diagnostics.push_error("reliability differs between publisher and subscription");
+        diagnostics.push_mismatch("reliability differs between publisher and subscription");
     }
 }
 
@@ -127,19 +137,19 @@ void check_durability(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub
         return;
     }
     if (matching::resolve(pub.durability) != matching::resolve(sub.durability)) {
-        diagnostics.push_error("durability differs between publisher and subscription");
+        diagnostics.push_mismatch("durability differs between publisher and subscription");
     }
 }
 
 void check_deadline(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
     if (!durations_equal(matching::resolve(pub.deadline), matching::resolve(sub.deadline))) {
-        diagnostics.push_error("deadline differs between publisher and subscription");
+        diagnostics.push_mismatch("deadline differs between publisher and subscription");
     }
 }
 
 void check_lifespan(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub, DiagnosticList& diagnostics) {
     if (!durations_equal(matching::resolve(pub.lifespan), matching::resolve(sub.lifespan))) {
-        diagnostics.push_error("lifespan differs between publisher and subscription");
+        diagnostics.push_mismatch("lifespan differs between publisher and subscription");
     }
 }
 
@@ -149,7 +159,7 @@ void check_liveliness(const rmw_qos_profile_t& pub, const rmw_qos_profile_t& sub
         return;
     }
     if (matching::resolve(pub.liveliness) != matching::resolve(sub.liveliness)) {
-        diagnostics.push_error("liveliness differs between publisher and subscription");
+        diagnostics.push_mismatch("liveliness differs between publisher and subscription");
     }
 }
 
@@ -158,7 +168,7 @@ void check_liveliness_lease_duration(const rmw_qos_profile_t& pub,
                                      DiagnosticList& diagnostics) {
     if (!durations_equal(matching::resolve(pub.liveliness_lease_duration),
                          matching::resolve(sub.liveliness_lease_duration))) {
-        diagnostics.push_error("liveliness_lease_duration differs between publisher and subscription");
+        diagnostics.push_mismatch("liveliness_lease_duration differs between publisher and subscription");
     }
 }
 
@@ -166,7 +176,7 @@ void check_avoid_ros_namespace_conventions(const rmw_qos_profile_t& pub,
                                            const rmw_qos_profile_t& sub,
                                            DiagnosticList& diagnostics) {
     if (pub.avoid_ros_namespace_conventions != sub.avoid_ros_namespace_conventions) {
-        diagnostics.push_error("avoid_ros_namespace_conventions differs between publisher and subscription");
+        diagnostics.push_mismatch("avoid_ros_namespace_conventions differs between publisher and subscription");
     }
 }
 
@@ -216,7 +226,11 @@ rmw_ret_t rmw_qos_profile_check_compatible(const rmw_qos_profile_t publisher_pro
     }
 
     // Implementation -------------------------------------------------------------------------------
-    DiagnosticList diagnostics;
+    auto qos_matching_mode = ::rmw::iox2::QosMatchingMode::ROS;
+    if (auto result = ::rmw::iox2::parse_qos_matching_env(qos_matching_mode); result != RMW_RET_OK) {
+        return result;
+    }
+    DiagnosticList diagnostics{qos_matching_mode == ::rmw::iox2::QosMatchingMode::STRICT};
     check_history(publisher_profile, subscription_profile, diagnostics);
     check_depth(publisher_profile, subscription_profile, diagnostics);
     check_reliability(publisher_profile, subscription_profile, diagnostics);

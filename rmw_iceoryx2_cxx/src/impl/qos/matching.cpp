@@ -8,6 +8,39 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw_iceoryx2_cxx/impl/qos/matching.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
+
+#include <cstdlib>
+#include <cstring>
+
+namespace rmw::iox2
+{
+
+auto parse_qos_matching_env(::rmw::iox2::QosMatchingMode& out) -> rmw_ret_t {
+    const char* raw = std::getenv("RMW_IOX2_QOS_MATCHING");
+    if (raw == nullptr || raw[0] == '\0') {
+        return RMW_RET_OK;
+    }
+
+    if (std::strcmp(raw, "ros") == 0) {
+        out = ::rmw::iox2::QosMatchingMode::ROS;
+        return RMW_RET_OK;
+    }
+    if (std::strcmp(raw, "strict") == 0) {
+        out = ::rmw::iox2::QosMatchingMode::STRICT;
+        return RMW_RET_OK;
+    }
+    if (std::strcmp(raw, "adoptive") == 0) {
+        out = ::rmw::iox2::QosMatchingMode::ADOPTIVE;
+        return RMW_RET_OK;
+    }
+    RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING(
+        "RMW_IOX2_QOS_MATCHING has invalid value '%s'; expected 'ros', 'strict' or 'adoptive'", raw);
+
+    return RMW_RET_INVALID_ARGUMENT;
+}
+
+} // namespace rmw::iox2
 
 namespace rmw::iox2::matching
 {
