@@ -56,7 +56,7 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
         return;
     }
 
-    if (!m_callback_thread->start().has_value()) {
+    if (!m_callback_thread->start(m_iox2.value()).has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to start the callback thread of the context");
         error.emplace(ErrorType::CALLBACK_THREAD_CREATION_FAILURE);
         return;
