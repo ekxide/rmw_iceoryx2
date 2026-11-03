@@ -19,7 +19,7 @@
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
-#include "rmw_iceoryx2_cxx/impl/runtime/callback_thread.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/graph_change_handler.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
 
 #include <array>
@@ -47,9 +47,9 @@ public:
 
     /// @brief Creates the events of a publisher or a subscription, which listen to the graph after listen()
     /// @param[in] iox2 The iceoryx2 node of the publisher or subscription
-    /// @param[in] callback_thread The thread that calls the callbacks of the events
+    /// @param[in] graph_change_handler The handler that calls the callbacks of the events
     /// @param[in] list_matched Lists the endpoints matched with the publisher or subscription
-    Events(Iceoryx2& iox2, std::shared_ptr<CallbackThread> callback_thread, ListMatched list_matched);
+    Events(Iceoryx2& iox2, std::shared_ptr<GraphChangeHandler> graph_change_handler, ListMatched list_matched);
     Events(const Events&) = delete;
     Events(Events&&) = delete;
     auto operator=(const Events&) -> Events& = delete;
@@ -89,17 +89,17 @@ private:
     void update_matched();
 
     std::reference_wrapper<Iceoryx2> m_iox2;
-    std::shared_ptr<CallbackThread> m_callback_thread;
+    std::shared_ptr<GraphChangeHandler> m_graph_change_handler;
     ListMatched m_list_matched;
     std::mutex m_mutex;
     ::iox2::bb::Optional<GraphGuardCondition> m_graph_guard_condition;
-    ::iox2::bb::Optional<GraphGuardCondition> m_callback_guard_condition;
     std::set<Gid> m_matched;
     std::set<Gid> m_taken;
     uint64_t m_total_count{0};
+    bool m_notifies{false};
     std::set<Gid> m_notified;
     std::mutex m_callback_mutex;
-    ::iox2::bb::Optional<CallbackThread::Registration> m_callback;
+    ::iox2::bb::Optional<GraphChangeHandler::Registration> m_callback;
 };
 
 } // namespace rmw::iox2
