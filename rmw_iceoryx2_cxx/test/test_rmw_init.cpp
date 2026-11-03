@@ -84,6 +84,7 @@ TEST_F(RmwInitOptionsTest, uses_defaults_when_env_unset) {
     EXPECT_FALSE(init_options.impl->max_subscribers_per_topic.has_value());
     EXPECT_FALSE(init_options.impl->max_nodes_per_service.has_value());
     EXPECT_FALSE(init_options.impl->max_depth_per_topic.has_value());
+    EXPECT_EQ(init_options.domain_id, RMW_DEFAULT_DOMAIN_ID);
 
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }

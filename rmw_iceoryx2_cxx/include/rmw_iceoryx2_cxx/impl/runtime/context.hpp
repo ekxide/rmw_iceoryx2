@@ -44,6 +44,7 @@ constexpr size_t MAX_RESPONSES_PER_REQUEST = 1U;
 constexpr size_t DEFAULT_MAX_SERVERS_AND_CLIENTS_PER_SERVICE =
     DEFAULT_MAX_SERVERS_PER_SERVICE + DEFAULT_MAX_CLIENTS_PER_SERVICE;
 constexpr size_t DEFAULT_MAX_DEPTH_PER_TOPIC = 32U;
+constexpr size_t DEFAULT_DOMAIN_ID = 0U;
 
 /// Limits of the graph event service, used only when a context creates it.
 constexpr size_t GRAPH_MAX_GUARD_CONDITIONS = 1024U;
@@ -95,11 +96,13 @@ public:
     /// @param[in] lock Creation lock to restrict construction to creation functions
     /// @param[out] error Optional error that is set if construction fails
     /// @param[in] id ID to use for this context
+    /// @param[in] domain_id ROS domain of this context
     /// @param[in] options Snapshot of init-time options that downstream
     ///                    builders (Node, Publisher, Subscriber) consume
     rmw_context_impl_s(CreationLock lock,
                        ::iox2::bb::Optional<ErrorType>& error,
                        const uint32_t id,
+                       const size_t domain_id,
                        const rmw_init_options_impl_s& options);
 
     // Move ops are required because `iox2::bb::Optional::emplace` uses

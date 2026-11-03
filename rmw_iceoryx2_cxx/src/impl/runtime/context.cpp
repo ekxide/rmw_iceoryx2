@@ -17,9 +17,12 @@
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 
+#include <string>
+
 rmw_context_impl_s::rmw_context_impl_s(CreationLock,
                                        ::iox2::bb::Optional<ErrorType>& error,
                                        const uint32_t id,
+                                       const size_t domain_id,
                                        const rmw_init_options_impl_s& options)
     : m_id{id}
     , m_options{options} {
@@ -28,7 +31,19 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
     using ::rmw::iox2::GraphGuardCondition;
     namespace names = rmw::iox2::names;
 
-    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::context(id)); !result.has_value()) {
+    auto config = Iceoryx2::Config::global_config().to_owned();
+    if (domain_id != 0) {
+        const auto prefix = std::string{config.global().prefix()} + "d" + std::to_string(domain_id) + "_";
+        auto domain_prefix = ::iox2::bb::FileName::create(prefix.c_str());
+        if (!domain_prefix.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to create the iceoryx2 prefix of the domain");
+            error.emplace(ErrorType::HANDLE_CREATION_FAILURE);
+            return;
+        }
+        config.global().set_prefix(domain_prefix.value());
+    }
+
+    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::context(id), config); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create Handle");
         error.emplace(ErrorType::HANDLE_CREATION_FAILURE);
         return;

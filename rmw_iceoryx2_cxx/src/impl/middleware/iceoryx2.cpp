@@ -16,7 +16,10 @@
 namespace rmw::iox2
 {
 
-Iceoryx2::Iceoryx2(CreationLock, ::iox2::bb::Optional<ErrorType>& error, const std::string& instance_name) {
+Iceoryx2::Iceoryx2(CreationLock,
+                   ::iox2::bb::Optional<ErrorType>& error,
+                   const std::string& instance_name,
+                   const Config& config) {
     auto iox2_name = Iceoryx2::InstanceName::create(instance_name.c_str());
     if (!iox2_name.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_name.error()));
@@ -24,7 +27,8 @@ Iceoryx2::Iceoryx2(CreationLock, ::iox2::bb::Optional<ErrorType>& error, const s
         return;
     }
 
-    auto local_node = Iceoryx2::InstanceBuilder().name(iox2_name.value()).create<Iceoryx2::ServiceType::Local>();
+    auto local_node =
+        Iceoryx2::InstanceBuilder().name(iox2_name.value()).config(config).create<Iceoryx2::ServiceType::Local>();
     if (!local_node.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(local_node.error()));
         error.emplace(ErrorType::ICEORYX_HANDLE_CREATION_FAILURE);
@@ -32,7 +36,8 @@ Iceoryx2::Iceoryx2(CreationLock, ::iox2::bb::Optional<ErrorType>& error, const s
     }
     m_local.emplace(std::move(local_node.value()));
 
-    auto ipc_node = Iceoryx2::InstanceBuilder().name(iox2_name.value()).create<Iceoryx2::ServiceType::Ipc>();
+    auto ipc_node =
+        Iceoryx2::InstanceBuilder().name(iox2_name.value()).config(config).create<Iceoryx2::ServiceType::Ipc>();
     if (!ipc_node.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(ipc_node.error()));
         error.emplace(ErrorType::ICEORYX_HANDLE_CREATION_FAILURE);
