@@ -28,6 +28,7 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
     , m_options{options} {
     using ::rmw::iox2::create;
     using ::rmw::iox2::create_in_place;
+    using ::rmw::iox2::create_shared;
     using ::rmw::iox2::GraphGuardCondition;
     namespace names = rmw::iox2::names;
 
@@ -56,11 +57,13 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
         return;
     }
 
-    if (!m_callback_thread->start().has_value()) {
+    auto callback_thread = create_shared<::rmw::iox2::CallbackThread>(m_iox2.value().local());
+    if (!callback_thread.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to start the callback thread of the context");
         error.emplace(ErrorType::CALLBACK_THREAD_CREATION_FAILURE);
         return;
     }
+    m_callback_thread = std::move(callback_thread.value());
 
     auto graph_listener = create<::rmw::iox2::GraphListener>(m_iox2.value());
     if (!graph_listener.has_value()) {

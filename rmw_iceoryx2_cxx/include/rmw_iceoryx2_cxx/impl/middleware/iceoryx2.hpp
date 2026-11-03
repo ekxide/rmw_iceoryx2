@@ -141,16 +141,16 @@ public:
 
     struct WaitSet
     {
-        // NOTE: Service type is inconsequential. Will be removed from iceoryx2 soon.
         using Handle = ::iox2::WaitSet<::iox2::ServiceType::Local>;
         using Guard = ::iox2::WaitSetGuard<::iox2::ServiceType::Local>;
         using AttachmentId = ::iox2::WaitSetAttachmentId<::iox2::ServiceType::Local>;
 
-        static inline auto create = []() {
-            return ::iox2::WaitSetBuilder()
+        static inline auto create = [](Local::Handle& node) {
+            return node
+                .waitset_builder()
                 // delegate signal handling to rcl
                 .signal_handling_mode(::iox2::SignalHandlingMode::Disabled)
-                .template create<::iox2::ServiceType::Local>();
+                .create();
         };
     };
 

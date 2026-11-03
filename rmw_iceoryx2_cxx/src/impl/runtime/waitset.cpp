@@ -20,7 +20,7 @@ namespace rmw::iox2
 
 WaitSet::WaitSet(CreationLock, ::iox2::bb::Optional<WaitSetError>& error, Context& context)
     : m_context{context} {
-    auto waitset = Iceoryx2::WaitSet::create();
+    auto waitset = Iceoryx2::WaitSet::create(context.iox2().local());
     if (!waitset.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(waitset.error()));
         error.emplace(ErrorType::WAITSET_CREATION_FAILURE);

@@ -48,6 +48,33 @@ CallbackThread::Registration::~Registration() {
     }
 }
 
+CallbackThread::CallbackThread(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Iceoryx2::Local::Handle& node) {
+    if (!create_in_place(m_wake).has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("failed to create the wake-up of the callback thread");
+        error.emplace(ErrorType::WAKE_UP_FAILURE);
+        return;
+    }
+
+    auto waitset = Iceoryx2::WaitSet::create(node);
+    if (!waitset.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(waitset.error()));
+        error.emplace(ErrorType::WAITSET_CREATION_FAILURE);
+        return;
+    }
+    m_waitset.emplace(std::move(waitset.value()));
+
+    auto wake_guard = m_waitset->attach_notification(m_wake->file_descriptor());
+    if (!wake_guard.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(wake_guard.error()));
+        error.emplace(ErrorType::WAKE_UP_FAILURE);
+        return;
+    }
+    m_wake_id.emplace(AttachmentId::from_guard(wake_guard.value()));
+    m_wake_guard.emplace(std::move(wake_guard.value()));
+
+    m_thread = std::thread([this] { run(); });
+}
+
 CallbackThread::~CallbackThread() {
     if (!m_thread.joinable()) {
         return;
@@ -119,36 +146,6 @@ void CallbackThread::remove(CallbackId id) {
     }
     m_callbacks.erase(removed);
     synchronize(lock);
-}
-
-auto CallbackThread::start() -> ::iox2::bb::Expected<void, ErrorType> {
-    using ::iox2::bb::err;
-
-    if (m_thread.joinable()) {
-        return {};
-    }
-    if (!create_in_place(m_wake).has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to create the wake-up of the callback thread");
-        return err(ErrorType::WAKE_UP_FAILURE);
-    }
-
-    auto waitset = Iceoryx2::WaitSet::create();
-    if (!waitset.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(waitset.error()));
-        return err(ErrorType::WAITSET_CREATION_FAILURE);
-    }
-    m_waitset.emplace(std::move(waitset.value()));
-
-    auto wake_guard = m_waitset->attach_notification(m_wake->file_descriptor());
-    if (!wake_guard.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(wake_guard.error()));
-        return err(ErrorType::WAKE_UP_FAILURE);
-    }
-    m_wake_id.emplace(AttachmentId::from_guard(wake_guard.value()));
-    m_wake_guard.emplace(std::move(wake_guard.value()));
-
-    m_thread = std::thread([this] { run(); });
-    return {};
 }
 
 void CallbackThread::synchronize(std::unique_lock<std::mutex>& lock) {

@@ -17,6 +17,8 @@
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 
+#include <memory>
+
 namespace rmw::iox2
 {
 
@@ -111,6 +113,30 @@ RMW_PUBLIC inline auto create_in_place(::iox2::bb::Optional<T>& storage, Args&&.
     storage.emplace(std::move(obj));
 
     return {};
+}
+
+/**
+ * @brief Creates an object of type T owned by a shared pointer.
+ *
+ * @tparam T The type of object to create.
+ * @tparam Args Variadic template for constructor arguments.
+ * @param args Arguments to be forwarded to the constructor of T.
+ * @return An expected object containing the shared pointer on success,
+ *         or an error of type T::ErrorType on failure.
+ */
+template <typename T, typename... Args>
+RMW_PUBLIC inline auto create_shared(Args&&... args)
+    -> ::iox2::bb::Expected<std::shared_ptr<T>, typename T::ErrorType> {
+    using ::iox2::bb::err;
+
+    ::iox2::bb::Optional<typename Error<T>::Type> error{};
+    auto obj = std::make_shared<T>(CreationLock::unlock(), error, std::forward<Args>(args)...);
+
+    if (error.has_value()) {
+        return err(error.value());
+    }
+
+    return std::move(obj);
 }
 
 } // namespace rmw::iox2

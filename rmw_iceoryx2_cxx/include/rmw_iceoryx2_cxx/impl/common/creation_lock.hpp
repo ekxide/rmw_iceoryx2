@@ -13,6 +13,8 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 
+#include <memory>
+
 namespace rmw::iox2
 {
 
@@ -49,6 +51,9 @@ private:
     template <typename T, typename... Args>
     friend auto create_in_place(::iox2::bb::Optional<T>& storage, Args&&... args)
         -> ::iox2::bb::Expected<void, typename T::ErrorType>;
+
+    template <typename T, typename... Args>
+    friend auto create_shared(Args&&... args) -> ::iox2::bb::Expected<std::shared_ptr<T>, typename T::ErrorType>;
 
     CreationLock() = default;
     static auto unlock() -> CreationLock {

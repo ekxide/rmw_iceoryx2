@@ -2,4 +2,4 @@ repositories:
   iceoryx2:
     type: git
     url: https://github.com/eclipse-iceoryx/iceoryx2.git
-    version: v0.10.0
+    version: 86c17acf96c441b3bc4ae03c4280654c285624ff
