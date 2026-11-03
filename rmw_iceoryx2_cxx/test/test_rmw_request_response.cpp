@@ -16,6 +16,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/message_info_header.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/client.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
@@ -279,6 +280,41 @@ TEST_F(RmwRequestResponseTest, a_response_reaches_the_client) {
 
     ASSERT_RMW_OK(rmw_take_response(client, &response_header, &received_response, &taken));
     EXPECT_FALSE(taken);
+}
+
+TEST_F(RmwRequestResponseTest, a_request_wakes_only_the_servers_and_a_response_only_the_clients) {
+    auto topic = create_test_topic();
+    auto* service = create_service<BasicTypes>(topic);
+    auto* client = create_client<BasicTypes>(topic);
+    auto* other_client = create_client<BasicTypes>(topic);
+    RMW_ASSERT_NE(service, nullptr);
+    RMW_ASSERT_NE(client, nullptr);
+    RMW_ASSERT_NE(other_client, nullptr);
+    auto& server_listener = static_cast<::rmw::iox2::Server*>(service->data)->listener();
+    auto& client_listener = static_cast<::rmw::iox2::Client*>(client->data)->listener();
+    auto& other_client_listener = static_cast<::rmw::iox2::Client*>(other_client->data)->listener();
+    auto is_woken = [](auto& listener) {
+        bool woken = false;
+        EXPECT_TRUE(listener.try_wait([&woken](auto) { woken = true; }).has_value());
+        return woken;
+    };
+
+    auto request = make_request(42);
+    int64_t sequence_id = 0;
+    ASSERT_RMW_OK(rmw_send_request(client, &request, &sequence_id));
+    EXPECT_TRUE(is_woken(server_listener));
+    EXPECT_FALSE(is_woken(client_listener));
+    EXPECT_FALSE(is_woken(other_client_listener));
+
+    rmw_service_info_t request_header{};
+    bool taken = false;
+    ASSERT_RMW_OK(rmw_take_request(service, &request_header, &request, &taken));
+    ASSERT_TRUE(taken);
+    auto response = make_response(43);
+    ASSERT_RMW_OK(rmw_send_response(service, &request_header.request_id, &response));
+    EXPECT_FALSE(is_woken(server_listener));
+    EXPECT_TRUE(is_woken(client_listener));
+    EXPECT_TRUE(is_woken(other_client_listener));
 }
 
 TEST_F(RmwRequestResponseTest, a_request_and_its_response_are_sent_when_waking_up_fails) {

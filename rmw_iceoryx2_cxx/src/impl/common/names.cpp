@@ -45,4 +45,8 @@ std::string service(const char* service) {
     return "ros2://services" + std::string(service);
 }
 
+std::string service_responses(const char* service) {
+    return names::service(service) + ":responses";
+}
+
 } // namespace rmw::iox2::names

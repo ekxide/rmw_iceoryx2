@@ -88,18 +88,25 @@ Server::Server(CreationLock,
 
     m_iox2_server.emplace(std::move(iox2_server.value()));
 
-    auto iox2_event_service =
-        node.iox2().open_or_create_event_service(iox2_service_name.value(),
-                                                 DEFAULT_MAX_SERVERS_AND_CLIENTS_PER_SERVICE,
-                                                 DEFAULT_MAX_SERVERS_AND_CLIENTS_PER_SERVICE,
+    auto iox2_response_events_name =
+        Iceoryx2::ServiceName::create(::rmw::iox2::names::service_responses(service).c_str());
+    if (!iox2_response_events_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_response_events_name.error()));
+        error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
+        return;
+    }
+    auto iox2_response_events =
+        node.iox2().open_or_create_event_service(iox2_response_events_name.value(),
+                                                 DEFAULT_MAX_SERVERS_PER_SERVICE,
+                                                 DEFAULT_MAX_CLIENTS_PER_SERVICE,
                                                  options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE));
-    if (!iox2_event_service.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_event_service.error()));
+    if (!iox2_response_events.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_response_events.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
         return;
     }
 
-    auto iox2_notifier = iox2_event_service.value().notifier_builder().create();
+    auto iox2_notifier = iox2_response_events.value().notifier_builder().create();
     if (!iox2_notifier.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_notifier.error()));
         error.emplace(ErrorType::NOTIFIER_CREATION_FAILURE);
@@ -107,7 +114,18 @@ Server::Server(CreationLock,
     }
     m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
 
-    auto iox2_listener = iox2_event_service.value().listener_builder().create();
+    auto iox2_request_events =
+        node.iox2().open_or_create_event_service(iox2_service_name.value(),
+                                                 DEFAULT_MAX_CLIENTS_PER_SERVICE,
+                                                 DEFAULT_MAX_SERVERS_PER_SERVICE,
+                                                 options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE));
+    if (!iox2_request_events.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_request_events.error()));
+        error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
+        return;
+    }
+
+    auto iox2_listener = iox2_request_events.value().listener_builder().create();
     if (!iox2_listener.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_listener.error()));
         error.emplace(ErrorType::LISTENER_CREATION_FAILURE);
