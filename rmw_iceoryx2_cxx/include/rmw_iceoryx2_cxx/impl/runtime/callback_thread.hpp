@@ -71,8 +71,9 @@ public:
     ~CallbackThread();
 
     /// @brief Starts the thread, which then waits for callbacks to call
+    /// @param[in] iox2 The iceoryx2 instance that creates the wait set of the thread
     /// @return Expected containing void if successful, error otherwise
-    auto start() -> ::iox2::bb::Expected<void, ErrorType>;
+    auto start(Iceoryx2& iox2) -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Adds a callback that is called with the number of notifications the listener receives
     /// @details The callback is called right away with the notifications the listener already received

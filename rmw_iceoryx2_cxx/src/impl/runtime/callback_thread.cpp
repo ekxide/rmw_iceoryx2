@@ -121,7 +121,7 @@ void CallbackThread::remove(CallbackId id) {
     synchronize(lock);
 }
 
-auto CallbackThread::start() -> ::iox2::bb::Expected<void, ErrorType> {
+auto CallbackThread::start(Iceoryx2& iox2) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
     if (m_thread.joinable()) {
@@ -132,7 +132,7 @@ auto CallbackThread::start() -> ::iox2::bb::Expected<void, ErrorType> {
         return err(ErrorType::WAKE_UP_FAILURE);
     }
 
-    auto waitset = Iceoryx2::WaitSet::create();
+    auto waitset = Iceoryx2::WaitSet::create(iox2.local());
     if (!waitset.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(waitset.error()));
         return err(ErrorType::WAITSET_CREATION_FAILURE);
