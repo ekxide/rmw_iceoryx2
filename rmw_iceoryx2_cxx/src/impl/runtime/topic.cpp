@@ -25,8 +25,6 @@ namespace rmw::iox2
 namespace
 {
 
-constexpr uint32_t OPEN_ATTEMPTS = 2U;
-
 auto existing_topic_qos(Iceoryx2& iox2, const std::string& service_name)
     -> ::iox2::bb::Expected<::iox2::bb::Optional<Qos>, QosError> {
     using ::iox2::bb::err;
@@ -111,6 +109,25 @@ auto open_or_create_topic(Node& node,
         if (opened.has_value()) {
             return std::move(opened.value());
         }
+        switch (opened.error()) {
+        case ::iox2::PublishSubscribeOpenError::DoesNotExist:
+            break;
+        case ::iox2::PublishSubscribeOpenError::IncompatibleAttributes:
+            if (options.qos_matching_mode == QosMatchingMode::STRICT || attempt == OPEN_ATTEMPTS) {
+                return err(TopicError::QOS_INCOMPATIBLE);
+            }
+            continue;
+        default:
+            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(opened.error()));
+            return err(TopicError::SERVICE_CREATION_FAILURE);
+        }
+
+        auto specifier =
+            TryConvert<::iox2::AttributeSpecifier>::from(service_qos, ::rmw::iox2::message_type_hash(type_support));
+        if (!specifier.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to build service attribute specifier");
+            return err(TopicError::SERVICE_CREATION_FAILURE);
+        }
 
         auto create_builder = service_builder();
         auto iox2_pubsub_service =
@@ -121,18 +138,23 @@ auto open_or_create_topic(Node& node,
                 .history_size(max_depth)
                 .subscriber_max_buffer_size(max_depth)
                 .enable_safe_overflow(qos.enable_safe_overflow())
-                .open_or_create_with_attributes(verifier.value());
+                .create_with_attributes(specifier.value());
 
         if (iox2_pubsub_service.has_value()) {
             return std::move(iox2_pubsub_service.value());
         }
-        if (iox2_pubsub_service.error() != ::iox2::PublishSubscribeOpenOrCreateError::OpenIncompatibleAttributes) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
-            return err(TopicError::SERVICE_CREATION_FAILURE);
+        switch (iox2_pubsub_service.error()) {
+        case ::iox2::PublishSubscribeCreateError::AlreadyExists:
+        case ::iox2::PublishSubscribeCreateError::IsBeingCreatedByAnotherInstance:
+            if (attempt < OPEN_ATTEMPTS) {
+                continue;
+            }
+            break;
+        default:
+            break;
         }
-        if (options.qos_matching_mode == QosMatchingMode::STRICT || attempt == OPEN_ATTEMPTS) {
-            return err(TopicError::QOS_INCOMPATIBLE);
-        }
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
+        return err(TopicError::SERVICE_CREATION_FAILURE);
     }
 }
 

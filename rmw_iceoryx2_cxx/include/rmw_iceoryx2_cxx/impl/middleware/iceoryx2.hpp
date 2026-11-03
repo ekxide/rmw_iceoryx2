@@ -51,6 +51,8 @@ struct Error<::rmw::iox2::Iceoryx2>
     using Type = HandleError;
 };
 
+constexpr uint32_t OPEN_ATTEMPTS = 2U;
+
 /// @brief A handle to iceoryx2 for creating and managing the lifetimes of iceoryx2 entities.
 /// @details An iceoryx2 handle is responsible for managing the lifetime of iceoryx2 entities that it it creates.
 ///
@@ -186,7 +188,7 @@ public:
                                       uint64_t max_notifiers,
                                       uint64_t max_listeners,
                                       uint64_t max_nodes)
-        -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventOpenOrCreateError>;
+        -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventCreateError>;
 
     /// @brief Creates a service builder for the specified service type and name
     /// @tparam ServiceType The type of service (Local or Ipc) to create
