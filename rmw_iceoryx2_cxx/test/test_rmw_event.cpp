@@ -9,8 +9,11 @@
 
 #include <gtest/gtest.h>
 
+#include "iox2/node.hpp"
+#include "iox2/service_name.hpp"
 #include "rmw/event.h"
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
@@ -318,6 +321,31 @@ TEST_F(RmwEventTest, the_matched_callback_reports_the_changes_since_the_last_tak
     ASSERT_RMW_OK(rmw_event_set_callback(&event, nullptr, nullptr));
     ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), second));
     ASSERT_RMW_OK(rmw_destroy_subscription(test_node(), first));
+    ASSERT_RMW_OK(rmw_event_fini(&event));
+    ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
+}
+
+
+TEST_F(RmwEventTest, a_matched_callback_adds_no_ports_to_the_graph_service) {
+    auto* publisher = create_publisher();
+    ASSERT_NE(publisher, nullptr);
+    auto event = rmw_get_zero_initialized_event();
+    ASSERT_RMW_OK(rmw_publisher_event_init(&event, publisher, RMW_EVENT_PUBLICATION_MATCHED));
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto graph_service =
+        native_node.service_builder(iox2::ServiceName::create(rmw::iox2::names::graph().c_str()).value())
+            .event()
+            .open();
+    ASSERT_TRUE(graph_service.has_value());
+    const auto notifiers = graph_service->dynamic_config().number_of_notifiers();
+    const auto listeners = graph_service->dynamic_config().number_of_listeners();
+
+    Calls calls;
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, count_calls, &calls));
+    EXPECT_EQ(graph_service->dynamic_config().number_of_notifiers(), notifiers);
+    EXPECT_EQ(graph_service->dynamic_config().number_of_listeners(), listeners);
+
+    ASSERT_RMW_OK(rmw_event_set_callback(&event, nullptr, nullptr));
     ASSERT_RMW_OK(rmw_event_fini(&event));
     ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), publisher));
 }

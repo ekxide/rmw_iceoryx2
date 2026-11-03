@@ -27,9 +27,9 @@ auto Events::gid_of(const ::iox2::bb::Optional<::iox2::RawIdType>& raw_id) -> Gi
     return gid;
 }
 
-Events::Events(Iceoryx2& iox2, std::shared_ptr<CallbackThread> callback_thread, ListMatched list_matched)
+Events::Events(Iceoryx2& iox2, std::shared_ptr<GraphChangeHandler> graph_change_handler, ListMatched list_matched)
     : m_iox2{iox2}
-    , m_callback_thread{std::move(callback_thread)}
+    , m_graph_change_handler{std::move(graph_change_handler)}
     , m_list_matched{std::move(list_matched)} {
 }
 
@@ -94,8 +94,6 @@ auto Events::guard_condition() -> GuardCondition& {
 
 auto Events::set_callback(rmw_event_type_t event_type, rmw_event_callback_t callback, const void* user_data)
     -> ::iox2::bb::Expected<void, ErrorType> {
-    using ::iox2::bb::err;
-
     switch (event_type) {
     case RMW_EVENT_PUBLICATION_MATCHED:
     case RMW_EVENT_SUBSCRIPTION_MATCHED: {
@@ -106,17 +104,13 @@ auto Events::set_callback(rmw_event_type_t event_type, rmw_event_callback_t call
         }
         {
             std::lock_guard<std::mutex> lock{m_mutex};
-            if (!m_callback_guard_condition.has_value()) {
-                if (!create_in_place(m_callback_guard_condition, m_iox2.get()).has_value()) {
-                    RMW_IOX2_CHAIN_ERROR_MSG("failed to create the graph listener of the event callback");
-                    return err(ErrorType::GUARD_CONDITION_CREATION_FAILURE);
-                }
+            if (!m_notifies) {
+                m_notifies = true;
                 m_notified = m_taken;
             }
         }
         auto count_changes = [this]() -> uint64_t {
             std::lock_guard<std::mutex> lock{m_mutex};
-            (void)m_callback_guard_condition->drain();
             auto matched = m_list_matched();
             std::set<Gid> changes;
             std::set_symmetric_difference(m_notified.begin(),
@@ -127,12 +121,13 @@ auto Events::set_callback(rmw_event_type_t event_type, rmw_event_callback_t call
             m_notified = std::move(matched);
             return changes.size();
         };
-        auto added =
-            m_callback_thread->add(m_callback_guard_condition->file_descriptor(), count_changes, callback, user_data);
-        if (!added.has_value()) {
-            return err(ErrorType::CALLBACK_FAILURE);
-        }
-        m_callback.emplace(std::move(added.value()));
+        auto notify = [count_changes, callback, user_data] {
+            if (auto count = count_changes(); count > 0) {
+                callback(user_data, count);
+            }
+        };
+        m_callback.emplace(m_graph_change_handler->register_callback(notify));
+        notify();
         return {};
     }
     default:

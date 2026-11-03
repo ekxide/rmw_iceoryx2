@@ -74,6 +74,7 @@
 * Attach the listeners of the wait set in one function [#60](https://github.com/ekxide/rmw_iceoryx2/issues/60)
 * Implement guard conditions with a pipe instead of an iceoryx2 event service [#83](https://github.com/ekxide/rmw_iceoryx2/issues/83)
 * Fail to take a sample without a publisher id like a request without a client id [#100](https://github.com/ekxide/rmw_iceoryx2/issues/100)
+* Run the matched event callbacks through the graph change handler of the context [#126](https://github.com/ekxide/rmw_iceoryx2/issues/126)
 
 ### Workflow
 

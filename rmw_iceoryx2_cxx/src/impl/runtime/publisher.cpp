@@ -39,7 +39,7 @@ Publisher::Publisher(CreationLock,
     , m_is_self_contained{::rmw::iox2::is_self_contained(type_support)}
     , m_service_name{::rmw::iox2::names::topic(topic)}
     , m_qos{qos}
-    , m_events{node.iox2(), node.context().callback_thread(), [this] {
+    , m_events{node.iox2(), node.context().graph_change_handler(), [this] {
                    std::set<Events::Gid> gids;
                    m_iox2_service->dynamic_config().list_subscribers([&gids](auto view) {
                        gids.insert(Events::gid_of(view.subscriber_id().bytes()));
