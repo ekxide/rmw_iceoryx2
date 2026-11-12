@@ -93,3 +93,15 @@ check-clang-format:
 
     git ls-files | grep -E '\.(c|cc|cpp|cxx|inl|h|hh|hpp|hxx)$' | xargs clang-format -style=file --Werror --dry-run
     printf '\033[1;32mAll checked files are formatted\033[0m\n'
+
+# Check the sources of rmw_iceoryx2_cxx with clang-tidy, using the compile commands of a build.
+[group('ci')]
+[no-exit-message]
+check-clang-tidy build_dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    cd "{{justfile_directory()}}/rmw_iceoryx2_cxx"
+
+    find src -name '*.cpp' | xargs -P "$(nproc)" -n 4 clang-tidy -p "{{build_dir}}" --quiet --warnings-as-errors='*'
+    printf '\033[1;32mNo clang-tidy findings\033[0m\n'
