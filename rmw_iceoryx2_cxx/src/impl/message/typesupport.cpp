@@ -17,8 +17,8 @@ const rosidl_message_type_support_t* get_handle(const rosidl_message_type_suppor
     // Keep trying until we run out of type supports to check
     while (next != nullptr) {
         // Try to get handle from current type support
-        if (auto ts = get_message_typesupport_handle(next, identifier); ts) {
-            return ts;
+        if (auto handle = get_message_typesupport_handle(next, identifier); handle) {
+            return handle;
         }
         rcutils_reset_error();
 

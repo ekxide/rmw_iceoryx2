@@ -38,31 +38,32 @@ using CppMembers = introspection_cpp::MessageMembers;
 using IntrospectionView = ::iox2::legacy::variant<const CppMembers*, const CMembers*>;
 
 template <typename Member>
-auto is_string(const Member* m) -> bool {
+auto is_string(const Member* member) -> bool {
     // Both `string` and `wstring` own dynamically-sized heap buffers; for the
     // purpose of self-containedness they are equivalent.
-    return m->type_id_ == introspection_cpp::ROS_TYPE_STRING || m->type_id_ == introspection_cpp::ROS_TYPE_WSTRING;
+    return member->type_id_ == introspection_cpp::ROS_TYPE_STRING
+           || member->type_id_ == introspection_cpp::ROS_TYPE_WSTRING;
 }
 
 template <typename Member>
-auto is_message(const Member* m) -> bool {
-    return m->type_id_ == introspection_cpp::ROS_TYPE_MESSAGE;
+auto is_message(const Member* member) -> bool {
+    return member->type_id_ == introspection_cpp::ROS_TYPE_MESSAGE;
 }
 
 template <typename Member>
-auto is_fixed_array(const Member* m) -> bool {
-    return m->is_array_ && m->array_size_ > 0 && !m->is_upper_bound_;
+auto is_fixed_array(const Member* member) -> bool {
+    return member->is_array_ && member->array_size_ > 0 && !member->is_upper_bound_;
 }
 
 template <typename Member>
-auto is_dynamic_array(const Member* m) -> bool {
-    return m->is_array_ && (m->array_size_ == 0 || m->is_upper_bound_);
+auto is_dynamic_array(const Member* member) -> bool {
+    return member->is_array_ && (member->array_size_ == 0 || member->is_upper_bound_);
 }
 
 // A field has a runtime-determined size if its content lives on the heap.
 template <typename Member>
-auto has_dynamic_size(const Member* m) -> bool {
-    return is_string(m) || is_dynamic_array(m);
+auto has_dynamic_size(const Member* member) -> bool {
+    return is_string(member) || is_dynamic_array(member);
 }
 
 template <typename Members>
@@ -90,11 +91,12 @@ auto is_self_contained_impl(const Members* members) -> bool {
     return true;
 }
 
-auto find_introspection(const rosidl_message_type_support_t* ts) -> IntrospectionView {
+auto find_introspection(const rosidl_message_type_support_t* type_support) -> IntrospectionView {
     IntrospectionView view;
-    if (auto handle = get_message_typesupport_handle(ts, introspection_cpp::typesupport_identifier)) {
+    if (auto handle = get_message_typesupport_handle(type_support, introspection_cpp::typesupport_identifier)) {
         view.template emplace<const CppMembers*>(static_cast<const CppMembers*>(handle->data));
-    } else if (auto handle = get_message_typesupport_handle(ts, rosidl_typesupport_introspection_c__identifier)) {
+    } else if (auto handle =
+                   get_message_typesupport_handle(type_support, rosidl_typesupport_introspection_c__identifier)) {
         view.template emplace<const CMembers*>(static_cast<const CMembers*>(handle->data));
     }
     return view;

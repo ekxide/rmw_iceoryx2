@@ -31,10 +31,10 @@ rmw_ret_t rmw_get_gid_for_publisher(const rmw_publisher_t* rmw_publisher, rmw_gi
         return RMW_RET_ERROR;
     }
 
-    if (auto id = publisher_impl.value()->unique_id(); id.has_value()) {
+    if (auto unique_id = publisher_impl.value()->unique_id(); unique_id.has_value()) {
         rmw_gid->implementation_identifier = rmw_get_implementation_identifier();
-        std::copy(id.value().unchecked_access().data(),
-                  id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
+        std::copy(unique_id.value().unchecked_access().data(),
+                  unique_id.value().unchecked_access().data() + RMW_GID_STORAGE_SIZE,
                   rmw_gid->data);
         return RMW_RET_OK;
     }

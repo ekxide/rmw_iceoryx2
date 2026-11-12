@@ -42,6 +42,7 @@ hicpp-*,
 -readability-const-return-type,
 -readability-function-cognitive-complexity,
 -readability-use-anyofallof,
+-readability-container-contains,
 -hicpp-named-parameter,
 -hicpp-avoid-c-arrays,
 -hicpp-no-array-decay,
@@ -141,6 +142,7 @@ CheckOptions:
   - { key: readability-identifier-naming.ConstexprVariableCase,   value: UPPER_CASE }
   - { key: readability-identifier-naming.EnumConstantCase,        value: UPPER_CASE }
   - { key: readability-identifier-naming.GlobalConstantCase,      value: UPPER_CASE }
+  - { key: readability-identifier-naming.GlobalConstantIgnoredRegexp, value: 'rmw_iox2_.*' }
   - { key: readability-identifier-naming.TemplateParameterCase,   value: CamelCase }
   - { key: readability-function-size.LineThreshold,               value: 200 }
   - { key: readability-function-size.StatementThreshold,          value: 200 }

@@ -73,7 +73,7 @@ public:
     void run_callbacks();
 
 private:
-    void remove(CallbackId id);
+    void remove(CallbackId callback_id);
 
     std::mutex m_mutex;
     GraphListener m_graph_listener;

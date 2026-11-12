@@ -21,20 +21,19 @@ std::string context(const uint32_t context_id) {
 }
 
 std::string node(const uint32_t context_id, const char* name, const char* node_namespace, const char* enclave) {
-    auto s = "ros2://context/" + std::to_string(context_id) + "/nodes/";
+    auto full_name = "ros2://context/" + std::to_string(context_id) + "/nodes/";
     if (node_namespace && node_namespace[0] != '\0') {
-        s += std::string(node_namespace) + "/";
+        full_name += std::string(node_namespace) + "/";
     }
-    s += std::string(name);
+    full_name += std::string(name);
     if (enclave && enclave[0] != '\0' && std::strcmp(enclave, "/") != 0) {
-        s += std::string("?enclave=") + enclave;
+        full_name += std::string("?enclave=") + enclave;
     }
-    return s;
+    return full_name;
 }
 
 std::string topic(const char* topic) {
-    auto s = "ros2://topics" + std::string(topic);
-    return s;
+    return "ros2://topics" + std::string(topic);
 }
 
 std::string graph() {
