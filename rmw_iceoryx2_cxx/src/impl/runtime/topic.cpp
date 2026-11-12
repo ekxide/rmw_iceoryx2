@@ -126,13 +126,26 @@ auto open_or_create_topic(Node& node,
         if (iox2_pubsub_service.has_value()) {
             return std::move(iox2_pubsub_service.value());
         }
-        if (iox2_pubsub_service.error() != ::iox2::PublishSubscribeOpenOrCreateError::OpenIncompatibleAttributes) {
-            RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
-            return err(TopicError::SERVICE_CREATION_FAILURE);
+        switch (iox2_pubsub_service.error()) {
+        case ::iox2::PublishSubscribeOpenOrCreateError::OpenIncompatibleAttributes:
+            if (options.qos_matching_mode == QosMatchingMode::STRICT || attempt == OPEN_ATTEMPTS) {
+                return err(TopicError::QOS_INCOMPATIBLE);
+            }
+            continue;
+        case ::iox2::PublishSubscribeOpenOrCreateError::OpenDoesNotSupportRequestedMinBufferSize:
+        case ::iox2::PublishSubscribeOpenOrCreateError::OpenDoesNotSupportRequestedMinHistorySize:
+        case ::iox2::PublishSubscribeOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfPublishers:
+        case ::iox2::PublishSubscribeOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfSubscribers:
+        case ::iox2::PublishSubscribeOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfNodes:
+            if (attempt < OPEN_ATTEMPTS) {
+                continue;
+            }
+            break;
+        default:
+            break;
         }
-        if (options.qos_matching_mode == QosMatchingMode::STRICT || attempt == OPEN_ATTEMPTS) {
-            return err(TopicError::QOS_INCOMPATIBLE);
-        }
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_pubsub_service.error()));
+        return err(TopicError::SERVICE_CREATION_FAILURE);
     }
 }
 

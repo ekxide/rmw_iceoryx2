@@ -16,6 +16,13 @@
 namespace rmw::iox2
 {
 
+namespace
+{
+
+constexpr uint32_t OPEN_ATTEMPTS = 2U;
+
+} // namespace
+
 Iceoryx2::Iceoryx2(CreationLock,
                    ::iox2::bb::Optional<ErrorType>& error,
                    const std::string& instance_name,
@@ -71,17 +78,34 @@ auto Iceoryx2::open_or_create_event_service(const ServiceName& service_name,
                                             uint64_t max_listeners,
                                             uint64_t max_nodes)
     -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventOpenOrCreateError> {
-    auto opened = ipc().service_builder(service_name).event().open();
-    if (opened.has_value()) {
-        return std::move(opened.value());
+    for (uint32_t attempt = 1U;; ++attempt) {
+        auto opened = ipc().service_builder(service_name).event().open();
+        if (opened.has_value()) {
+            return std::move(opened.value());
+        }
+        auto created = ipc()
+                           .service_builder(service_name)
+                           .event()
+                           .max_notifiers(max_notifiers)
+                           .max_listeners(max_listeners)
+                           .max_nodes(max_nodes)
+                           .open_or_create();
+        if (created.has_value()) {
+            return created;
+        }
+        switch (created.error()) {
+        case ::iox2::EventOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfNotifiers:
+        case ::iox2::EventOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfListeners:
+        case ::iox2::EventOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfNodes:
+            if (attempt < OPEN_ATTEMPTS) {
+                continue;
+            }
+            break;
+        default:
+            break;
+        }
+        return created;
     }
-    return ipc()
-        .service_builder(service_name)
-        .event()
-        .max_notifiers(max_notifiers)
-        .max_listeners(max_listeners)
-        .max_nodes(max_nodes)
-        .open_or_create();
 }
 
 } // namespace rmw::iox2

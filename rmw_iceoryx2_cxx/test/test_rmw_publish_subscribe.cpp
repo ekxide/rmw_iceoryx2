@@ -33,7 +33,9 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <condition_variable>
 #include <cstdlib>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -902,6 +904,57 @@ TEST_F(RmwPublishSubscribeTest, creates_subscriptions_up_to_the_topic_limit) {
     for (size_t i = 0; i < rmw::iox2::DEFAULT_MAX_SUBSCRIBERS_PER_TOPIC; ++i) {
         ASSERT_NE(create_default_subscriber<Defaults>(topic), nullptr) << "subscription " << i + 1;
     }
+}
+
+TEST_F(RmwPublishSubscribeTest, contexts_with_different_limits_create_the_same_topic_at_once) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr size_t ROUNDS = 50;
+    constexpr size_t SMALLER_LIMIT = 2;
+    constexpr size_t PUBLISHING_THREADS = 2;
+
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    options.impl->max_publishers_per_topic.emplace(SMALLER_LIMIT);
+    options.impl->max_subscribers_per_topic.emplace(SMALLER_LIMIT);
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    auto* node = rmw_create_node(&context, "SmallerLimits", "/Sensors");
+    ASSERT_NE(node, nullptr);
+    auto publisher_options = rmw_get_default_publisher_options();
+
+    for (size_t round = 0; round < ROUNDS; ++round) {
+        const auto topic = create_test_topic();
+        std::mutex mutex;
+        std::condition_variable all_started;
+        size_t started{0};
+        auto start_together = [&] {
+            std::unique_lock<std::mutex> lock{mutex};
+            ++started;
+            all_started.notify_all();
+            all_started.wait(lock, [&] { return started == PUBLISHING_THREADS; });
+        };
+
+        rmw_publisher_t* smaller_limits_publisher{nullptr};
+        std::thread smaller_limits_thread{[&] {
+            start_together();
+            smaller_limits_publisher = rmw_create_publisher(
+                node, test_type_support<Defaults>(), topic.c_str(), &rmw_qos_profile_default, &publisher_options);
+        }};
+        start_together();
+        auto* default_limits_publisher = rmw_create_publisher(
+            test_node(), test_type_support<Defaults>(), topic.c_str(), &rmw_qos_profile_default, &publisher_options);
+        smaller_limits_thread.join();
+
+        ASSERT_NE(smaller_limits_publisher, nullptr) << "round " << round;
+        ASSERT_NE(default_limits_publisher, nullptr) << "round " << round;
+        ASSERT_RMW_OK(rmw_destroy_publisher(node, smaller_limits_publisher));
+        ASSERT_RMW_OK(rmw_destroy_publisher(test_node(), default_limits_publisher));
+    }
+
+    ASSERT_RMW_OK(rmw_destroy_node(node));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
 }
 
 TEST_F(RmwPublishSubscribeTest, endpoints_join_an_event_service_created_by_another_iceoryx2_application) {
