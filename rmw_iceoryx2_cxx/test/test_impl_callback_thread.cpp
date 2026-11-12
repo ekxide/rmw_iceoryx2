@@ -9,6 +9,9 @@
 
 #include <gtest/gtest.h>
 
+#include "iox2/bb/optional.hpp"
+#include "rmw_iceoryx2_cxx/impl/common/create.hpp"
+#include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/callback_thread.hpp"
 
 #include <memory>
@@ -16,10 +19,12 @@
 namespace
 {
 
-TEST(CallbackThreadTest, starting_a_started_thread_succeeds) {
-    auto callback_thread = std::make_shared<rmw::iox2::CallbackThread>();
-    ASSERT_TRUE(callback_thread->start().has_value());
-    ASSERT_TRUE(callback_thread->start().has_value());
+TEST(CallbackThreadTest, creating_a_callback_thread_succeeds) {
+    ::iox2::bb::Optional<rmw::iox2::Iceoryx2> iox2;
+    ASSERT_TRUE(
+        rmw::iox2::create_in_place(iox2, "CallbackThreadTest", rmw::iox2::Iceoryx2::Config::global_config().to_owned())
+            .has_value());
+    ASSERT_TRUE(rmw::iox2::create_shared<rmw::iox2::CallbackThread>(iox2.value().local()).has_value());
 }
 
 } // namespace

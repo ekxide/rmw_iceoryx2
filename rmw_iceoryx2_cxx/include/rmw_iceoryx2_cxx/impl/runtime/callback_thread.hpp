@@ -16,6 +16,7 @@
 #include "iox2/file_descriptor.hpp"
 #include "rmw/event_callback_type.h"
 #include "rmw/visibility_control.h"
+#include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/error.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/guard_condition.hpp"
@@ -32,6 +33,14 @@
 
 namespace rmw::iox2
 {
+
+class CallbackThread;
+
+template <>
+struct Error<CallbackThread>
+{
+    using Type = CallbackThreadError;
+};
 
 /// @brief Calls the callbacks of the entities of a context from one thread
 class RMW_PUBLIC CallbackThread : public std::enable_shared_from_this<CallbackThread>
@@ -63,16 +72,16 @@ public:
         CallbackId m_id;
     };
 
-    CallbackThread() = default;
+    /// @brief Starts the thread, which then waits for callbacks to call
+    /// @param[in] lock Creation lock to restrict construction to creation functions
+    /// @param[out] error Optional error that is set if construction fails
+    /// @param[in] node The iceoryx2 node that creates the wait set of the thread
+    CallbackThread(CreationLock, ::iox2::bb::Optional<ErrorType>& error, Iceoryx2::Local::Handle& node);
     CallbackThread(const CallbackThread&) = delete;
     CallbackThread(CallbackThread&&) = delete;
     auto operator=(const CallbackThread&) -> CallbackThread& = delete;
     auto operator=(CallbackThread&&) -> CallbackThread& = delete;
     ~CallbackThread();
-
-    /// @brief Starts the thread, which then waits for callbacks to call
-    /// @return Expected containing void if successful, error otherwise
-    auto start() -> ::iox2::bb::Expected<void, ErrorType>;
 
     /// @brief Adds a callback that is called with the number of notifications the listener receives
     /// @details The callback is called right away with the notifications the listener already received

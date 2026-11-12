@@ -142,7 +142,7 @@ private:
     ::iox2::bb::Optional<Iceoryx2> m_iox2;
     ::iox2::bb::Optional<::rmw::iox2::GraphGuardCondition> m_graph_guard_condition;
     rmw_init_options_impl_s m_options;
-    std::shared_ptr<::rmw::iox2::CallbackThread> m_callback_thread{std::make_shared<::rmw::iox2::CallbackThread>()};
+    std::shared_ptr<::rmw::iox2::CallbackThread> m_callback_thread;
     std::shared_ptr<::rmw::iox2::GraphChangeHandler> m_graph_change_handler;
     ::iox2::bb::Optional<::rmw::iox2::CallbackThread::Registration> m_graph_change_callback_registration;
 };
