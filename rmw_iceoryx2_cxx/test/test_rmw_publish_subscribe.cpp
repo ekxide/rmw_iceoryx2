@@ -72,6 +72,7 @@ protected:
         bool taken{false};
         ASSERT_RMW_OK(rmw_take_serialized_message(subscription, &serialized, &taken, nullptr));
         ASSERT_TRUE(taken);
+        EXPECT_EQ(serialized.buffer_length, expected.buffer_length);
         T deserialized{};
         ASSERT_RMW_OK(rmw_deserialize(&serialized, test_type_support<T>(), &deserialized));
         EXPECT_EQ(deserialized, input);
