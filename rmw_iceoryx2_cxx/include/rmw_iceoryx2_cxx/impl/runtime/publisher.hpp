@@ -117,6 +117,12 @@ public:
     /// @return Expected containing pointer to loaned memory or error
     auto loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType>;
 
+    /// @brief Shorten previously loaned memory so that only its first bytes are published
+    /// @param[in] loaned_memory Pointer to the loaned memory to shorten
+    /// @param[in] number_of_bytes Number of bytes to publish, has no effect when not smaller than the loan
+    /// @return Expected containing void or error if the memory was not loaned
+    auto truncate_loan(void* loaned_memory, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
+
     /// @brief Return previously loaned memory without publishing
     /// @param[in] loaned_memory Pointer to the loaned memory to return
     /// @return Expected containing void or error if return failed

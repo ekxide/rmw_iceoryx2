@@ -221,6 +221,11 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
             RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
             return RMW_RET_ERROR;
         }
+        if (auto result = publisher_impl.value()->truncate_loan(loan.value(), serialized_message.buffer_length);
+            !result.has_value()) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to truncate serialized payload");
+            return RMW_RET_ERROR;
+        }
         if (auto result = publisher_impl.value()->publish_loan(loan.value()); !result.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to publish serialized payload");
             return RMW_RET_ERROR;
