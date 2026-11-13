@@ -134,9 +134,9 @@ auto CallbackThread::add(::iox2::FileDescriptorView file_descriptor, OnWakeUp on
     return std::move(registration);
 }
 
-void CallbackThread::remove(CallbackId id) {
+void CallbackThread::remove(CallbackId callback_id) {
     std::unique_lock<std::mutex> lock{m_mutex};
-    auto removed = m_callbacks.find(id);
+    auto removed = m_callbacks.find(callback_id);
     if (removed == m_callbacks.end()) {
         return;
     }
@@ -155,7 +155,7 @@ void CallbackThread::synchronize(std::unique_lock<std::mutex>& lock) {
 }
 
 void CallbackThread::run() {
-    auto result = m_waitset->wait_and_process([this](auto id) { return on_event(id); });
+    auto result = m_waitset->wait_and_process([this](auto attachment_id) { return on_event(attachment_id); });
     if (!result.has_value()) {
         RMW_IOX2_LOG_ERROR("the callback thread stopped: %s", ::iox2::bb::into<const char*>(result.error()));
         std::lock_guard<std::mutex> lock{m_mutex};
@@ -164,11 +164,11 @@ void CallbackThread::run() {
     }
 }
 
-auto CallbackThread::on_event(const AttachmentId& id) -> ::iox2::CallbackProgression {
+auto CallbackThread::on_event(const AttachmentId& attachment_id) -> ::iox2::CallbackProgression {
     using ::iox2::CallbackProgression;
 
     std::lock_guard<std::mutex> lock{m_mutex};
-    if (id == m_wake_id.value()) {
+    if (attachment_id == m_wake_id.value()) {
         (void)m_wake->drain();
         if (m_stop) {
             return CallbackProgression::Stop;
@@ -184,7 +184,7 @@ auto CallbackThread::on_event(const AttachmentId& id) -> ::iox2::CallbackProgres
 
     for (auto& entry : m_callbacks) {
         auto& callback = entry.second;
-        if (callback.guard.has_value() && id.has_event_from(callback.guard.value())) {
+        if (callback.guard.has_value() && attachment_id.has_event_from(callback.guard.value())) {
             call(callback);
             break;
         }

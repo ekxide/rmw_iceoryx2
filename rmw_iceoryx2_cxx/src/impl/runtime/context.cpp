@@ -21,10 +21,10 @@
 
 rmw_context_impl_s::rmw_context_impl_s(CreationLock,
                                        ::iox2::bb::Optional<ErrorType>& error,
-                                       const uint32_t id,
+                                       const uint32_t context_id,
                                        const size_t domain_id,
                                        const rmw_init_options_impl_s& options)
-    : m_id{id}
+    : m_id{context_id}
     , m_options{options} {
     using ::rmw::iox2::create;
     using ::rmw::iox2::create_in_place;
@@ -44,7 +44,7 @@ rmw_context_impl_s::rmw_context_impl_s(CreationLock,
         config.global().set_prefix(domain_prefix.value());
     }
 
-    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::context(id), config); !result.has_value()) {
+    if (auto result = create_in_place<Iceoryx2>(m_iox2, names::context(context_id), config); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to create Handle");
         error.emplace(ErrorType::HANDLE_CREATION_FAILURE);
         return;

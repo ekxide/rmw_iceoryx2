@@ -56,9 +56,9 @@ auto GraphChangeHandler::register_callback(OnGraphChange callback) -> Registrati
     return registration;
 }
 
-void GraphChangeHandler::remove(CallbackId id) {
+void GraphChangeHandler::remove(CallbackId callback_id) {
     std::lock_guard<std::mutex> lock{m_mutex};
-    m_callbacks.erase(id);
+    m_callbacks.erase(callback_id);
 }
 
 void GraphChangeHandler::run_callbacks() {

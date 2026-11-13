@@ -75,11 +75,6 @@ jobs:
       - name: Run clang-format
         run: just check-clang-format
 
-#     - name: Run clang-tidy
-#       run: |
-#         git fetch origin rolling
-#         ./scripts/check-clang-tidy.sh
-
   colcon-build-test:
     needs: [preflight-check, static-code-analysis]
     strategy:
@@ -174,7 +169,14 @@ jobs:
               -DCMAKE_C_COMPILER=${{ matrix.cc }} \
               -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=On \
               -DBUILD_TESTING=On
+
+      - name: Run clang-tidy
+        if: matrix.compiler == 'clang'
+        run: |
+          cd $WORKSPACE_DIR
+          just -f src/rmw_iceoryx2/justfile check-clang-tidy $WORKSPACE_DIR/build/rmw_iceoryx2_cxx
 
       - name: Run tests
         run: |

@@ -124,10 +124,10 @@ private:
         ::iox2::bb::Optional<Guard> guard;
     };
 
-    void remove(CallbackId id);
+    void remove(CallbackId callback_id);
     void synchronize(std::unique_lock<std::mutex>& lock);
     void run();
-    auto on_event(const AttachmentId& id) -> ::iox2::CallbackProgression;
+    auto on_event(const AttachmentId& attachment_id) -> ::iox2::CallbackProgression;
     void attach_new_callbacks();
     auto attach(Callback& callback) -> bool;
     static void call(const Callback& callback);
