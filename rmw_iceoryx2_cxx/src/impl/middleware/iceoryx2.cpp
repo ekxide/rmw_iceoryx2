@@ -73,10 +73,7 @@ auto Iceoryx2::ipc() -> InterProcess::Handle& {
     return m_ipc.value();
 }
 
-auto Iceoryx2::open_or_create_event_service(const ServiceName& service_name,
-                                            uint64_t max_notifiers,
-                                            uint64_t max_listeners,
-                                            uint64_t max_nodes)
+auto Iceoryx2::open_or_create_event_service(const ServiceName& service_name, const EventLimits& limits)
     -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventOpenOrCreateError> {
     for (uint32_t attempt = 1U;; ++attempt) {
         auto opened = ipc().service_builder(service_name).event().open();
@@ -86,9 +83,9 @@ auto Iceoryx2::open_or_create_event_service(const ServiceName& service_name,
         auto created = ipc()
                            .service_builder(service_name)
                            .event()
-                           .max_notifiers(max_notifiers)
-                           .max_listeners(max_listeners)
-                           .max_nodes(max_nodes)
+                           .max_notifiers(limits.m_max_notifiers)
+                           .max_listeners(limits.m_max_listeners)
+                           .max_nodes(limits.m_max_nodes)
                            .open_or_create();
         if (created.has_value()) {
             return created;

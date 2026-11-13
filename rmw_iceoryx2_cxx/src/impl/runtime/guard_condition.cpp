@@ -38,8 +38,11 @@ auto open_graph_service(Iceoryx2& iox2)
         return err(GuardConditionError::SERVICE_NAME_CREATION_FAILURE);
     }
 
-    auto graph_service = iox2.open_or_create_event_service(
-        graph_service_name.value(), GRAPH_MAX_GUARD_CONDITIONS, GRAPH_MAX_GUARD_CONDITIONS, GRAPH_MAX_GUARD_CONDITIONS);
+    auto graph_service = iox2.open_or_create_event_service(graph_service_name.value(),
+                                                           EventLimits{}
+                                                               .max_notifiers(GRAPH_MAX_GUARD_CONDITIONS)
+                                                               .max_listeners(GRAPH_MAX_GUARD_CONDITIONS)
+                                                               .max_nodes(GRAPH_MAX_GUARD_CONDITIONS));
     if (!graph_service.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(graph_service.error()));
         return err(GuardConditionError::SERVICE_CREATION_FAILURE);
