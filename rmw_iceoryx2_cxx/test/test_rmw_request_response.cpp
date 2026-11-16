@@ -282,6 +282,35 @@ TEST_F(RmwRequestResponseTest, a_response_reaches_the_client) {
     EXPECT_FALSE(taken);
 }
 
+TEST_F(RmwRequestResponseTest, clients_and_servers_join_services_created_with_fewer_nodes) {
+    auto options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&options, test_allocator()));
+    options.impl->max_nodes_per_service.emplace(::rmw::iox2::DEFAULT_MAX_NODES_PER_SERVICE + 1U);
+    auto context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init(&options, &context));
+    auto* node = rmw_create_node(&context, "MoreNodes", "/Sensors");
+    ASSERT_NE(node, nullptr);
+
+    const auto created_by_server = create_test_topic("Server");
+    RMW_ASSERT_NE(create_service<BasicTypes>(created_by_server), nullptr);
+    auto* client = rmw_create_client(
+        node, test_service_type_support<BasicTypes>(), created_by_server.c_str(), &rmw_qos_profile_services_default);
+    ASSERT_NE(client, nullptr);
+
+    const auto created_by_client = create_test_topic("Client");
+    RMW_ASSERT_NE(create_client<BasicTypes>(created_by_client), nullptr);
+    auto* service = rmw_create_service(
+        node, test_service_type_support<BasicTypes>(), created_by_client.c_str(), &rmw_qos_profile_services_default);
+    ASSERT_NE(service, nullptr);
+
+    ASSERT_RMW_OK(rmw_destroy_client(node, client));
+    ASSERT_RMW_OK(rmw_destroy_service(node, service));
+    ASSERT_RMW_OK(rmw_destroy_node(node));
+    ASSERT_RMW_OK(rmw_shutdown(&context));
+    ASSERT_RMW_OK(rmw_context_fini(&context));
+    ASSERT_RMW_OK(rmw_init_options_fini(&options));
+}
+
 TEST_F(RmwRequestResponseTest, a_request_wakes_only_the_servers_and_a_response_only_the_clients) {
     auto topic = create_test_topic();
     auto* service = create_service<BasicTypes>(topic);

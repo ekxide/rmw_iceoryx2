@@ -46,25 +46,11 @@ Server::Server(CreationLock,
 
     const auto& options = node.context().options();
 
-    auto service_builder = node.iox2()
-                               .ipc()
-                               .service_builder(iox2_service_name.value())
-                               .request_response<Payload, Payload>()
-                               .request_user_header<UserHeader>()
-                               .response_user_header<UserHeader>();
-
-    ::iox2::set_request_payload_type_details(service_builder,
-                                             ::rmw::iox2::payload_type_details(m_typesupport->request_typesupport));
-    ::iox2::set_response_payload_type_details(service_builder,
-                                              ::rmw::iox2::payload_type_details(m_typesupport->response_typesupport));
-
-    auto iox2_service = service_builder.resume_build()
-                            .max_servers(DEFAULT_MAX_SERVERS_PER_SERVICE)
-                            .max_clients(DEFAULT_MAX_CLIENTS_PER_SERVICE)
-                            .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE))
-                            .max_active_requests_per_client(DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT)
-                            .max_response_buffer_size(MAX_RESPONSES_PER_REQUEST)
-                            .open_or_create();
+    auto iox2_service = node.iox2().open_or_create_request_response_service<Payload, UserHeader>(
+        iox2_service_name.value(),
+        ::rmw::iox2::payload_type_details(m_typesupport->request_typesupport),
+        ::rmw::iox2::payload_type_details(m_typesupport->response_typesupport),
+        RequestResponseLimits{}.max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE)));
 
     if (!iox2_service.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_service.error()));
@@ -95,11 +81,12 @@ Server::Server(CreationLock,
         error.emplace(ErrorType::SERVICE_NAME_CREATION_FAILURE);
         return;
     }
-    auto iox2_response_events =
-        node.iox2().open_or_create_event_service(iox2_response_events_name.value(),
-                                                 DEFAULT_MAX_SERVERS_PER_SERVICE,
-                                                 DEFAULT_MAX_CLIENTS_PER_SERVICE,
-                                                 options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE));
+    auto iox2_response_events = node.iox2().open_or_create_event_service(
+        iox2_response_events_name.value(),
+        EventLimits{}
+            .max_notifiers(DEFAULT_MAX_SERVERS_PER_SERVICE)
+            .max_listeners(DEFAULT_MAX_CLIENTS_PER_SERVICE)
+            .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE)));
     if (!iox2_response_events.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_response_events.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);
@@ -114,11 +101,12 @@ Server::Server(CreationLock,
     }
     m_iox2_notifier.emplace(std::move(iox2_notifier.value()));
 
-    auto iox2_request_events =
-        node.iox2().open_or_create_event_service(iox2_service_name.value(),
-                                                 DEFAULT_MAX_CLIENTS_PER_SERVICE,
-                                                 DEFAULT_MAX_SERVERS_PER_SERVICE,
-                                                 options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE));
+    auto iox2_request_events = node.iox2().open_or_create_event_service(
+        iox2_service_name.value(),
+        EventLimits{}
+            .max_notifiers(DEFAULT_MAX_CLIENTS_PER_SERVICE)
+            .max_listeners(DEFAULT_MAX_SERVERS_PER_SERVICE)
+            .max_nodes(options.max_nodes_per_service.value_or(DEFAULT_MAX_NODES_PER_SERVICE)));
     if (!iox2_request_events.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_request_events.error()));
         error.emplace(ErrorType::SERVICE_CREATION_FAILURE);

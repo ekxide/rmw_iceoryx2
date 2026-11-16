@@ -51,6 +51,71 @@ struct Error<::rmw::iox2::Iceoryx2>
     using Type = HandleError;
 };
 
+/// Defaults applied unless overriden by environment variable.
+constexpr size_t DEFAULT_MAX_NODES_PER_SERVICE = 32U;
+constexpr size_t DEFAULT_MAX_SERVERS_PER_SERVICE = 4U;
+constexpr size_t DEFAULT_MAX_CLIENTS_PER_SERVICE = 16U;
+constexpr size_t DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT = 4U;
+constexpr size_t MAX_RESPONSES_PER_REQUEST = 1U;
+
+/// @brief Limits of an event service when it is created
+class EventLimits
+{
+public:
+    auto max_notifiers(uint64_t value) -> EventLimits& {
+        m_max_notifiers = value;
+        return *this;
+    }
+    auto max_listeners(uint64_t value) -> EventLimits& {
+        m_max_listeners = value;
+        return *this;
+    }
+    auto max_nodes(uint64_t value) -> EventLimits& {
+        m_max_nodes = value;
+        return *this;
+    }
+
+private:
+    friend class Iceoryx2;
+    uint64_t m_max_notifiers{0U};
+    uint64_t m_max_listeners{0U};
+    uint64_t m_max_nodes{0U};
+};
+
+/// @brief Limits of a request-response service when it is created
+class RequestResponseLimits
+{
+public:
+    auto max_servers(uint64_t value) -> RequestResponseLimits& {
+        m_max_servers = value;
+        return *this;
+    }
+    auto max_clients(uint64_t value) -> RequestResponseLimits& {
+        m_max_clients = value;
+        return *this;
+    }
+    auto max_active_requests_per_client(uint64_t value) -> RequestResponseLimits& {
+        m_max_active_requests_per_client = value;
+        return *this;
+    }
+    auto max_response_buffer_size(uint64_t value) -> RequestResponseLimits& {
+        m_max_response_buffer_size = value;
+        return *this;
+    }
+    auto max_nodes(uint64_t value) -> RequestResponseLimits& {
+        m_max_nodes = value;
+        return *this;
+    }
+
+private:
+    friend class Iceoryx2;
+    uint64_t m_max_servers{DEFAULT_MAX_SERVERS_PER_SERVICE};
+    uint64_t m_max_clients{DEFAULT_MAX_CLIENTS_PER_SERVICE};
+    uint64_t m_max_active_requests_per_client{DEFAULT_MAX_ACTIVE_REQUESTS_PER_CLIENT};
+    uint64_t m_max_response_buffer_size{MAX_RESPONSES_PER_REQUEST};
+    uint64_t m_max_nodes{DEFAULT_MAX_NODES_PER_SERVICE};
+};
+
 /// @brief A handle to iceoryx2 for creating and managing the lifetimes of iceoryx2 entities.
 /// @details An iceoryx2 handle is responsible for managing the lifetime of iceoryx2 entities that it it creates.
 ///
@@ -178,15 +243,25 @@ public:
 
     /// @brief Open an inter-process event service as it is, or create it with the given limits if it does not exist
     /// @param[in] service_name Name of the event service
-    /// @param[in] max_notifiers Maximum number of notifiers when the service is created
-    /// @param[in] max_listeners Maximum number of listeners when the service is created
-    /// @param[in] max_nodes Maximum number of nodes when the service is created
+    /// @param[in] limits Limits of the service when it is created
     /// @return The event service or the error of creating it
-    auto open_or_create_event_service(const ServiceName& service_name,
-                                      uint64_t max_notifiers,
-                                      uint64_t max_listeners,
-                                      uint64_t max_nodes)
+    auto open_or_create_event_service(const ServiceName& service_name, const EventLimits& limits)
         -> ::iox2::bb::Expected<::iox2::PortFactoryEvent<::iox2::ServiceType::Ipc>, ::iox2::EventOpenOrCreateError>;
+
+    /// @brief Open an inter-process request-response service as it is, or create it with the given limits if it does
+    /// not exist
+    /// @param[in] service_name Name of the request-response service
+    /// @param[in] request_type Type details of the request payload
+    /// @param[in] response_type Type details of the response payload
+    /// @param[in] limits Limits of the service when it is created
+    /// @return The request-response service or the error of creating it
+    template <typename Payload, typename UserHeader>
+    auto open_or_create_request_response_service(const ServiceName& service_name,
+                                                 const ::iox2::TypeDetail& request_type,
+                                                 const ::iox2::TypeDetail& response_type,
+                                                 const RequestResponseLimits& limits)
+        -> ::iox2::bb::Expected<InterProcess::RequestResponseService<Payload, UserHeader>,
+                                ::iox2::RequestResponseOpenOrCreateError>;
 
     /// @brief Creates a service builder for the specified service type and name
     /// @tparam ServiceType The type of service (Local or Ipc) to create
@@ -252,6 +327,58 @@ auto Iceoryx2::lookup_service(const std::string& service_name, MessagingPattern 
         return ::iox2::bb::NULLOPT;
     }
     return std::move(details.value());
+}
+
+template <typename Payload, typename UserHeader>
+auto Iceoryx2::open_or_create_request_response_service(const ServiceName& service_name,
+                                                       const ::iox2::TypeDetail& request_type,
+                                                       const ::iox2::TypeDetail& response_type,
+                                                       const RequestResponseLimits& limits)
+    -> ::iox2::bb::Expected<InterProcess::RequestResponseService<Payload, UserHeader>,
+                            ::iox2::RequestResponseOpenOrCreateError> {
+    constexpr uint32_t OPEN_ATTEMPTS = 2U;
+    auto service_builder = [&]() {
+        auto builder = ipc()
+                           .service_builder(service_name)
+                           .template request_response<Payload, Payload>()
+                           .template request_user_header<UserHeader>()
+                           .template response_user_header<UserHeader>();
+        ::iox2::set_request_payload_type_details(builder, request_type);
+        ::iox2::set_response_payload_type_details(builder, response_type);
+        return builder;
+    };
+    for (uint32_t attempt = 1U;; ++attempt) {
+        auto open_builder = service_builder();
+        auto opened = open_builder.resume_build().open();
+        if (opened.has_value()) {
+            return std::move(opened.value());
+        }
+        auto create_builder = service_builder();
+        auto created = create_builder.resume_build()
+                           .max_servers(limits.m_max_servers)
+                           .max_clients(limits.m_max_clients)
+                           .max_nodes(limits.m_max_nodes)
+                           .max_active_requests_per_client(limits.m_max_active_requests_per_client)
+                           .max_response_buffer_size(limits.m_max_response_buffer_size)
+                           .open_or_create();
+        if (created.has_value()) {
+            return created;
+        }
+        switch (created.error()) {
+        case ::iox2::RequestResponseOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfActiveRequestsPerClient:
+        case ::iox2::RequestResponseOpenOrCreateError::OpenDoesNotSupportRequestedResponseBufferSize:
+        case ::iox2::RequestResponseOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfServers:
+        case ::iox2::RequestResponseOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfClients:
+        case ::iox2::RequestResponseOpenOrCreateError::OpenDoesNotSupportRequestedAmountOfNodes:
+            if (attempt < OPEN_ATTEMPTS) {
+                continue;
+            }
+            break;
+        default:
+            break;
+        }
+        return created;
+    }
 }
 
 } // namespace rmw::iox2
