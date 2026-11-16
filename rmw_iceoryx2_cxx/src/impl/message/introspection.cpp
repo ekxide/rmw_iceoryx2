@@ -95,8 +95,10 @@ auto find_introspection(const rosidl_message_type_support_t* type_support) -> In
     IntrospectionView view;
     if (auto handle = get_message_typesupport_handle(type_support, introspection_cpp::typesupport_identifier)) {
         view.template emplace<const CppMembers*>(static_cast<const CppMembers*>(handle->data));
-    } else if (auto handle =
-                   get_message_typesupport_handle(type_support, rosidl_typesupport_introspection_c__identifier)) {
+        return view;
+    }
+    rcutils_reset_error();
+    if (auto handle = get_message_typesupport_handle(type_support, rosidl_typesupport_introspection_c__identifier)) {
         view.template emplace<const CMembers*>(static_cast<const CMembers*>(handle->data));
     }
     return view;

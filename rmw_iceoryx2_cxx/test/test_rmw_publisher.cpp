@@ -9,8 +9,11 @@
 
 #include <gtest/gtest.h>
 
+#include "rcutils/error_handling.h"
 #include "rmw/rmw.h"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.h"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/defaults.hpp"
+#include "rmw_iceoryx2_cxx_test_msgs/msg/strings.h"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
 
@@ -47,6 +50,17 @@ TEST_F(RmwPublisherTest, create_and_destroy) {
     RMW_ASSERT_NE(publisher->data, nullptr);
     ASSERT_STREQ(publisher->topic_name, create_test_topic().c_str());
     RMW_ASSERT_TRUE(publisher->can_loan_messages);
+}
+
+TEST_F(RmwPublisherTest, create_with_c_type_support_leaves_no_error_behind) {
+    const auto* self_contained = ROSIDL_GET_MSG_TYPE_SUPPORT(rmw_iceoryx2_cxx_test_msgs, msg, Defaults);
+    const auto* not_self_contained = ROSIDL_GET_MSG_TYPE_SUPPORT(rmw_iceoryx2_cxx_test_msgs, msg, Strings);
+
+    ASSERT_NE(create_publisher(self_contained, create_test_topic("/Defaults")), nullptr);
+    EXPECT_FALSE(rcutils_error_is_set()) << rcutils_get_error_string().str;
+
+    ASSERT_NE(create_publisher(not_self_contained, create_test_topic("/Strings")), nullptr);
+    EXPECT_FALSE(rcutils_error_is_set()) << rcutils_get_error_string().str;
 }
 
 // ---------------------------------------------------------------------------

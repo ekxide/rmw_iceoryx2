@@ -64,6 +64,7 @@
 * Serialize messages as standard CDR with the encapsulation header and report the `cdr` serialization format [#119](https://github.com/ekxide/rmw_iceoryx2/issues/119)
 * Open a topic or event service that another process created at the same time with the limits of that process [#133](https://github.com/ekxide/rmw_iceoryx2/issues/133)
 * Open a request-response service that another process created with smaller limits [#143](https://github.com/ekxide/rmw_iceoryx2/issues/143)
+* Leave no error behind after creating a publisher or subscription with C type support [#151](https://github.com/ekxide/rmw_iceoryx2/issues/151)
 
 ### Refactoring
 
