@@ -183,6 +183,21 @@ auto Publisher::loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, Er
     return static_cast<void*>(ptr);
 }
 
+auto Publisher::truncate_loan(void* loaned_memory, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType> {
+    using ::iox2::bb::err;
+
+    std::lock_guard<std::mutex> lock{m_mutex};
+
+    auto sample = m_registry.retrieve(static_cast<uint8_t*>(loaned_memory));
+    if (!sample.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG("invalid payload pointer");
+        return err(ErrorType::INVALID_PAYLOAD);
+    }
+    const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
+    sample.value()->truncate(number_of_elements);
+    return {};
+}
+
 auto Publisher::return_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
