@@ -11,15 +11,20 @@
 
 #include "iox2/attribute_specifier.hpp"
 #include "iox2/backpressure_strategy.hpp"
+#include "iox2/port_name.hpp"
 #include "rcutils/error_handling.h"
 #include "rmw/qos_profiles.h"
+#include "rmw/time.h"
 #include "rmw/types.h"
 #include "rmw_iceoryx2_cxx/impl/common/attributes.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/diagnostics.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/port_name.hpp"
 #include "rmw_iceoryx2_cxx/impl/qos/qos.hpp"
 
 #include <cstring>
+#include <limits>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace
@@ -31,6 +36,7 @@ using ::rmw::iox2::Qos;
 using ::rmw::iox2::QosError;
 using ::rmw::iox2::TryConvert;
 namespace attributes = ::rmw::iox2::attributes;
+namespace port_name = ::rmw::iox2::port_name;
 
 class QosTest : public ::testing::Test
 {
@@ -559,5 +565,147 @@ TEST_F(QosTest, mismatch_reports_multiple_diffs_in_schema_order) {
     EXPECT_EQ(diffs[1].key, "ros.qos.reliability");
     EXPECT_EQ(diffs[2].key, "ros.qos.durability");
 }
+
+// ----------------------------------------------------------------------------
+// Port name
+// ----------------------------------------------------------------------------
+
+auto expect_same_qos(const Qos& expected, const Qos& actual) -> void {
+    EXPECT_EQ(actual.history(), expected.history());
+    EXPECT_EQ(actual.depth(), expected.depth());
+    EXPECT_EQ(actual.reliability(), expected.reliability());
+    EXPECT_EQ(actual.durability(), expected.durability());
+    EXPECT_EQ(actual.deadline().sec, expected.deadline().sec);
+    EXPECT_EQ(actual.deadline().nsec, expected.deadline().nsec);
+    EXPECT_EQ(actual.lifespan().sec, expected.lifespan().sec);
+    EXPECT_EQ(actual.lifespan().nsec, expected.lifespan().nsec);
+    EXPECT_EQ(actual.liveliness(), expected.liveliness());
+    EXPECT_EQ(actual.liveliness_lease_duration().sec, expected.liveliness_lease_duration().sec);
+    EXPECT_EQ(actual.liveliness_lease_duration().nsec, expected.liveliness_lease_duration().nsec);
+    EXPECT_EQ(actual.avoid_ros_namespace_conventions(), expected.avoid_ros_namespace_conventions());
+}
+
+auto infinite_duration() -> Qos::Duration {
+    const rmw_time_t infinite = RMW_DURATION_INFINITE;
+    return Qos::Duration{infinite.sec, infinite.nsec};
+}
+
+class PortNameRoundTripTest : public ::testing::TestWithParam<
+                                  std::tuple<Qos::History, Qos::Reliability, Qos::Durability, Qos::Liveliness, bool>>
+{
+};
+
+TEST_P(PortNameRoundTripTest, round_trips_every_policy_value) {
+    constexpr uint64_t DEPTH = 7;
+    const auto& [history, reliability, durability, liveliness, avoid_ros_namespace_conventions] = GetParam();
+    auto qos = Qos::Builder{}
+                   .set_history(history, DEPTH)
+                   .set_reliability(reliability)
+                   .set_durability(durability)
+                   .set_liveliness(liveliness, Qos::Duration{})
+                   .set_avoid_ros_namespace_conventions(avoid_ros_namespace_conventions)
+                   .build();
+
+    auto name = port_name::encode(qos);
+    ASSERT_TRUE(name.has_value());
+    auto decoded = port_name::decode(name.value().as_view());
+    ASSERT_TRUE(decoded.has_value());
+    expect_same_qos(qos, decoded.value());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    EveryPolicyValue,
+    PortNameRoundTripTest,
+    ::testing::Combine(::testing::Values(Qos::History::KEEP_LAST, Qos::History::KEEP_ALL),
+                       ::testing::Values(Qos::Reliability::RELIABLE, Qos::Reliability::BEST_EFFORT),
+                       ::testing::Values(Qos::Durability::VOLATILE, Qos::Durability::TRANSIENT_LOCAL),
+                       ::testing::Values(Qos::Liveliness::AUTOMATIC, Qos::Liveliness::MANUAL_BY_TOPIC),
+                       ::testing::Bool()));
+
+TEST_F(QosTest, port_name_round_trips_set_durations) {
+    constexpr Qos::Duration DEADLINE{1, 2};
+    constexpr Qos::Duration LEASE{3, 4};
+    auto qos = Qos::Builder{}
+                   .set_deadline(DEADLINE)
+                   .set_lifespan(infinite_duration())
+                   .set_liveliness(Qos::Liveliness::AUTOMATIC, LEASE)
+                   .build();
+
+    auto name = port_name::encode(qos);
+    ASSERT_TRUE(name.has_value());
+    auto decoded = port_name::decode(name.value().as_view());
+    ASSERT_TRUE(decoded.has_value());
+    expect_same_qos(qos, decoded.value());
+}
+
+TEST_F(QosTest, port_name_saturates_durations_at_infinite) {
+    constexpr Qos::Duration BEYOND_INFINITE{std::numeric_limits<uint64_t>::max(), 0};
+    auto qos = Qos::Builder{}.set_deadline(BEYOND_INFINITE).build();
+
+    auto name = port_name::encode(qos);
+    ASSERT_TRUE(name.has_value());
+    auto decoded = port_name::decode(name.value().as_view());
+    ASSERT_TRUE(decoded.has_value());
+    EXPECT_EQ(decoded.value().deadline().sec, infinite_duration().sec);
+    EXPECT_EQ(decoded.value().deadline().nsec, infinite_duration().nsec);
+}
+
+TEST_F(QosTest, port_name_decode_saturates_durations_at_infinite) {
+    constexpr char BEYOND_INFINITE_DEADLINE[] = "V10D7E1y2p0ij32e8e8";
+    auto name = ::iox2::PortName::create(BEYOND_INFINITE_DEADLINE);
+    ASSERT_TRUE(name.has_value());
+
+    auto decoded = port_name::decode(name.value().as_view());
+    ASSERT_TRUE(decoded.has_value());
+    EXPECT_EQ(decoded.value().deadline().sec, infinite_duration().sec);
+    EXPECT_EQ(decoded.value().deadline().nsec, infinite_duration().nsec);
+}
+
+TEST_F(QosTest, port_name_fits_the_largest_profile) {
+    auto qos = Qos::Builder{}
+                   .set_history(Qos::History::KEEP_ALL, std::numeric_limits<uint64_t>::max())
+                   .set_reliability(Qos::Reliability::BEST_EFFORT)
+                   .set_durability(Qos::Durability::TRANSIENT_LOCAL)
+                   .set_deadline(infinite_duration())
+                   .set_lifespan(infinite_duration())
+                   .set_liveliness(Qos::Liveliness::MANUAL_BY_TOPIC, infinite_duration())
+                   .set_avoid_ros_namespace_conventions(true)
+                   .build();
+
+    auto name = port_name::encode(qos);
+    ASSERT_TRUE(name.has_value());
+    auto decoded = port_name::decode(name.value().as_view());
+    ASSERT_TRUE(decoded.has_value());
+    expect_same_qos(qos, decoded.value());
+}
+
+struct NameWithoutQos
+{
+    const char* reason;
+    const char* text;
+};
+
+class PortNameDecodeTest : public ::testing::TestWithParam<NameWithoutQos>
+{
+};
+
+TEST_P(PortNameDecodeTest, name_without_an_encoded_qos_decodes_to_nothing) {
+    auto name = ::iox2::PortName::create(GetParam().text);
+    ASSERT_TRUE(name.has_value());
+    EXPECT_FALSE(port_name::decode(name.value().as_view()).has_value());
+}
+
+INSTANTIATE_TEST_SUITE_P(NamesWithoutAnEncodedQos,
+                         PortNameDecodeTest,
+                         ::testing::Values(NameWithoutQos{"no_version", "publisher"},
+                                           NameWithoutQos{"other_version", "V20Da"},
+                                           NameWithoutQos{"no_flags", "V1"},
+                                           NameWithoutQos{"no_depth_field", "V10"},
+                                           NameWithoutQos{"empty_depth", "V10D"},
+                                           NameWithoutQos{"empty_flags", "V1Da"},
+                                           NameWithoutQos{"unknown_flag", "V1wDa"},
+                                           NameWithoutQos{"invalid_character", "V10Da!"},
+                                           NameWithoutQos{"depth_beyond_uint64", "V10Dzzzzzzzzzzzzzz"}),
+                         [](const auto& info) { return std::string{info.param.reason}; });
 
 } // namespace

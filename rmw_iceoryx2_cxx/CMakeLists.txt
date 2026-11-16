@@ -64,6 +64,7 @@ add_library(${PROJECT_NAME} SHARED
   src/impl/common/attributes.cpp
   src/impl/qos/diagnostics.cpp
   src/impl/qos/matching.cpp
+  src/impl/qos/port_name.cpp
   src/impl/message/introspection.cpp
   src/impl/message/typesupport.cpp
   src/impl/middleware/iceoryx2.cpp
