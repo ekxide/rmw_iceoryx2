@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include "iox2/node.hpp"
+#include "iox2/port_name.hpp"
 #include "iox2/service.hpp"
 #include "iox2/service_builder_publish_subscribe.hpp"
 #include "iox2/service_name.hpp"
@@ -34,6 +35,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <string>
 #include <thread>
 
@@ -359,6 +361,94 @@ TEST_F(RmwGraphTest, names_publishers_of_unknown_nodes_as_unknown) {
     EXPECT_EQ(unknown, 1U);
 
     ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&info, &allocator));
+}
+
+TEST_F(RmwGraphTest, endpoint_info_reports_the_qos_of_each_endpoint) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr size_t FIRST_PUBLISHER_DEPTH = 3;
+    constexpr size_t SECOND_PUBLISHER_DEPTH = 7;
+    constexpr size_t SUBSCRIPTION_DEPTH = 10;
+
+    auto topic = create_test_topic("/EndpointQos");
+    auto first_publisher_qos = rmw_qos_profile_default;
+    first_publisher_qos.depth = FIRST_PUBLISHER_DEPTH;
+    auto second_publisher_qos = rmw_qos_profile_default;
+    second_publisher_qos.depth = SECOND_PUBLISHER_DEPTH;
+    second_publisher_qos.durability = RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL;
+    auto subscription_qos = rmw_qos_profile_default;
+    subscription_qos.depth = SUBSCRIPTION_DEPTH;
+    subscription_qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    ASSERT_NE(create_publisher<Defaults>(topic, first_publisher_qos), nullptr);
+    ASSERT_NE(create_publisher<Defaults>(topic, second_publisher_qos), nullptr);
+    ASSERT_NE(create_subscriber<Defaults>(topic, subscription_qos), nullptr);
+
+    auto allocator = rcutils_get_default_allocator();
+    auto publishers = rmw_get_zero_initialized_topic_endpoint_info_array();
+    auto subscriptions = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &publishers));
+    ASSERT_RMW_OK(rmw_get_subscriptions_info_by_topic(test_node(), &allocator, topic.c_str(), false, &subscriptions));
+
+    std::map<size_t, rmw_qos_durability_policy_t> publisher_durability_by_depth;
+    for (size_t i = 0; i < publishers.size; ++i) {
+        const auto& qos = publishers.info_array[i].qos_profile;
+        publisher_durability_by_depth[qos.depth] = qos.durability;
+    }
+    EXPECT_EQ(publisher_durability_by_depth,
+              (std::map<size_t, rmw_qos_durability_policy_t>{
+                  {FIRST_PUBLISHER_DEPTH, RMW_QOS_POLICY_DURABILITY_VOLATILE},
+                  {SECOND_PUBLISHER_DEPTH, RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL}}));
+    ASSERT_EQ(subscriptions.size, 1U);
+    EXPECT_EQ(subscriptions.info_array[0].qos_profile.depth, SUBSCRIPTION_DEPTH);
+    EXPECT_EQ(subscriptions.info_array[0].qos_profile.reliability, RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT);
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&publishers, &allocator));
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&subscriptions, &allocator));
+}
+
+TEST_F(RmwGraphTest, endpoint_info_reports_the_topic_qos_for_ports_without_an_encoded_qos) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    using Payload = rmw::iox2::Publisher::Payload;
+    using UserHeader = rmw::iox2::Publisher::UserHeader;
+    constexpr size_t TOPIC_DEPTH = 3;
+    constexpr char MALFORMED_PORT_NAME[] = "V10D";
+
+    auto topic = create_test_topic("/NativeEndpointQos");
+    auto topic_qos = rmw_qos_profile_default;
+    topic_qos.depth = TOPIC_DEPTH;
+    ASSERT_NE(create_publisher<Defaults>(topic, topic_qos), nullptr);
+
+    auto native_node = iox2::NodeBuilder().create<iox2::ServiceType::Ipc>().value();
+    auto service_name = iox2::ServiceName::create(("ros2://topics" + topic).c_str()).value();
+    auto details = iox2::Service<iox2::ServiceType::Ipc>::details(
+        service_name, native_node.config(), iox2::MessagingPattern::PublishSubscribe);
+    ASSERT_TRUE(details.has_value());
+    ASSERT_TRUE(details.value().has_value());
+    auto builder = native_node.service_builder(service_name).publish_subscribe<Payload>().user_header<UserHeader>();
+    iox2::set_payload_type_details(
+        builder, details.value().value().static_details.publish_subscribe().message_type_details().payload());
+    auto native_service = builder.resume_build().open();
+    ASSERT_TRUE(native_service.has_value());
+    auto native_publisher = native_service.value().publisher_builder().create();
+    ASSERT_TRUE(native_publisher.has_value());
+    auto native_subscriber =
+        native_service.value().subscriber_builder().name(iox2::PortName::create(MALFORMED_PORT_NAME).value()).create();
+    ASSERT_TRUE(native_subscriber.has_value());
+
+    auto allocator = rcutils_get_default_allocator();
+    auto publishers = rmw_get_zero_initialized_topic_endpoint_info_array();
+    auto subscriptions = rmw_get_zero_initialized_topic_endpoint_info_array();
+    ASSERT_RMW_OK(rmw_get_publishers_info_by_topic(test_node(), &allocator, topic.c_str(), false, &publishers));
+    ASSERT_RMW_OK(rmw_get_subscriptions_info_by_topic(test_node(), &allocator, topic.c_str(), false, &subscriptions));
+
+    ASSERT_EQ(publishers.size, 2U);
+    for (size_t i = 0; i < publishers.size; ++i) {
+        EXPECT_EQ(publishers.info_array[i].qos_profile.depth, TOPIC_DEPTH);
+    }
+    ASSERT_EQ(subscriptions.size, 1U);
+    EXPECT_EQ(subscriptions.info_array[0].qos_profile.depth, TOPIC_DEPTH);
+
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&publishers, &allocator));
+    ASSERT_RMW_OK(rmw_topic_endpoint_info_array_fini(&subscriptions, &allocator));
 }
 
 TEST_F(RmwGraphTest, can_get_subscriptions_info_by_topic) {

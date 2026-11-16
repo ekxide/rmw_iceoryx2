@@ -18,6 +18,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/message/introspection.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/port_name.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/topic.hpp"
 
@@ -66,9 +67,17 @@ Publisher::Publisher(CreationLock,
         return;
     }
 
+    auto iox2_port_name = port_name::encode(m_qos);
+    if (!iox2_port_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_port_name.error()));
+        error.emplace(ErrorType::PUBLISHER_CREATION_FAILURE);
+        return;
+    }
+
     auto iox2_publisher =
         iox2_pubsub_service.value()
             .publisher_builder()
+            .name(iox2_port_name.value())
             .initial_max_slice_len(m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : m_unserialized_size)
             .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
             .backpressure_strategy(m_qos.backpressure_strategy())

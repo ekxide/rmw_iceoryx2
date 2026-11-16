@@ -24,6 +24,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/error_message.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/port_name.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/server.hpp"
 #include "rosidl_runtime_c/type_hash.h"
@@ -475,8 +476,7 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
         topic_type = UNKNOWN_TYPE;
     }
 
-    // All endpoints on a topic share the service-level QoS and type hash in
-    // iceoryx2.
+    // All endpoints on a topic share the service-level attributes in iceoryx2.
     auto qos = TryConvert<Qos>::from(port_factory.attributes(), ProfileKind::PUBLISH_SUBSCRIBE);
     if (!qos.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to decode QoS from service attributes");
@@ -497,28 +497,30 @@ auto Graph::endpoints_info(const std::string& topic, EndpointKind kind)
     const auto& nodes = lookup.value();
 
     // Assemble one endpoint's info: resolve its node id to a name/namespace, use
-    // its iceoryx2 unique port id as the gid, and attach the shared topic type,
-    // type hash, and service-level QoS.
+    // its iceoryx2 unique port id as the gid, attach the shared topic type and
+    // type hash, and the QoS from its port name.
     auto endpoint_info = [&](const ::iox2::UniqueNodeId& node_id,
-                             const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes) -> EndpointInfo {
+                             const ::iox2::bb::Optional<::iox2::RawIdType>& gid_bytes,
+                             ::iox2::PortNameView name) -> EndpointInfo {
         auto owner = node_of(nodes, node_id);
+        auto endpoint_qos = port_name::decode(name);
         return EndpointInfo{std::move(owner.node_name),
                             std::move(owner.node_namespace),
                             topic_type,
                             type_hash,
-                            qos.value(),
+                            endpoint_qos.has_value() ? endpoint_qos.value() : qos.value(),
                             gid_of(gid_bytes)};
     };
 
     std::vector<EndpointInfo> result{};
     if (kind == EndpointKind::PUBLISHER) {
         port_factory.dynamic_config().list_publishers([&result, &endpoint_info](auto view) {
-            result.push_back(endpoint_info(view.node_id(), view.publisher_id().bytes()));
+            result.push_back(endpoint_info(view.node_id(), view.publisher_id().bytes(), view.publisher_name()));
             return CallbackProgression::Continue;
         });
     } else {
         port_factory.dynamic_config().list_subscribers([&result, &endpoint_info](auto view) {
-            result.push_back(endpoint_info(view.node_id(), view.subscriber_id().bytes()));
+            result.push_back(endpoint_info(view.node_id(), view.subscriber_id().bytes(), view.subscriber_name()));
             return CallbackProgression::Continue;
         });
     }
