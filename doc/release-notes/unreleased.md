@@ -68,6 +68,7 @@
 * Report the QoS of each publisher and subscription in the endpoint info [#152](https://github.com/ekxide/rmw_iceoryx2/issues/152)
 * Publish messages that are not self-contained and serialized messages from several threads on one publisher [#156](https://github.com/ekxide/rmw_iceoryx2/issues/156)
 * Return an error instead of crashing when a message is borrowed or published while all loans of the publisher are in use [#156](https://github.com/ekxide/rmw_iceoryx2/issues/156)
+* Copy init options that have no enclave, and give each copy its own security and discovery options [#157](https://github.com/ekxide/rmw_iceoryx2/issues/157)
 
 ### Refactoring
 
