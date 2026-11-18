@@ -13,6 +13,7 @@
 #include "iox2/bb/expected.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/bb/slice.hpp"
+#include "iox2/bb/static_function.hpp"
 #include "iox2/marker.hpp"
 #include "rmw/visibility_control.h"
 #include "rmw_iceoryx2_cxx/impl/common/creation_lock.hpp"
@@ -33,6 +34,9 @@ namespace rmw::iox2
 
 class Publisher;
 
+/// The number of loans a publisher holds at once, borrowed or taken by a publish.
+constexpr uint64_t MAX_LOANED_MESSAGES_PER_PUBLISHER = 2U;
+
 template <>
 struct Error<Publisher>
 {
@@ -52,6 +56,7 @@ public:
     using Payload = ::iox2::bb::Slice<::iox2::CustomPayloadMarker>;
     using UserHeader = ::rmw_iceoryx2_interoperability::MessageInfoHeader;
     using ErrorType = Error<Publisher>::Type;
+    using Fill = ::iox2::bb::StaticFunction<::iox2::bb::Expected<uint64_t, ErrorType>(void* loan)>;
 
 private:
     using RawIdType = ::iox2::RawIdType;
@@ -117,12 +122,6 @@ public:
     /// @return Expected containing pointer to loaned memory or error
     auto loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, ErrorType>;
 
-    /// @brief Shorten previously loaned memory so that only its first bytes are published
-    /// @param[in] loaned_memory Pointer to the loaned memory to shorten
-    /// @param[in] number_of_bytes Number of bytes to publish, has no effect when not smaller than the loan
-    /// @return Expected containing void or error if the memory was not loaned
-    auto truncate_loan(void* loaned_memory, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
-
     /// @brief Return previously loaned memory without publishing
     /// @param[in] loaned_memory Pointer to the loaned memory to return
     /// @return Expected containing void or error if return failed
@@ -140,10 +139,26 @@ public:
     /// @return Expected containing void or error if publish failed
     auto publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType>;
 
+    /// @brief Loan memory, fill it and publish it without other calls in between
+    /// @param[in] number_of_bytes Required buffer size in bytes, as for loan()
+    /// @param[in] fill Writes the payload into the loan and returns the number of bytes to publish
+    /// @return Expected containing void or error if loaning, filling or publishing failed
+    auto publish_filled(uint64_t number_of_bytes, const Fill& fill) -> ::iox2::bb::Expected<void, ErrorType>;
+
     /// @brief Sends the history to the subscriptions that joined since the publisher last connected and wakes them
     void update_connections();
 
 private:
+    /// @brief Loan a sample from iceoryx2 unless all loans of the publisher are in use
+    /// @param[in] number_of_elements Number of payload elements to loan
+    /// @return Expected containing the sample or error
+    auto loan_sample(uint64_t number_of_elements) -> ::iox2::bb::Expected<IceoryxSample, ErrorType>;
+
+    /// @brief Send a loaned sample with its message info and wake the subscriptions
+    /// @param[in] sample The sample to send
+    /// @return Expected containing void or error if sending failed
+    auto send_sample(IceoryxSample&& sample) -> ::iox2::bb::Expected<void, ErrorType>;
+
     /// @brief Populate the user-header message info (source timestamp, sequence number) before sending.
     auto populate_message_info(UserHeader& header) -> void;
 

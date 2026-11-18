@@ -80,6 +80,12 @@ public:
         return sample;
     }
 
+    /// @brief Get the number of stored samples
+    /// @return The number of samples in the registry
+    auto size() const -> size_t {
+        return m_samples.size();
+    }
+
 private:
     std::unordered_map<const uint8_t*, SampleType> m_samples;
 };

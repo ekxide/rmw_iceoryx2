@@ -16,6 +16,7 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/arrays.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/basic_types.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/bounded_sequences.h"
@@ -208,6 +209,28 @@ TEST_F(RmwPublishSubscribeTest, failed_publish_returns_the_loan) {
     EXPECT_RMW_OK(rmw_publish(publisher, &message, nullptr));
 
     rmw_iceoryx2_cxx_test_msgs__msg__BoundedSequences__fini(&message);
+}
+
+TEST_F(RmwPublishSubscribeTest, failed_publish_of_a_serialized_message_returns_the_loan) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr int FAILED_PUBLISHES = 3;
+    constexpr size_t TOO_SHORT_FOR_DEFAULTS = 4;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+
+    std::array<uint8_t, TOO_SHORT_FOR_DEFAULTS> too_short{};
+    rmw_serialized_message_t not_deserializable{too_short.data(), too_short.size(), too_short.size(), test_allocator()};
+    for (int i = 0; i < FAILED_PUBLISHES; ++i) {
+        EXPECT_RMW_ERR(RMW_RET_ERROR, rmw_publish_serialized_message(publisher, &not_deserializable, nullptr));
+    }
+
+    const Defaults message{};
+    rmw_serialized_message_t serialized{};
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized, 0, &test_allocator()));
+    ASSERT_RMW_OK(rmw_serialize(&message, test_type_support<Defaults>(), &serialized));
+    EXPECT_RMW_OK(rmw_publish_serialized_message(publisher, &serialized, nullptr));
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&serialized));
 }
 
 TEST_F(RmwPublishSubscribeTest, failed_take_returns_the_loan) {
@@ -884,6 +907,248 @@ TEST_F(RmwPublishSubscribeTest, concurrent_loaned_takes_of_a_subscription_are_al
 
     EXPECT_EQ(failures.load(), 0);
 }
+
+constexpr int PUBLISHING_THREADS = 4;
+constexpr int NO_FAILURES = 0;
+constexpr int PUBLISHES_PER_THREAD = 1000;
+constexpr uint64_t PUBLISHES = static_cast<uint64_t>(PUBLISHING_THREADS) * PUBLISHES_PER_THREAD;
+
+template <typename Publish>
+void publish_from_several_threads(Publish publish) {
+    std::vector<std::thread> threads;
+    threads.reserve(PUBLISHING_THREADS);
+    for (int thread_index = 0; thread_index < PUBLISHING_THREADS; ++thread_index) {
+        threads.emplace_back([&] {
+            for (int i = 0; i < PUBLISHES_PER_THREAD; ++i) {
+                publish();
+            }
+        });
+    }
+    for (auto& thread : threads) {
+        thread.join();
+    }
+}
+
+template <typename T>
+auto take_last_sequence_number(rmw_subscription_t* subscription, const T& expected) -> uint64_t {
+    uint64_t last_sequence_number = 0;
+    bool taken{true};
+    while (taken) {
+        T received{};
+        rmw_message_info_t message_info = rmw_get_zero_initialized_message_info();
+        EXPECT_RMW_OK(rmw_take_with_info(subscription, &received, &taken, &message_info, nullptr));
+        if (taken) {
+            EXPECT_EQ(received, expected);
+            last_sequence_number = std::max(last_sequence_number, message_info.publication_sequence_number);
+        }
+    }
+    return last_sequence_number;
+}
+
+enum class MessageKind : uint8_t { SELF_CONTAINED, NON_SELF_CONTAINED };
+enum class PublishCall : uint8_t { PUBLISH, PUBLISH_SERIALIZED_MESSAGE };
+
+struct ConcurrentPublish
+{
+    const char* name;
+    MessageKind message_kind;
+    PublishCall publish_call;
+};
+
+class RmwConcurrentPublishTest : public RmwPublishSubscribeTest, public ::testing::WithParamInterface<ConcurrentPublish>
+{
+protected:
+    template <typename T>
+    void expect_every_publish_from_several_threads_is_sent(const T& message) {
+        auto* publisher = create_default_publisher<T>(create_test_topic());
+        ASSERT_NE(publisher, nullptr);
+        auto* subscription = create_default_subscriber<T>(create_test_topic());
+        ASSERT_NE(subscription, nullptr);
+        rmw_serialized_message_t serialized{};
+        ASSERT_RMW_OK(rmw_serialized_message_init(&serialized, 0, &test_allocator()));
+        ASSERT_RMW_OK(rmw_serialize(&message, test_type_support<T>(), &serialized));
+
+        std::atomic<int> failures{0};
+        publish_from_several_threads([&] {
+            const auto result = GetParam().publish_call == PublishCall::PUBLISH
+                                    ? rmw_publish(publisher, &message, nullptr)
+                                    : rmw_publish_serialized_message(publisher, &serialized, nullptr);
+            failures += result != RMW_RET_OK;
+        });
+
+        EXPECT_EQ(failures.load(), NO_FAILURES);
+        EXPECT_EQ(take_last_sequence_number(subscription, message), PUBLISHES);
+        ASSERT_RMW_OK(rmw_serialized_message_fini(&serialized));
+    }
+};
+
+TEST_P(RmwConcurrentPublishTest, every_publish_from_several_threads_is_sent) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    using rmw_iceoryx2_cxx_test_msgs::msg::Strings;
+    constexpr const char* STRING_VALUE = "GloryToHypnoToad";
+
+    switch (GetParam().message_kind) {
+    case MessageKind::SELF_CONTAINED:
+        expect_every_publish_from_several_threads_is_sent(Defaults{});
+        break;
+    case MessageKind::NON_SELF_CONTAINED: {
+        Strings message{};
+        message.string_value = STRING_VALUE;
+        expect_every_publish_from_several_threads_is_sent(message);
+        break;
+    }
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    EveryMessageKindAndPublishCall,
+    RmwConcurrentPublishTest,
+    ::testing::Values(ConcurrentPublish{"self_contained", MessageKind::SELF_CONTAINED, PublishCall::PUBLISH},
+                      ConcurrentPublish{"non_self_contained", MessageKind::NON_SELF_CONTAINED, PublishCall::PUBLISH},
+                      ConcurrentPublish{"self_contained_serialized",
+                                        MessageKind::SELF_CONTAINED,
+                                        PublishCall::PUBLISH_SERIALIZED_MESSAGE},
+                      ConcurrentPublish{"non_self_contained_serialized",
+                                        MessageKind::NON_SELF_CONTAINED,
+                                        PublishCall::PUBLISH_SERIALIZED_MESSAGE}),
+    [](const auto& info) { return std::string{info.param.name}; });
+
+TEST_F(RmwPublishSubscribeTest, every_loan_borrowed_from_several_threads_is_published) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr uint64_t NOTHING_PUBLISHED = 0U;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    std::atomic<uint64_t> published{0};
+    std::atomic<int> failures{0};
+    publish_from_several_threads([&] {
+        void* loan = nullptr;
+        if (rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &loan) != RMW_RET_OK) {
+            rcutils_reset_error();
+            return;
+        }
+        new (loan) Defaults{};
+        if (rmw_publish_loaned_message(publisher, loan, nullptr) == RMW_RET_OK) {
+            ++published;
+        } else {
+            ++failures;
+        }
+    });
+
+    EXPECT_EQ(failures.load(), NO_FAILURES);
+    EXPECT_NE(published.load(), NOTHING_PUBLISHED);
+    EXPECT_EQ(take_last_sequence_number(subscription, Defaults{}), published.load());
+}
+
+class RmwLoanLimitTest : public RmwPublishSubscribeTest
+{
+protected:
+    using Message = rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    void SetUp() override {
+        RmwPublishSubscribeTest::SetUp();
+        m_publisher = create_default_publisher<Message>(create_test_topic());
+        ASSERT_NE(m_publisher, nullptr);
+        m_loans.resize(::rmw::iox2::MAX_LOANED_MESSAGES_PER_PUBLISHER);
+        for (auto& loan : m_loans) {
+            ASSERT_RMW_OK(rmw_borrow_loaned_message(m_publisher, test_type_support<Message>(), &loan));
+        }
+    }
+
+    void TearDown() override {
+        for (auto* loan : m_loans) {
+            EXPECT_RMW_OK(rmw_return_loaned_message_from_publisher(m_publisher, loan));
+        }
+        RmwPublishSubscribeTest::TearDown();
+    }
+
+    auto publisher() -> rmw_publisher_t* {
+        return m_publisher;
+    }
+
+    auto hand_over_a_loan() -> void* {
+        auto* loan = m_loans.back();
+        m_loans.pop_back();
+        return loan;
+    }
+
+    void keep_loan(void* loan) {
+        m_loans.push_back(loan);
+    }
+
+private:
+    rmw_publisher_t* m_publisher{nullptr};
+    std::vector<void*> m_loans;
+};
+
+enum class LoanRelease : uint8_t { RETURN, PUBLISH };
+
+class RmwBorrowAtLoanLimitTest : public RmwLoanLimitTest, public ::testing::WithParamInterface<LoanRelease>
+{
+};
+
+TEST_P(RmwBorrowAtLoanLimitTest, borrow_fails_until_a_loan_is_released) {
+    void* beyond_the_limit = nullptr;
+    EXPECT_EQ(rmw_borrow_loaned_message(publisher(), test_type_support<Message>(), &beyond_the_limit), RMW_RET_ERROR);
+    EXPECT_NE(std::string{rcutils_get_error_string().str}.find(
+                  std::to_string(::rmw::iox2::MAX_LOANED_MESSAGES_PER_PUBLISHER)),
+              std::string::npos);
+    rcutils_reset_error();
+    EXPECT_EQ(beyond_the_limit, nullptr);
+
+    auto* loan = hand_over_a_loan();
+    switch (GetParam()) {
+    case LoanRelease::RETURN:
+        ASSERT_RMW_OK(rmw_return_loaned_message_from_publisher(publisher(), loan));
+        break;
+    case LoanRelease::PUBLISH:
+        new (loan) Message{};
+        ASSERT_RMW_OK(rmw_publish_loaned_message(publisher(), loan, nullptr));
+        break;
+    }
+    void* loan_again = nullptr;
+    ASSERT_RMW_OK(rmw_borrow_loaned_message(publisher(), test_type_support<Message>(), &loan_again));
+    keep_loan(loan_again);
+}
+
+INSTANTIATE_TEST_SUITE_P(ReturnedOrPublished,
+                         RmwBorrowAtLoanLimitTest,
+                         ::testing::Values(LoanRelease::RETURN, LoanRelease::PUBLISH),
+                         [](const auto& info) {
+                             return info.param == LoanRelease::RETURN ? std::string{"returned"}
+                                                                      : std::string{"published"};
+                         });
+
+class RmwPublishAtLoanLimitTest : public RmwLoanLimitTest, public ::testing::WithParamInterface<PublishCall>
+{
+};
+
+TEST_P(RmwPublishAtLoanLimitTest, publish_fails_until_a_loan_is_returned) {
+    const Message message{};
+    rmw_serialized_message_t serialized{};
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized, 0, &test_allocator()));
+    ASSERT_RMW_OK(rmw_serialize(&message, test_type_support<Message>(), &serialized));
+    const auto publish = [&] {
+        return GetParam() == PublishCall::PUBLISH ? rmw_publish(publisher(), &message, nullptr)
+                                                  : rmw_publish_serialized_message(publisher(), &serialized, nullptr);
+    };
+
+    EXPECT_RMW_ERR(RMW_RET_ERROR, publish());
+    ASSERT_RMW_OK(rmw_return_loaned_message_from_publisher(publisher(), hand_over_a_loan()));
+    EXPECT_RMW_OK(publish());
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&serialized));
+}
+
+INSTANTIATE_TEST_SUITE_P(CopiedOrSerialized,
+                         RmwPublishAtLoanLimitTest,
+                         ::testing::Values(PublishCall::PUBLISH, PublishCall::PUBLISH_SERIALIZED_MESSAGE),
+                         [](const auto& info) {
+                             return info.param == PublishCall::PUBLISH ? std::string{"publish"}
+                                                                       : std::string{"publish_serialized_message"};
+                         });
 
 // ---------------------------------------------------------------------------
 // Topic limits
