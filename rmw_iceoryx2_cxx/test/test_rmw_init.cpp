@@ -276,4 +276,31 @@ TEST_F(RmwInitOptionsTest, failed_copy_without_enclave_frees_no_null_pointer) {
     EXPECT_RMW_OK(rmw_init_options_fini(&src));
 }
 
+TEST_F(RmwInitOptionsTest, fini_frees_security_and_discovery_options) {
+    FailingAllocatorState state{UNLIMITED_ALLOCATIONS, NO_ALLOCATIONS};
+    rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&init_options, failing_allocator(&state)));
+    ASSERT_RMW_OK(rmw_security_options_set_root_path(
+        SECURITY_ROOT_PATH, &init_options.allocator, &init_options.security_options));
+    ASSERT_RMW_OK(
+        rmw_discovery_options_init(&init_options.discovery_options, STATIC_PEER_COUNT, &init_options.allocator));
+
+    EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
+    EXPECT_EQ(state.live, NO_ALLOCATIONS);
+}
+
+TEST_F(RmwInitOptionsTest, fini_reports_invalid_discovery_options_and_frees_the_rest) {
+    FailingAllocatorState state{UNLIMITED_ALLOCATIONS, NO_ALLOCATIONS};
+    rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&init_options, failing_allocator(&state)));
+    ASSERT_RMW_OK(rmw_security_options_set_root_path(
+        SECURITY_ROOT_PATH, &init_options.allocator, &init_options.security_options));
+    init_options.discovery_options.static_peers_count = STATIC_PEER_COUNT;
+
+    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init_options_fini(&init_options));
+    EXPECT_EQ(init_options.implementation_identifier, nullptr);
+    EXPECT_EQ(init_options.impl, nullptr);
+    EXPECT_EQ(state.live, NO_ALLOCATIONS);
+}
+
 } // namespace
