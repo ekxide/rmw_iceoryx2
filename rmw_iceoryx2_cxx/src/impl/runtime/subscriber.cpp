@@ -15,6 +15,7 @@
 #include "rmw_iceoryx2_cxx/impl/common/log.hpp"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/middleware/iceoryx2.hpp"
+#include "rmw_iceoryx2_cxx/impl/qos/port_name.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/topic.hpp"
 
 #include <algorithm>
@@ -78,8 +79,15 @@ Subscriber::Subscriber(CreationLock,
     case Qos::History::KEEP_ALL:
         break;
     }
+    auto iox2_port_name = port_name::encode(m_qos);
+    if (!iox2_port_name.has_value()) {
+        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(iox2_port_name.error()));
+        error.emplace(ErrorType::SUBSCRIBER_CREATION_FAILURE);
+        return;
+    }
     auto iox2_subscriber = iox2_pubsub_service.value()
                                .subscriber_builder()
+                               .name(iox2_port_name.value())
                                .buffer_size(depth)
                                .history_request(m_qos.durability() == Qos::Durability::TRANSIENT_LOCAL ? depth : 0)
                                .create();

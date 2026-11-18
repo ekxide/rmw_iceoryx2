@@ -70,9 +70,7 @@ RMW_IOX2_QOS_MATCHING=adoptive ros2 topic echo /my_topic
 `adoptive` lets a tool such as `ros2 topic echo` inherit the actual QoS
 of the publishers on a topic instead of using its own.
 
-`ros2 topic info -v <topic>` shows the QoS the topic was created with for
-every endpoint, so in `ros` mode it can differ from the QoS an endpoint
-uses.
+`ros2 topic info -v <topic>` shows the QoS of each endpoint.
 
 > [!NOTE]
 > `RMW_IOX2_QOS_MATCHING` is process-scoped: the mode applies to every
