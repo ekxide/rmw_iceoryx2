@@ -70,6 +70,20 @@ TEST_F(RmwInitTest, initialization_and_shutdown) {
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
+TEST_F(RmwInitTest, fails_when_security_is_enforced) {
+    rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
+    rmw_context_t context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init_options_init(&init_options, test_allocator()));
+    init_options.security_options.enforce_security = RMW_SECURITY_ENFORCEMENT_ENFORCE;
+
+    EXPECT_EQ(rmw_init(&init_options, &context), RMW_RET_ERROR);
+    EXPECT_TRUE(rcutils_error_is_set());
+    EXPECT_EQ(context.implementation_identifier, nullptr);
+    EXPECT_EQ(context.impl, nullptr);
+
+    EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
+}
+
 class RmwInitOptionsTest : public TestBase
 {
 protected:
