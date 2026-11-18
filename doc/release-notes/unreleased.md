@@ -68,6 +68,7 @@
 * Report the QoS of each publisher and subscription in the endpoint info [#152](https://github.com/ekxide/rmw_iceoryx2/issues/152)
 * Copy init options that have no enclave, and give each copy its own security and discovery options [#157](https://github.com/ekxide/rmw_iceoryx2/issues/157)
 * Free the security and discovery options when init options are finalized [#157](https://github.com/ekxide/rmw_iceoryx2/issues/157)
+* Fail `rmw_init` when security is enforced, since security is not supported [#157](https://github.com/ekxide/rmw_iceoryx2/issues/157)
 
 ### Refactoring
 

@@ -234,6 +234,11 @@ rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* co
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
 
+    if (rmw_init_options->security_options.enforce_security == RMW_SECURITY_ENFORCEMENT_ENFORCE) {
+        RMW_IOX2_CHAIN_ERROR_MSG("security is enforced but rmw_iceoryx2_cxx does not support security");
+        return RMW_RET_ERROR;
+    }
+
     auto ptr = allocate<rmw_context_impl_s>();
     if (!ptr.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG("failed to allocate memory for rmw_context_impl_s");
