@@ -202,6 +202,11 @@ rmw_ret_t rmw_init_options_fini(rmw_init_options_t* rmw_init_options) {
     if (rmw_init_options->enclave != nullptr) {
         rmw_init_options->allocator.deallocate(rmw_init_options->enclave, rmw_init_options->allocator.state);
     }
+    auto result = rmw_security_options_fini(&rmw_init_options->security_options, &rmw_init_options->allocator);
+    if (auto discovery_result = rmw_discovery_options_fini(&rmw_init_options->discovery_options);
+        discovery_result != RMW_RET_OK) {
+        result = discovery_result;
+    }
     if (rmw_init_options->impl != nullptr) {
         destruct<rmw_init_options_impl_s>(rmw_init_options->impl);
         deallocate(rmw_init_options->impl);
@@ -209,7 +214,7 @@ rmw_ret_t rmw_init_options_fini(rmw_init_options_t* rmw_init_options) {
 
     *rmw_init_options = rmw_get_zero_initialized_init_options();
 
-    return RMW_RET_OK;
+    return result;
 }
 
 rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* context) {
