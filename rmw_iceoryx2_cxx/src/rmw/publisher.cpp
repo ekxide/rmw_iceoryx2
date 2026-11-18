@@ -205,28 +205,20 @@ rmw_publish(const rmw_publisher_t* rmw_publisher, const void* ros_message, rmw_p
         // The serialized size of THIS specific message
         auto serialized_size = serialized_message_size(ros_message, type_support);
 
-        auto loan = publisher_impl.value()->loan(serialized_size);
-        if (!loan.has_value()) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to loan bytes required for serialization");
-            return RMW_RET_ERROR;
-        }
+        auto published = publisher_impl.value()->publish_filled(
+            serialized_size, [&](void* loan) -> ::iox2::bb::Expected<uint64_t, PublisherImpl::ErrorType> {
+                auto serialized_message = rmw_serialized_message_t{reinterpret_cast<uint8_t*>(loan),
+                                                                   serialized_size,
+                                                                   serialized_size,
+                                                                   rcutils_get_default_allocator()};
 
-        auto serialized_message = rmw_serialized_message_t{reinterpret_cast<uint8_t*>(loan.value()),
-                                                           serialized_size,
-                                                           serialized_size,
-                                                           rcutils_get_default_allocator()};
-
-        if (auto result = rmw_serialize(ros_message, type_support, &serialized_message); result != RMW_RET_OK) {
-            (void)publisher_impl.value()->return_loan(loan.value());
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
-            return RMW_RET_ERROR;
-        }
-        if (auto result = publisher_impl.value()->truncate_loan(loan.value(), serialized_message.buffer_length);
-            !result.has_value()) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to truncate serialized payload");
-            return RMW_RET_ERROR;
-        }
-        if (auto result = publisher_impl.value()->publish_loan(loan.value()); !result.has_value()) {
+                if (auto result = rmw_serialize(ros_message, type_support, &serialized_message); result != RMW_RET_OK) {
+                    RMW_IOX2_CHAIN_ERROR_MSG("failed to serialize into loaned payload");
+                    return ::iox2::bb::err(PublisherImpl::ErrorType::FILL_FAILURE);
+                }
+                return static_cast<uint64_t>(serialized_message.buffer_length);
+            });
+        if (!published.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to publish serialized payload");
             return RMW_RET_ERROR;
         }
@@ -354,18 +346,17 @@ rmw_ret_t rmw_publish_serialized_message(const rmw_publisher_t* rmw_publisher,
     }
 
     if (rmw_publisher->can_loan_messages) {
-        auto loan = publisher_impl.value()->loan(publisher_impl.value()->unserialized_size());
-        if (!loan.has_value()) {
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to loan payload for deserialization");
-            return RMW_RET_ERROR;
-        }
-        if (auto result = rmw_deserialize(serialized_message, publisher_impl.value()->typesupport(), loan.value());
-            result != RMW_RET_OK) {
-            (void)publisher_impl.value()->return_loan(loan.value());
-            RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize into loaned payload");
-            return RMW_RET_ERROR;
-        }
-        if (auto result = publisher_impl.value()->publish_loan(loan.value()); !result.has_value()) {
+        auto published = publisher_impl.value()->publish_filled(
+            publisher_impl.value()->unserialized_size(),
+            [&](void* loan) -> ::iox2::bb::Expected<uint64_t, PublisherImpl::ErrorType> {
+                if (auto result = rmw_deserialize(serialized_message, publisher_impl.value()->typesupport(), loan);
+                    result != RMW_RET_OK) {
+                    RMW_IOX2_CHAIN_ERROR_MSG("failed to deserialize into loaned payload");
+                    return ::iox2::bb::err(PublisherImpl::ErrorType::FILL_FAILURE);
+                }
+                return publisher_impl.value()->unserialized_size();
+            });
+        if (!published.has_value()) {
             RMW_IOX2_CHAIN_ERROR_MSG("failed to publish deserialized payload");
             return RMW_RET_ERROR;
         }
