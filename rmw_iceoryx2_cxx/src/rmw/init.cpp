@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw/init.h"
+#include "rcpputils/scope_exit.hpp"
 #include "rcutils/strdup.h"
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"
@@ -140,18 +141,49 @@ rmw_ret_t rmw_init_options_copy(const rmw_init_options_t* src, rmw_init_options_
         RMW_IOX2_CHAIN_ERROR_MSG("failed to copy-construct rmw_init_options_impl_s");
         return RMW_RET_ERROR;
     }
-
-    char* enclave = rcutils_strdup(src->enclave, src->allocator);
-    if (enclave == nullptr) {
+    auto free_impl = rcpputils::make_scope_exit([&impl_ptr]() {
         destruct<rmw_init_options_impl_s>(impl_ptr.value());
         deallocate(impl_ptr.value());
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to duplicate enclave string");
-        return RMW_RET_BAD_ALLOC;
+    });
+
+    auto allocator = src->allocator;
+    char* enclave = nullptr;
+    if (src->enclave != nullptr) {
+        enclave = rcutils_strdup(src->enclave, allocator);
+        if (enclave == nullptr) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to duplicate enclave string");
+            return RMW_RET_BAD_ALLOC;
+        }
     }
+    auto free_enclave = rcpputils::make_scope_exit([&enclave, &allocator]() {
+        if (enclave != nullptr) {
+            allocator.deallocate(enclave, allocator.state);
+        }
+    });
+
+    auto security_options = rmw_get_zero_initialized_security_options();
+    if (auto result = rmw_security_options_copy(&src->security_options, &allocator, &security_options);
+        result != RMW_RET_OK) {
+        return result;
+    }
+    auto free_security_options = rcpputils::make_scope_exit(
+        [&security_options, &allocator]() { (void)rmw_security_options_fini(&security_options, &allocator); });
+
+    auto discovery_options = rmw_get_zero_initialized_discovery_options();
+    if (auto result = rmw_discovery_options_copy(&src->discovery_options, &allocator, &discovery_options);
+        result != RMW_RET_OK) {
+        return result;
+    }
+
+    free_security_options.cancel();
+    free_enclave.cancel();
+    free_impl.cancel();
 
     *dst = *src;
     dst->impl = impl_ptr.value();
     dst->enclave = enclave;
+    dst->security_options = security_options;
+    dst->discovery_options = discovery_options;
 
     return RMW_RET_OK;
 }
