@@ -9,19 +9,40 @@
 
 #include <gtest/gtest.h>
 
+#include "rcutils/strdup.h"
+#include "rmw/discovery_options.h"
 #include "rmw/init.h"
 #include "rmw/init_options.h"
+#include "rmw/security_options.h"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
 #include "rmw_iceoryx2_cxx/rmw/identifier.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
+#include "testing/failing_allocator.hpp"
 
 #include <cstdlib>
+#include <limits>
+#include <string>
 
 namespace
 {
 
 using namespace rmw::iox2::testing;
+
+constexpr size_t UNLIMITED_ALLOCATIONS = std::numeric_limits<size_t>::max();
+constexpr size_t NO_ALLOCATIONS = 0;
+constexpr size_t ALLOCATIONS_BEFORE_ENCLAVE = 0;
+constexpr size_t ALLOCATIONS_BEFORE_SECURITY_ROOT_PATH = 1;
+constexpr size_t ALLOCATIONS_BEFORE_STATIC_PEERS = 2;
+constexpr size_t NO_STATIC_PEERS = 0;
+constexpr size_t STATIC_PEER_COUNT = 1;
+constexpr const char* SECURITY_ROOT_PATH = "/keystore";
+constexpr const char* NO_SECURITY_ROOT_PATH = nullptr;
+
+auto deallocate_non_null(void* pointer, void* state) -> void {
+    EXPECT_NE(pointer, nullptr);
+    failing_deallocate(pointer, state);
+}
 
 class RmwInitTest : public TestBase
 {
@@ -46,6 +67,20 @@ TEST_F(RmwInitTest, initialization_and_shutdown) {
 
     EXPECT_RMW_OK(rmw_shutdown(&context));
     EXPECT_RMW_OK(rmw_context_fini(&context));
+    EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
+}
+
+TEST_F(RmwInitTest, fails_when_security_is_enforced) {
+    rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
+    rmw_context_t context = rmw_get_zero_initialized_context();
+    ASSERT_RMW_OK(rmw_init_options_init(&init_options, test_allocator()));
+    init_options.security_options.enforce_security = RMW_SECURITY_ENFORCEMENT_ENFORCE;
+
+    EXPECT_EQ(rmw_init(&init_options, &context), RMW_RET_ERROR);
+    EXPECT_TRUE(rcutils_error_is_set());
+    EXPECT_EQ(context.implementation_identifier, nullptr);
+    EXPECT_EQ(context.impl, nullptr);
+
     EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
 }
 
@@ -163,6 +198,123 @@ TEST_F(RmwInitOptionsTest, rejects_invalid_size) {
     rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
     EXPECT_EQ(rmw_init_options_init(&init_options, test_allocator()), RMW_RET_INVALID_ARGUMENT);
     EXPECT_EQ(init_options.impl, nullptr);
+}
+
+TEST_F(RmwInitOptionsTest, copies_options_without_enclave) {
+    rmw_init_options_t src = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&src, test_allocator()));
+    src.allocator.deallocate(src.enclave, src.allocator.state);
+    src.enclave = nullptr;
+
+    rmw_init_options_t dst = rmw_get_zero_initialized_init_options();
+    EXPECT_RMW_OK(rmw_init_options_copy(&src, &dst));
+    EXPECT_EQ(dst.enclave, nullptr);
+
+    EXPECT_RMW_OK(rmw_init_options_fini(&dst));
+    EXPECT_RMW_OK(rmw_init_options_fini(&src));
+}
+
+TEST_F(RmwInitOptionsTest, copy_shares_no_memory_with_the_source) {
+    rmw_init_options_t src = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&src, test_allocator()));
+    ASSERT_RMW_OK(rmw_security_options_set_root_path(SECURITY_ROOT_PATH, &src.allocator, &src.security_options));
+    src.security_options.enforce_security = RMW_SECURITY_ENFORCEMENT_ENFORCE;
+    ASSERT_RMW_OK(rmw_discovery_options_init(&src.discovery_options, STATIC_PEER_COUNT, &src.allocator));
+
+    rmw_init_options_t dst = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_copy(&src, &dst));
+    EXPECT_NE(dst.enclave, src.enclave);
+    EXPECT_STREQ(dst.enclave, src.enclave);
+    EXPECT_NE(dst.security_options.security_root_path, src.security_options.security_root_path);
+    EXPECT_STREQ(dst.security_options.security_root_path, SECURITY_ROOT_PATH);
+    EXPECT_EQ(dst.security_options.enforce_security, RMW_SECURITY_ENFORCEMENT_ENFORCE);
+    EXPECT_NE(dst.discovery_options.static_peers, src.discovery_options.static_peers);
+    EXPECT_EQ(dst.discovery_options.static_peers_count, STATIC_PEER_COUNT);
+
+    EXPECT_RMW_OK(rmw_init_options_fini(&dst));
+    EXPECT_RMW_OK(rmw_init_options_fini(&src));
+}
+
+struct CopyFailure
+{
+    const char* failing_allocation;
+    size_t successful_allocations;
+    const char* security_root_path;
+    size_t static_peer_count;
+};
+
+class RmwInitOptionsCopyFailureTest : public RmwInitOptionsTest, public ::testing::WithParamInterface<CopyFailure>
+{
+};
+
+TEST_P(RmwInitOptionsCopyFailureTest, frees_what_it_copied_and_leaves_the_destination_zero_initialized) {
+    FailingAllocatorState state{UNLIMITED_ALLOCATIONS, NO_ALLOCATIONS};
+    rmw_init_options_t src = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&src, failing_allocator(&state)));
+    src.security_options.security_root_path = rcutils_strdup(GetParam().security_root_path, src.allocator);
+    ASSERT_RMW_OK(rmw_discovery_options_init(&src.discovery_options, GetParam().static_peer_count, &src.allocator));
+    const auto live_before_copy = state.live;
+    state.remaining = GetParam().successful_allocations;
+
+    rmw_init_options_t dst = rmw_get_zero_initialized_init_options();
+    EXPECT_RMW_ERR(RMW_RET_BAD_ALLOC, rmw_init_options_copy(&src, &dst));
+    EXPECT_EQ(dst.implementation_identifier, nullptr);
+    EXPECT_EQ(dst.impl, nullptr);
+    EXPECT_EQ(state.live, live_before_copy);
+
+    EXPECT_RMW_OK(rmw_init_options_fini(&src));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    EveryAllocation,
+    RmwInitOptionsCopyFailureTest,
+    ::testing::Values(
+        CopyFailure{"enclave", ALLOCATIONS_BEFORE_ENCLAVE, NO_SECURITY_ROOT_PATH, NO_STATIC_PEERS},
+        CopyFailure{"security_root_path", ALLOCATIONS_BEFORE_SECURITY_ROOT_PATH, SECURITY_ROOT_PATH, NO_STATIC_PEERS},
+        CopyFailure{"static_peers", ALLOCATIONS_BEFORE_STATIC_PEERS, SECURITY_ROOT_PATH, STATIC_PEER_COUNT}),
+    [](const auto& info) { return std::string{info.param.failing_allocation}; });
+
+TEST_F(RmwInitOptionsTest, failed_copy_without_enclave_frees_no_null_pointer) {
+    FailingAllocatorState state{UNLIMITED_ALLOCATIONS, NO_ALLOCATIONS};
+    rmw_init_options_t src = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&src, failing_allocator(&state)));
+    src.allocator.deallocate(src.enclave, src.allocator.state);
+    src.enclave = nullptr;
+    ASSERT_RMW_OK(rmw_security_options_set_root_path(SECURITY_ROOT_PATH, &src.allocator, &src.security_options));
+    src.allocator.deallocate = deallocate_non_null;
+    state.remaining = NO_ALLOCATIONS;
+
+    rmw_init_options_t dst = rmw_get_zero_initialized_init_options();
+    EXPECT_RMW_ERR(RMW_RET_BAD_ALLOC, rmw_init_options_copy(&src, &dst));
+
+    EXPECT_RMW_OK(rmw_init_options_fini(&src));
+}
+
+TEST_F(RmwInitOptionsTest, fini_frees_security_and_discovery_options) {
+    FailingAllocatorState state{UNLIMITED_ALLOCATIONS, NO_ALLOCATIONS};
+    rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&init_options, failing_allocator(&state)));
+    ASSERT_RMW_OK(rmw_security_options_set_root_path(
+        SECURITY_ROOT_PATH, &init_options.allocator, &init_options.security_options));
+    ASSERT_RMW_OK(
+        rmw_discovery_options_init(&init_options.discovery_options, STATIC_PEER_COUNT, &init_options.allocator));
+
+    EXPECT_RMW_OK(rmw_init_options_fini(&init_options));
+    EXPECT_EQ(state.live, NO_ALLOCATIONS);
+}
+
+TEST_F(RmwInitOptionsTest, fini_reports_invalid_discovery_options_and_frees_the_rest) {
+    FailingAllocatorState state{UNLIMITED_ALLOCATIONS, NO_ALLOCATIONS};
+    rmw_init_options_t init_options = rmw_get_zero_initialized_init_options();
+    ASSERT_RMW_OK(rmw_init_options_init(&init_options, failing_allocator(&state)));
+    ASSERT_RMW_OK(rmw_security_options_set_root_path(
+        SECURITY_ROOT_PATH, &init_options.allocator, &init_options.security_options));
+    init_options.discovery_options.static_peers_count = STATIC_PEER_COUNT;
+
+    EXPECT_RMW_ERR(RMW_RET_INVALID_ARGUMENT, rmw_init_options_fini(&init_options));
+    EXPECT_EQ(init_options.implementation_identifier, nullptr);
+    EXPECT_EQ(init_options.impl, nullptr);
+    EXPECT_EQ(state.live, NO_ALLOCATIONS);
 }
 
 } // namespace

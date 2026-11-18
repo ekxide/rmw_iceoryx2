@@ -32,8 +32,8 @@
 #include "rmw_iceoryx2_cxx_test_msgs/srv/basic_types.hpp"
 #include "testing/assertions.hpp"
 #include "testing/base.hpp"
+#include "testing/failing_allocator.hpp"
 
-#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <string>
@@ -45,56 +45,6 @@ namespace
 using namespace rmw::iox2::testing;
 
 constexpr size_t OTHER_DOMAIN_ID = 7;
-
-struct FailingAllocatorState
-{
-    size_t remaining;
-    size_t live;
-};
-
-auto failing_allocate(size_t size, void* state) -> void* {
-    auto* counts = static_cast<FailingAllocatorState*>(state);
-    if (counts->remaining == 0) {
-        return nullptr;
-    }
-    --counts->remaining;
-    ++counts->live;
-    return std::malloc(size);
-}
-
-auto failing_zero_allocate(size_t count, size_t size, void* state) -> void* {
-    auto* counts = static_cast<FailingAllocatorState*>(state);
-    if (counts->remaining == 0) {
-        return nullptr;
-    }
-    --counts->remaining;
-    ++counts->live;
-    return std::calloc(count, size);
-}
-
-auto failing_reallocate(void* pointer, size_t size, void* state) -> void* {
-    if (pointer == nullptr) {
-        return failing_allocate(size, state);
-    }
-    return std::realloc(pointer, size);
-}
-
-auto failing_deallocate(void* pointer, void* state) -> void {
-    if (pointer != nullptr) {
-        --static_cast<FailingAllocatorState*>(state)->live;
-        std::free(pointer);
-    }
-}
-
-auto failing_allocator(FailingAllocatorState* state) -> rcutils_allocator_t {
-    auto allocator = rcutils_get_zero_initialized_allocator();
-    allocator.allocate = failing_allocate;
-    allocator.deallocate = failing_deallocate;
-    allocator.reallocate = failing_reallocate;
-    allocator.zero_allocate = failing_zero_allocate;
-    allocator.state = state;
-    return allocator;
-}
 
 class RmwGraphTest : public TestBase
 {
