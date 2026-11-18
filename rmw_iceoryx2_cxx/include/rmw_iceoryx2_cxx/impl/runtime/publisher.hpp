@@ -34,6 +34,9 @@ namespace rmw::iox2
 
 class Publisher;
 
+/// The number of loans a publisher holds at once, borrowed or taken by a publish.
+constexpr uint64_t MAX_LOANED_MESSAGES_PER_PUBLISHER = 2U;
+
 template <>
 struct Error<Publisher>
 {
@@ -147,6 +150,11 @@ public:
     void update_connections();
 
 private:
+    /// @brief Loan a sample from iceoryx2 unless all loans of the publisher are in use
+    /// @param[in] number_of_elements Number of payload elements to loan
+    /// @return Expected containing the sample or error
+    auto loan_sample(uint64_t number_of_elements) -> ::iox2::bb::Expected<IceoryxSample, ErrorType>;
+
     /// @brief Send a loaned sample with its message info and wake the subscriptions
     /// @param[in] sample The sample to send
     /// @return Expected containing void or error if sending failed

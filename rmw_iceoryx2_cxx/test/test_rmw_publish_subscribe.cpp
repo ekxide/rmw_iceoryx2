@@ -16,6 +16,7 @@
 #include "rmw/rmw.h"
 #include "rmw_iceoryx2_cxx/impl/common/names.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/context.hpp"
+#include "rmw_iceoryx2_cxx/impl/runtime/publisher.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/arrays.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/basic_types.hpp"
 #include "rmw_iceoryx2_cxx_test_msgs/msg/bounded_sequences.h"
@@ -1011,6 +1012,143 @@ INSTANTIATE_TEST_SUITE_P(
                                         MessageKind::NON_SELF_CONTAINED,
                                         PublishCall::PUBLISH_SERIALIZED_MESSAGE}),
     [](const auto& info) { return std::string{info.param.name}; });
+
+TEST_F(RmwPublishSubscribeTest, every_loan_borrowed_from_several_threads_is_published) {
+    using rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+    constexpr uint64_t NOTHING_PUBLISHED = 0U;
+
+    auto* publisher = create_default_publisher<Defaults>(create_test_topic());
+    ASSERT_NE(publisher, nullptr);
+    auto* subscription = create_default_subscriber<Defaults>(create_test_topic());
+    ASSERT_NE(subscription, nullptr);
+
+    std::atomic<uint64_t> published{0};
+    std::atomic<int> failures{0};
+    publish_from_several_threads([&] {
+        void* loan = nullptr;
+        if (rmw_borrow_loaned_message(publisher, test_type_support<Defaults>(), &loan) != RMW_RET_OK) {
+            rcutils_reset_error();
+            return;
+        }
+        new (loan) Defaults{};
+        if (rmw_publish_loaned_message(publisher, loan, nullptr) == RMW_RET_OK) {
+            ++published;
+        } else {
+            ++failures;
+        }
+    });
+
+    EXPECT_EQ(failures.load(), NO_FAILURES);
+    EXPECT_NE(published.load(), NOTHING_PUBLISHED);
+    EXPECT_EQ(take_last_sequence_number(subscription, Defaults{}), published.load());
+}
+
+class RmwLoanLimitTest : public RmwPublishSubscribeTest
+{
+protected:
+    using Message = rmw_iceoryx2_cxx_test_msgs::msg::Defaults;
+
+    void SetUp() override {
+        RmwPublishSubscribeTest::SetUp();
+        m_publisher = create_default_publisher<Message>(create_test_topic());
+        ASSERT_NE(m_publisher, nullptr);
+        m_loans.resize(::rmw::iox2::MAX_LOANED_MESSAGES_PER_PUBLISHER);
+        for (auto& loan : m_loans) {
+            ASSERT_RMW_OK(rmw_borrow_loaned_message(m_publisher, test_type_support<Message>(), &loan));
+        }
+    }
+
+    void TearDown() override {
+        for (auto* loan : m_loans) {
+            EXPECT_RMW_OK(rmw_return_loaned_message_from_publisher(m_publisher, loan));
+        }
+        RmwPublishSubscribeTest::TearDown();
+    }
+
+    auto publisher() -> rmw_publisher_t* {
+        return m_publisher;
+    }
+
+    auto hand_over_a_loan() -> void* {
+        auto* loan = m_loans.back();
+        m_loans.pop_back();
+        return loan;
+    }
+
+    void keep_loan(void* loan) {
+        m_loans.push_back(loan);
+    }
+
+private:
+    rmw_publisher_t* m_publisher{nullptr};
+    std::vector<void*> m_loans;
+};
+
+enum class LoanRelease : uint8_t { RETURN, PUBLISH };
+
+class RmwBorrowAtLoanLimitTest : public RmwLoanLimitTest, public ::testing::WithParamInterface<LoanRelease>
+{
+};
+
+TEST_P(RmwBorrowAtLoanLimitTest, borrow_fails_until_a_loan_is_released) {
+    void* beyond_the_limit = nullptr;
+    EXPECT_EQ(rmw_borrow_loaned_message(publisher(), test_type_support<Message>(), &beyond_the_limit), RMW_RET_ERROR);
+    EXPECT_NE(std::string{rcutils_get_error_string().str}.find(
+                  std::to_string(::rmw::iox2::MAX_LOANED_MESSAGES_PER_PUBLISHER)),
+              std::string::npos);
+    rcutils_reset_error();
+    EXPECT_EQ(beyond_the_limit, nullptr);
+
+    auto* loan = hand_over_a_loan();
+    switch (GetParam()) {
+    case LoanRelease::RETURN:
+        ASSERT_RMW_OK(rmw_return_loaned_message_from_publisher(publisher(), loan));
+        break;
+    case LoanRelease::PUBLISH:
+        new (loan) Message{};
+        ASSERT_RMW_OK(rmw_publish_loaned_message(publisher(), loan, nullptr));
+        break;
+    }
+    void* loan_again = nullptr;
+    ASSERT_RMW_OK(rmw_borrow_loaned_message(publisher(), test_type_support<Message>(), &loan_again));
+    keep_loan(loan_again);
+}
+
+INSTANTIATE_TEST_SUITE_P(ReturnedOrPublished,
+                         RmwBorrowAtLoanLimitTest,
+                         ::testing::Values(LoanRelease::RETURN, LoanRelease::PUBLISH),
+                         [](const auto& info) {
+                             return info.param == LoanRelease::RETURN ? std::string{"returned"}
+                                                                      : std::string{"published"};
+                         });
+
+class RmwPublishAtLoanLimitTest : public RmwLoanLimitTest, public ::testing::WithParamInterface<PublishCall>
+{
+};
+
+TEST_P(RmwPublishAtLoanLimitTest, publish_fails_until_a_loan_is_returned) {
+    const Message message{};
+    rmw_serialized_message_t serialized{};
+    ASSERT_RMW_OK(rmw_serialized_message_init(&serialized, 0, &test_allocator()));
+    ASSERT_RMW_OK(rmw_serialize(&message, test_type_support<Message>(), &serialized));
+    const auto publish = [&] {
+        return GetParam() == PublishCall::PUBLISH ? rmw_publish(publisher(), &message, nullptr)
+                                                  : rmw_publish_serialized_message(publisher(), &serialized, nullptr);
+    };
+
+    EXPECT_RMW_ERR(RMW_RET_ERROR, publish());
+    ASSERT_RMW_OK(rmw_return_loaned_message_from_publisher(publisher(), hand_over_a_loan()));
+    EXPECT_RMW_OK(publish());
+    ASSERT_RMW_OK(rmw_serialized_message_fini(&serialized));
+}
+
+INSTANTIATE_TEST_SUITE_P(CopiedOrSerialized,
+                         RmwPublishAtLoanLimitTest,
+                         ::testing::Values(PublishCall::PUBLISH, PublishCall::PUBLISH_SERIALIZED_MESSAGE),
+                         [](const auto& info) {
+                             return info.param == PublishCall::PUBLISH ? std::string{"publish"}
+                                                                       : std::string{"publish_serialized_message"};
+                         });
 
 // ---------------------------------------------------------------------------
 // Topic limits
