@@ -8,6 +8,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 #include "rmw/init.h"
+#include "rcpputils/scope_exit.hpp"
 #include "rcutils/strdup.h"
 #include "rmw/init_options.h"
 #include "rmw/ret_types.h"
@@ -140,18 +141,49 @@ rmw_ret_t rmw_init_options_copy(const rmw_init_options_t* src, rmw_init_options_
         RMW_IOX2_CHAIN_ERROR_MSG("failed to copy-construct rmw_init_options_impl_s");
         return RMW_RET_ERROR;
     }
-
-    char* enclave = rcutils_strdup(src->enclave, src->allocator);
-    if (enclave == nullptr) {
+    auto free_impl = rcpputils::make_scope_exit([&impl_ptr]() {
         destruct<rmw_init_options_impl_s>(impl_ptr.value());
         deallocate(impl_ptr.value());
-        RMW_IOX2_CHAIN_ERROR_MSG("failed to duplicate enclave string");
-        return RMW_RET_BAD_ALLOC;
+    });
+
+    auto allocator = src->allocator;
+    char* enclave = nullptr;
+    if (src->enclave != nullptr) {
+        enclave = rcutils_strdup(src->enclave, allocator);
+        if (enclave == nullptr) {
+            RMW_IOX2_CHAIN_ERROR_MSG("failed to duplicate enclave string");
+            return RMW_RET_BAD_ALLOC;
+        }
     }
+    auto free_enclave = rcpputils::make_scope_exit([&enclave, &allocator]() {
+        if (enclave != nullptr) {
+            allocator.deallocate(enclave, allocator.state);
+        }
+    });
+
+    auto security_options = rmw_get_zero_initialized_security_options();
+    if (auto result = rmw_security_options_copy(&src->security_options, &allocator, &security_options);
+        result != RMW_RET_OK) {
+        return result;
+    }
+    auto free_security_options = rcpputils::make_scope_exit(
+        [&security_options, &allocator]() { (void)rmw_security_options_fini(&security_options, &allocator); });
+
+    auto discovery_options = rmw_get_zero_initialized_discovery_options();
+    if (auto result = rmw_discovery_options_copy(&src->discovery_options, &allocator, &discovery_options);
+        result != RMW_RET_OK) {
+        return result;
+    }
+
+    free_security_options.cancel();
+    free_enclave.cancel();
+    free_impl.cancel();
 
     *dst = *src;
     dst->impl = impl_ptr.value();
     dst->enclave = enclave;
+    dst->security_options = security_options;
+    dst->discovery_options = discovery_options;
 
     return RMW_RET_OK;
 }
@@ -170,6 +202,11 @@ rmw_ret_t rmw_init_options_fini(rmw_init_options_t* rmw_init_options) {
     if (rmw_init_options->enclave != nullptr) {
         rmw_init_options->allocator.deallocate(rmw_init_options->enclave, rmw_init_options->allocator.state);
     }
+    auto result = rmw_security_options_fini(&rmw_init_options->security_options, &rmw_init_options->allocator);
+    if (auto discovery_result = rmw_discovery_options_fini(&rmw_init_options->discovery_options);
+        discovery_result != RMW_RET_OK) {
+        result = discovery_result;
+    }
     if (rmw_init_options->impl != nullptr) {
         destruct<rmw_init_options_impl_s>(rmw_init_options->impl);
         deallocate(rmw_init_options->impl);
@@ -177,7 +214,7 @@ rmw_ret_t rmw_init_options_fini(rmw_init_options_t* rmw_init_options) {
 
     *rmw_init_options = rmw_get_zero_initialized_init_options();
 
-    return RMW_RET_OK;
+    return result;
 }
 
 rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* context) {
@@ -196,6 +233,11 @@ rmw_ret_t rmw_init(const rmw_init_options_t* rmw_init_options, rmw_context_t* co
     using rmw::iox2::create_in_place;
     using rmw::iox2::deallocate;
     using rmw::iox2::destruct;
+
+    if (rmw_init_options->security_options.enforce_security == RMW_SECURITY_ENFORCEMENT_ENFORCE) {
+        RMW_IOX2_CHAIN_ERROR_MSG("security is enforced but rmw_iceoryx2_cxx does not support security");
+        return RMW_RET_ERROR;
+    }
 
     auto ptr = allocate<rmw_context_impl_s>();
     if (!ptr.has_value()) {
