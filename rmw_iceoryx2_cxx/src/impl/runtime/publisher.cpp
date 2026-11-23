@@ -22,6 +22,7 @@
 #include "rmw_iceoryx2_cxx/impl/runtime/payload_layout.hpp"
 #include "rmw_iceoryx2_cxx/impl/runtime/topic.hpp"
 
+#include <cinttypes>
 #include <cstring>
 #include <set>
 
@@ -81,6 +82,7 @@ Publisher::Publisher(CreationLock,
             .initial_max_slice_len(m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : m_unserialized_size)
             .allocation_strategy(::iox2::AllocationStrategy::PowerOfTwo)
             .backpressure_strategy(m_qos.backpressure_strategy())
+            .max_loaned_samples(MAX_LOANED_MESSAGES_PER_PUBLISHER)
             .create();
 
     if (!iox2_publisher.has_value()) {
@@ -182,30 +184,15 @@ auto Publisher::loan(uint64_t number_of_bytes) -> ::iox2::bb::Expected<void*, Er
     std::lock_guard<std::mutex> lock{m_mutex};
 
     const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
-    auto sample = m_iox2_publisher->loan_slice_uninit(number_of_elements);
+    auto sample = loan_sample(number_of_elements);
     if (!sample.has_value()) {
-        return err(ErrorType::LOAN_FAILURE);
+        return err(sample.error());
     }
 
     // Store the sample for later use when publishing
     auto ptr = m_registry.store(std::move(sample.value()));
 
     return static_cast<void*>(ptr);
-}
-
-auto Publisher::truncate_loan(void* loaned_memory, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType> {
-    using ::iox2::bb::err;
-
-    std::lock_guard<std::mutex> lock{m_mutex};
-
-    auto sample = m_registry.retrieve(static_cast<uint8_t*>(loaned_memory));
-    if (!sample.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG("invalid payload pointer");
-        return err(ErrorType::INVALID_PAYLOAD);
-    }
-    const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
-    sample.value()->truncate(number_of_elements);
-    return {};
 }
 
 auto Publisher::return_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, ErrorType> {
@@ -234,44 +221,67 @@ auto Publisher::publish_loan(void* loaned_memory) -> ::iox2::bb::Expected<void, 
         return err(ErrorType::INVALID_PAYLOAD);
     }
 
-    populate_message_info(sample.value().user_header_mut());
-
-    if (auto result = Iceoryx2::InterProcess::send<Payload, UserHeader>(std::move(sample.value()));
-        !result.has_value()) {
-        RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
-        return err(ErrorType::SEND_FAILURE);
-    }
-
-    // Notify
-    if (auto result = m_iox2_notifier->notify(); !result.has_value()) {
-        log_notify_error(result.error(), "message on", m_topic);
-    }
-
-    return {};
+    return send_sample(std::move(sample.value()));
 }
 
 auto Publisher::publish_copy(const void* data, uint64_t number_of_bytes) -> ::iox2::bb::Expected<void, ErrorType> {
+    return publish(
+        [data](::iox2::bb::MutableSlice<uint8_t> payload) -> ::iox2::bb::Expected<uint64_t, ErrorType> {
+            std::memcpy(payload.data(), data, payload.number_of_elements());
+            return payload.number_of_elements();
+        },
+        number_of_bytes);
+}
+
+auto Publisher::publish(const WriteFn& write, uint64_t max_payload_size) -> ::iox2::bb::Expected<void, ErrorType> {
     using ::iox2::bb::err;
 
     std::lock_guard<std::mutex> lock{m_mutex};
 
-    const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : number_of_bytes;
+    const uint64_t number_of_elements = m_is_self_contained ? SELF_CONTAINED_PAYLOAD_ELEMENT_COUNT : max_payload_size;
+    auto sample = loan_sample(number_of_elements);
+    if (!sample.has_value()) {
+        return err(sample.error());
+    }
+
+    auto number_of_bytes = write(::iox2::bb::MutableSlice<uint8_t>{
+        reinterpret_cast<uint8_t*>(sample.value().payload_mut().data()), max_payload_size});
+    if (!number_of_bytes.has_value()) {
+        return err(number_of_bytes.error());
+    }
+    if (!m_is_self_contained) {
+        sample.value().truncate(number_of_bytes.value());
+    }
+
+    return send_sample(std::move(sample.value()));
+}
+
+auto Publisher::loan_sample(uint64_t number_of_elements) -> ::iox2::bb::Expected<IceoryxSample, ErrorType> {
+    using ::iox2::bb::err;
+
+    if (m_registry.size() >= MAX_LOANED_MESSAGES_PER_PUBLISHER) {
+        RMW_IOX2_CHAIN_ERROR_MSG_WITH_FORMAT_STRING("all %" PRIu64 " loans of the publisher are in use",
+                                                    MAX_LOANED_MESSAGES_PER_PUBLISHER);
+        return err(ErrorType::LOAN_FAILURE);
+    }
     auto sample = m_iox2_publisher->loan_slice_uninit(number_of_elements);
     if (!sample.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(sample.error()));
         return err(ErrorType::LOAN_FAILURE);
     }
+    return std::move(sample.value());
+}
 
-    populate_message_info(sample.value().user_header_mut());
-    std::memcpy(sample.value().payload_mut().data(), data, number_of_bytes);
+auto Publisher::send_sample(IceoryxSample&& sample) -> ::iox2::bb::Expected<void, ErrorType> {
+    using ::iox2::bb::err;
 
-    if (auto result = Iceoryx2::InterProcess::send<Payload, UserHeader>(std::move(sample.value()));
-        !result.has_value()) {
+    populate_message_info(sample.user_header_mut());
+
+    if (auto result = Iceoryx2::InterProcess::send<Payload, UserHeader>(std::move(sample)); !result.has_value()) {
         RMW_IOX2_CHAIN_ERROR_MSG(::iox2::bb::into<const char*>(result.error()));
         return err(ErrorType::SEND_FAILURE);
     }
 
-    // Notify
     if (auto result = m_iox2_notifier->notify(); !result.has_value()) {
         log_notify_error(result.error(), "message on", m_topic);
     }
